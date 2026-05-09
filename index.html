@@ -1,3 +1,30 @@
+<!--
+    CHANGELOG â€” index.html
+    ======================
+    [2026-05-09] Changes made vs original GitHub version:
+
+    1. AUTH â€” Switched from signInWithPopup to signInWithRedirect
+       - Redirect works reliably on HTTPS (Vercel) without browser popup blockers
+       - setPersistence(LOCAL) added before redirect to keep user logged in
+
+    2. AUTH â€” Fixed getRedirectResult() catch block
+       - Old version auto-opened the login modal on ANY error (caused modal to
+         pop open on every page load due to stale redirect state)
+       - New version: silently ignores non-critical errors, only console.error()
+
+    3. AUTH â€” Pending user flow fixed
+       - Removed forced auth.signOut() that was logging out new users before
+         their Firestore record could be created
+       - New users now stay logged in and see a 'Waiting for Admin Approval' UI
+
+    4. UPLOAD â€” Switched from direct AWS SDK (hardcoded keys) to Vercel backend
+       - Calls /api/get-upload-url to get a B2 native upload token server-side
+       - XHR now POSTs to B2 with Authorization + X-Bz-File-Name + X-Bz-Content-Sha1
+       - B2 credentials never exposed in frontend code
+
+    5. SECURITY â€” Removed AWS SDK script tag and hardcoded B2 keys
+       - accessKeyId and secretAccessKey no longer in client-side code
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -193,7 +220,7 @@
         }
         .slider:before {
             position: absolute;
-            content: "☾";
+            content: "â˜¾";
             display: flex;
             align-items: center;
             justify-content: center;
@@ -212,7 +239,7 @@
         }
         input:checked + .slider:before {
             transform: translateX(1.5em);
-            content: "☀";
+            content: "â˜€";
         }
 
         /* Hero section */
@@ -480,7 +507,7 @@
         }
 
         /* ========================================
-           AUTH MODAL — GOOGLE ONLY
+           AUTH MODAL â€” GOOGLE ONLY
            ======================================== */
         .modal-overlay {
             position: fixed;
@@ -781,18 +808,18 @@
     <a href="notice.html" style="text-decoration: none; color: inherit; cursor: none;">
         <div class="marquee-container">
             <div class="marquee" id="marquee">
-                <span>📢 May 5: Mid-term exam scheduled for May 15.</span>
-                <span>✦</span>
-                <span>📢 May 3: New Physics lab manual available.</span>
-                <span>✦</span>
-                <span>📢 Upload your notes to help the community!</span>
-                <span>✦</span>
-                <span>📢 May 5: Mid-term exam scheduled for May 15.</span>
-                <span>✦</span>
-                <span>📢 May 3: New Physics lab manual available.</span>
-                <span>✦</span>
-                <span>📢 Upload your notes to help the community!</span>
-                <span>✦</span>
+                <span>ðŸ“¢ May 5: Mid-term exam scheduled for May 15.</span>
+                <span>âœ¦</span>
+                <span>ðŸ“¢ May 3: New Physics lab manual available.</span>
+                <span>âœ¦</span>
+                <span>ðŸ“¢ Upload your notes to help the community!</span>
+                <span>âœ¦</span>
+                <span>ðŸ“¢ May 5: Mid-term exam scheduled for May 15.</span>
+                <span>âœ¦</span>
+                <span>ðŸ“¢ May 3: New Physics lab manual available.</span>
+                <span>âœ¦</span>
+                <span>ðŸ“¢ Upload your notes to help the community!</span>
+                <span>âœ¦</span>
             </div>
         </div>
     </a>
@@ -823,7 +850,7 @@
     </button>
 
     <!-- ========================================
-         AUTH MODAL — GOOGLE SIGN-IN ONLY
+         AUTH MODAL â€” GOOGLE SIGN-IN ONLY
          ======================================== -->
     <div class="modal-overlay" id="auth-modal">
         <div class="modal">
@@ -840,7 +867,7 @@
             </button>
             
             <div class="auth-info">
-                <p>🔒 Secure authentication via Google</p>
+                <p>ðŸ”’ Secure authentication via Google</p>
                 <p>New users require admin approval before accessing materials</p>
             </div>
         </div>
@@ -873,7 +900,7 @@
     </div>
 
     <!-- ========================================
-         JAVASCRIPT — ALL AUTH LOGIC WITH COMMENTS
+         JAVASCRIPT â€” ALL AUTH LOGIC WITH COMMENTS
          ======================================== -->
     <script>
         // ========================================
@@ -1028,7 +1055,7 @@
         // ========================================
         // SECTION 8: AUTHENTICATION LOGIC
         // ========================================
-        // THE HEART OF THE SYSTEM — Google Auth with Admin Approval
+        // THE HEART OF THE SYSTEM â€” Google Auth with Admin Approval
         
         // DOM elements for auth
         const loginLink = document.getElementById('login-link');
@@ -1055,7 +1082,7 @@
                 // ==================================================
                 
                 currentUser = user;
-                console.log('👤 User logged in:', user.email);
+                console.log('ðŸ‘¤ User logged in:', user.email);
                 
                 // Check if this user is approved in Firestore
                 // We MUST check Firestore because Firebase Auth doesn't know about our approval system
@@ -1063,10 +1090,10 @@
                 
                 if (userData && userData.role === 'admin') {
                     // ==================================================
-                    // ADMIN USER — Full access
+                    // ADMIN USER â€” Full access
                     // ==================================================
                     isAdmin = true;
-                    console.log('👑 Admin access granted');
+                    console.log('ðŸ‘‘ Admin access granted');
                     
                     // Show admin UI
                     showUserBadge(user, 'admin');
@@ -1076,10 +1103,10 @@
                     
                 } else if (userData && userData.role === 'friend') {
                     // ==================================================
-                    // APPROVED FRIEND — Full access
+                    // APPROVED FRIEND â€” Full access
                     // ==================================================
                     isAdmin = false;
-                    console.log('👤 Friend access granted');
+                    console.log('ðŸ‘¤ Friend access granted');
                     
                     // Show friend UI
                     showUserBadge(user, 'friend');
@@ -1089,13 +1116,13 @@
                     
                 } else {
                     // ==================================================
-                    // NEW OR PENDING USER — No access yet
+                    // NEW OR PENDING USER â€” No access yet
                     // ==================================================
                     // This happens when:
                     // 1. First time signing in with Google
                     // 2. Admin hasn't approved them yet
                     
-                    console.log('⏳ User pending approval');
+                    console.log('â³ User pending approval');
                     
                     // Create pending record in Firestore (if not exists)
                     if (!userData) {
@@ -1117,7 +1144,7 @@
                 
                 currentUser = null;
                 isAdmin = false;
-                console.log('🔒 No user logged in');
+                console.log('ðŸ”’ No user logged in');
                 
                 // Show login button
                 showLoginButton();
@@ -1139,11 +1166,11 @@
                 // .get() = read operation (returns a "snapshot")
                 
                 if (docSnap.exists) {
-                    // User found in database — return their data
+                    // User found in database â€” return their data
                     return docSnap.data();
                     // .data() = converts Firestore document to plain JavaScript object
                 } else {
-                    // User not found — they're new
+                    // User not found â€” they're new
                     return null;
                 }
             } catch (error) {
@@ -1166,7 +1193,7 @@
                     email: user.email,                       // Google email
                     name: user.displayName || 'Unknown',     // Google display name
                     photoURL: user.photoURL || '',           // Google profile photo
-                    role: 'pending',                         // ⏳ WAITING FOR APPROVAL
+                    role: 'pending',                         // â³ WAITING FOR APPROVAL
                     approved: false,                         // Not approved yet
                     provider: 'google',                      // Signed in via Google
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1178,7 +1205,7 @@
                 // .set(userData) = create the document
                 await db.collection('users').doc(user.uid).set(userData);
                 
-                console.log('✅ Pending user created:', user.email);
+                console.log('âœ… Pending user created:', user.email);
                 
             } catch (error) {
                 console.error('Error creating pending user:', error);
@@ -1278,7 +1305,7 @@
             const filesGrid = document.getElementById('files-grid');
             filesGrid.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
-                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">🔒</div>
+                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">ðŸ”’</div>
                     <h3 style="font-family: 'Syne', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-main);">
                         Access Restricted
                     </h3>
@@ -1313,7 +1340,7 @@
             const filesGrid = document.getElementById('files-grid');
             filesGrid.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
-                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">⏳</div>
+                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">â³</div>
                     <h3 style="font-family: 'Syne', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; color: var(--warning);">
                         Waiting for Admin Approval
                     </h3>
@@ -1362,14 +1389,14 @@
         // ========================================
         // GOOGLE SIGN-IN BUTTON HANDLER
         // ========================================
-        // This is the ONLY way to authenticate — no email/password
+        // This is the ONLY way to authenticate â€” no email/password
         
         // Handle the result from the redirect flow
         
         auth.getRedirectResult()
             .then((result) => {
                 if (result && result.user) {
-                    console.log('✅ Redirect sign-in successful:', result.user.email);
+                    console.log('âœ… Redirect sign-in successful:', result.user.email);
                     // UI handled by onAuthStateChanged
                 }
             })
@@ -1380,8 +1407,8 @@
                     error.code === 'auth/popup-closed-by-user' ||
                     error.code === 'auth/null-user'
                 ) return;
-                // Only log real errors — never auto-open the modal
-                console.error('❌ Redirect sign-in error:', error.code, error.message);
+                // Only log real errors â€” never auto-open the modal
+                console.error('âŒ Redirect sign-in error:', error.code, error.message);
             });
 
         googleSignInBtn.addEventListener('click', async () => {
@@ -1410,10 +1437,10 @@
 
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 await auth.signInWithRedirect(provider);
-                // Page will navigate away — no code runs after this
+                // Page will navigate away â€” no code runs after this
 
             } catch (error) {
-                console.error('❌ Google sign-in error:', error);
+                console.error('âŒ Google sign-in error:', error);
                 showAuthStatus('error', 'Failed to start sign-in: ' + error.message);
                 googleSignInBtn.disabled = false;
                 googleSignInBtn.innerHTML = `
@@ -1485,7 +1512,7 @@
             if (files.length === 0) {
                 filesGrid.innerHTML = `
                     <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-muted);">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">ðŸ“­</div>
                         <p>No materials found.</p>
                     </div>
                 `;
@@ -1494,10 +1521,10 @@
             
             files.forEach((file, index) => {
                 // Determine icon based on file type
-                let icon = '📄';
-                if (file.fileType === 'pdf') icon = '📕';
-                else if (file.fileType === 'pptx' || file.fileType === 'ppt') icon = '📊';
-                else if (file.fileType === 'docx' || file.fileType === 'doc') icon = '📘';
+                let icon = 'ðŸ“„';
+                if (file.fileType === 'pdf') icon = 'ðŸ“•';
+                else if (file.fileType === 'pptx' || file.fileType === 'ppt') icon = 'ðŸ“Š';
+                else if (file.fileType === 'docx' || file.fileType === 'doc') icon = 'ðŸ“˜';
                 
                 // Format date
                 const date = file.createdAt 
@@ -1510,7 +1537,7 @@
                 card.innerHTML = `
                     <div class="file-icon">${icon}</div>
                     <h3 class="file-name">${escapeHtml(file.title)}</h3>
-                    <p class="file-meta">${file.subject} • ${escapeHtml(file.uploaderName)} • ${date}</p>
+                    <p class="file-meta">${file.subject} â€¢ ${escapeHtml(file.uploaderName)} â€¢ ${date}</p>
                     <div class="file-actions">
                         <button class="magnetic-btn" onclick="viewFile('${file.fileUrl}')">View</button>
                         <button class="magnetic-btn btn-outline" onclick="downloadFile('${file.fileUrl}', '${file.title}')">Download</button>
@@ -1708,7 +1735,7 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 
-                alert('✅ Material uploaded successfully!');
+                alert('âœ… Material uploaded successfully!');
                 uploadForm.reset();
                 progressContainer.style.display = 'none';
                 uploadModal.classList.remove('active');
@@ -1772,11 +1799,11 @@
         // INITIALIZATION COMPLETE
         // ========================================
         
-        console.log('🚀 Class Material Hub initialized');
-        console.log('🔑 Google Auth with Admin Approval enabled');
-        console.log('📋 To make yourself admin:');
+        console.log('ðŸš€ Class Material Hub initialized');
+        console.log('ðŸ”‘ Google Auth with Admin Approval enabled');
+        console.log('ðŸ“‹ To make yourself admin:');
         console.log('   1. Sign in with Google');
-        console.log('   2. Check Firestore → users collection');
+        console.log('   2. Check Firestore â†’ users collection');
         console.log('   3. Find your document, change role to "admin"');
         
     </script>
