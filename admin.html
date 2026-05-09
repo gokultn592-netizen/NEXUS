@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Control | Admin Portal</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- GSAP & Lenis -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js"></script>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #030005;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --accent: #9d4edd;
+            --accent-bright: #c77dff;
+            --panel-bg: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --cursor-color: #c77dff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f8f7f5;
+            --text-main: #18181b;
+            --text-muted: #71717a;
+            --accent: #7b2cbf;
+            --accent-bright: #5a189a;
+            --panel-bg: rgba(0, 0, 0, 0.03);
+            --border: rgba(0, 0, 0, 0.08);
+            --cursor-color: #7b2cbf;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none !important;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease;
+        }
+
+        h1, h2, h3, .logo {
+            font-family: 'Syne', sans-serif;
+        }
+
+        /* Custom Cursor */
+        .custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--cursor-color);
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: difference;
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
+        }
+        .custom-cursor.active {
+            width: 60px;
+            height: 60px;
+            background-color: transparent;
+            border: 1px solid var(--cursor-color);
+        }
+
+        /* Background effects */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E');
+            pointer-events: none;
+            z-index: -10;
+        }
+        .blob {
+            position: fixed;
+            width: 80vw;
+            height: 80vw;
+            background: radial-gradient(circle, rgba(157,78,221,0.15) 0%, transparent 60%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -20;
+            top: -40%;
+            left: -20%;
+            filter: blur(80px);
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 4vw;
+            width: 100%;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-color);
+        }
+        .logo {
+            font-size: 1.5vw;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-bright);
+        }
+
+        /* Buttons */
+        .magnetic-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            background: transparent;
+            color: var(--text-main);
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.3s, border-color 0.3s;
+            z-index: 1;
+        }
+        .magnetic-btn::after {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: -100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease-in-out;
+            z-index: -1;
+        }
+        .magnetic-btn:hover::after {
+            left: 100%;
+        }
+        .magnetic-btn:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(157, 78, 221, 0.4);
+        }
+        .btn-outline {
+            border-color: var(--border);
+        }
+        .btn-danger {
+            border-color: var(--error);
+            color: var(--error);
+        }
+        .btn-danger:hover {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            border-color: var(--error);
+            color: #fff;
+        }
+
+        /* Layout */
+        .admin-container {
+            display: flex;
+            min-height: calc(100vh - 100px);
+            padding: 2rem 4vw;
+            gap: 3rem;
+        }
+
+        /* Sidebar Tabs */
+        .sidebar {
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .tab-btn {
+            padding: 1rem;
+            font-family: 'Syne', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active, .tab-btn:hover {
+            color: var(--text-main);
+            background: var(--panel-bg);
+            border-color: var(--accent);
+            transform: translateX(10px);
+        }
+
+        /* Tab Content */
+        .main-content {
+            flex: 1;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            font-family: 'Syne', sans-serif;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+        td {
+            font-size: 0.95rem;
+        }
+        
+        /* Select and Inputs */
+        select, input[type="text"] {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+        select option {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+        }
+        select:focus, input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+        
+        .flex-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Modal for file update */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(15px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .modal {
+            background: var(--bg-color);
+            padding: 3rem;
+            border-radius: 2rem;
+            border: 1px solid var(--border);
+            width: 90%;
+            max-width: 500px;
+        }
+        .modal h2 { margin-bottom: 1.5rem; }
+        .input-group {
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="noise"></div>
+    <div class="blob"></div>
+    <div class="custom-cursor"></div>
+
+    <header>
+        <div class="logo">Admin Master Control</div>
+        <a href="index.html" class="magnetic-btn">Exit to App</a>
+    </header>
+
+    <div class="admin-container">
+        <!-- Sidebar Tabs -->
+        <div class="sidebar">
+            <button class="tab-btn active magnetic" data-tab="members">Members</button>
+            <button class="tab-btn magnetic" data-tab="subjects">Subjects</button>
+            <button class="tab-btn magnetic" data-tab="files">Files</button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Members Panel -->
+            <div id="members" class="tab-panel active">
+                <h2>Manage Members</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1rem;">Update roles or remove users entirely.</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="members-tbody">
+                        <tr><td colspan="4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Subjects Panel -->
+            <div id="subjects" class="tab-panel">
+                <h2>Manage Subjects</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1rem;">Add, rename, or delete subjects.</p>
+                
+                <form onsubmit="event.preventDefault(); addSubject();" class="flex-row" style="margin-bottom: 2rem;">
+                    <input type="text" id="new-subject-name" placeholder="New Subject Name" style="flex: 1;" required>
+                    <button type="submit" class="magnetic-btn">Add Subject</button>
+                </form>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subject Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subjects-tbody">
+                        <tr><td colspan="2">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Files Panel -->
+            <div id="files" class="tab-panel">
+                <h2>Manage Files</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <p style="color: var(--text-muted); margin: 0;">Delete, upload, or update existing materials.</p>
+                    <button class="magnetic-btn" onclick="openUploadModal()">Upload New Material</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Subject</th>
+                            <th>Uploader</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="files-tbody">
+                        <tr><td colspan="4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Update Modal -->
+    <div class="modal-overlay" id="update-modal">
+        <div class="modal">
+            <h2>Update Material</h2>
+            <form id="update-form">
+                <input type="hidden" id="update-id">
+                <div class="input-group">
+                    <label>Title</label>
+                    <input type="text" id="update-title" required>
+                </div>
+                <div class="input-group">
+                    <label>Subject</label>
+                    <select id="update-subject" required>
+                        <!-- Loaded dynamically -->
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Replace File (Optional)</label>
+                    <input type="file" id="update-file" accept=".pdf,.doc,.docx,.ppt,.pptx">
+                </div>
+                <button type="submit" class="magnetic-btn" style="width:100%; margin-top:1rem;">Save Changes</button>
+                <div id="update-progress" style="display:none; text-align:center; color:var(--accent); margin-top:1rem;">Uploading...</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div class="modal-overlay" id="upload-modal">
+        <div class="modal">
+            <h2>Upload New Material</h2>
+            <form id="upload-form">
+                <div class="input-group">
+                    <label>Title</label>
+                    <input type="text" id="upload-title" required>
+                </div>
+                <div class="input-group">
+                    <label>Subject</label>
+                    <select id="upload-subject" required>
+                        <!-- Loaded dynamically -->
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>File</label>
+                    <input type="file" id="upload-file" accept=".pdf,.doc,.docx,.ppt,.pptx" required>
+                </div>
+                <button type="submit" class="magnetic-btn" style="width:100%; margin-top:1rem;">Upload Material</button>
+                <div id="upload-progress" style="display:none; text-align:center; color:var(--accent); margin-top:1rem;">Uploading...</div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Check Master Password Session
+        if (sessionStorage.getItem('admin_access') !== 'granted') {
+            alert('Unauthorized Access. Please login via the main page and enter the Master Password.');
+            window.location.href = 'index.html';
+        }
+
+        // Firebase Initialization
+        const firebaseConfig = {
+            apiKey: "AIzaSyCKqtJJpby6oXpI1wNfqpE5u9-HRwDZzmg",
+            authDomain: "nexus-e7a36.firebaseapp.com",
+            projectId: "nexus-e7a36",
+            storageBucket: "nexus-e7a36.firebasestorage.app",
+            messagingSenderId: "516259533933",
+            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Custom Cursor & Button Interactions
+        const cursor = document.querySelector('.custom-cursor');
+        document.addEventListener('mousemove', (e) => {
+            gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1, ease: "power2.out" });
+        });
+        function initCursorInteractions() {
+            document.querySelectorAll('button, a, select, input').forEach(el => {
+                el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+                el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+            });
+        }
+        initCursorInteractions();
+
+        // Tabs Logic
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Security Guard
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                const docSnap = await db.collection('users').doc(user.uid).get();
+                const userData = docSnap.exists ? docSnap.data() : null;
+                if (!userData || userData.role !== 'admin') {
+                    alert('You do not have Firestore admin privileges.');
+                    window.location.href = 'index.html';
+                } else {
+                    // Admin verified, load data
+                    loadMembers();
+                    loadSubjects();
+                    loadFiles();
+                }
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // ==========================================
+        // MEMBERS
+        // ==========================================
+        function loadMembers() {
+            db.collection('users').onSnapshot(snapshot => {
+                const tbody = document.getElementById('members-tbody');
+                tbody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${user.name || 'N/A'}</td>
+                        <td>${user.email}</td>
+                        <td>
+                            <select onchange="updateRole('${doc.id}', this.value)">
+                                <option value="pending" ${user.role==='pending'?'selected':''}>Pending</option>
+                                <option value="friend" ${user.role==='friend'?'selected':''}>Friend</option>
+                                <option value="admin" ${user.role==='admin'?'selected':''}>Admin</option>
+                            </select>
+                        </td>
+                        <td>
+                            <button class="magnetic-btn btn-danger" onclick="deleteMember('${doc.id}')">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                initCursorInteractions();
+            });
+        }
+
+        async function updateRole(uid, newRole) {
+            try {
+                await db.collection('users').doc(uid).update({ role: newRole });
+                console.log(`Role updated to ${newRole}`);
+            } catch (e) {
+                alert('Error updating role: ' + e.message);
+            }
+        }
+
+        async function deleteMember(uid) {
+            if (confirm('Are you sure you want to remove this user from Firestore? This revokes their access.')) {
+                try {
+                    await db.collection('users').doc(uid).delete();
+                } catch (e) {
+                    alert('Error deleting user: ' + e.message);
+                }
+            }
+        }
+
+        // ==========================================
+        // SUBJECTS
+        // ==========================================
+        let allSubjects = [];
+        
+        function loadSubjects() {
+            db.collection('subjects').onSnapshot(snapshot => {
+                const tbody = document.getElementById('subjects-tbody');
+                const updateSelect = document.getElementById('update-subject');
+                const uploadSelect = document.getElementById('upload-subject');
+                
+                tbody.innerHTML = '';
+                updateSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
+                uploadSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
+                allSubjects = [];
+                
+                if (snapshot.empty) {
+                    // Seed defaults if empty
+                    const defaults = ['Mathematics', 'Physics', 'Chemistry', 'Biology'];
+                    defaults.forEach(sub => db.collection('subjects').add({ name: sub }));
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const sub = doc.data().name;
+                    allSubjects.push(sub);
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <input type="text" value="${sub}" onblur="renameSubject('${doc.id}', this.value)" style="width: 100%; background:transparent; border:none; color:var(--text-main); font-size:1rem;">
+                        </td>
+                        <td>
+                            <button class="magnetic-btn btn-danger" onclick="deleteSubject('${doc.id}')">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+
+                    const option = document.createElement('option');
+                    option.value = sub;
+                    option.textContent = sub;
+                    updateSelect.appendChild(option);
+
+                    const uploadOption = document.createElement('option');
+                    uploadOption.value = sub;
+                    uploadOption.textContent = sub;
+                    uploadSelect.appendChild(uploadOption);
+                });
+                initCursorInteractions();
+            });
+        }
+
+        async function addSubject() {
+            const input = document.getElementById('new-subject-name');
+            const name = input.value.trim();
+            if (name) {
+                try {
+                    await db.collection('subjects').add({ name });
+                    input.value = '';
+                } catch(e) {
+                    alert('Error adding subject: ' + e.message);
+                }
+            }
+        }
+
+        async function renameSubject(id, newName) {
+            if (newName.trim()) {
+                await db.collection('subjects').doc(id).update({ name: newName.trim() });
+            }
+        }
+
+        async function deleteSubject(id) {
+            if (confirm('Delete this subject? Existing files with this subject won\'t be deleted, but the subject will vanish from menus.')) {
+                await db.collection('subjects').doc(id).delete();
+            }
+        }
+
+        // ==========================================
+        // FILES
+        // ==========================================
+        function loadFiles() {
+            db.collection('materials').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+                const tbody = document.getElementById('files-tbody');
+                tbody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const file = doc.data();
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${file.title}</td>
+                        <td>${file.subject}</td>
+                        <td>${file.uploaderName}</td>
+                        <td>
+                            <button class="magnetic-btn" onclick="openUpdateModal('${doc.id}', '${file.title.replace(/'/g, "\\'")}', '${file.subject}')">Update</button>
+                            <button class="magnetic-btn btn-danger" onclick="deleteFile('${doc.id}', '${file.fileUrl}')">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                initCursorInteractions();
+            });
+        }
+
+        async function deleteFile(id, url) {
+            if (confirm('Permanently delete this material?')) {
+                try {
+                    // Delete from Firestore
+                    await db.collection('materials').doc(id).delete();
+                    
+                    // Attempt to delete from Backblaze B2 via backend API
+                    if (url.includes('backblazeb2.com')) {
+                        try {
+                            await fetch('https://nexus-omega-jet.vercel.app/api/delete-file', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ fileUrl: url })
+                            });
+                        } catch(e) {
+                            console.warn('B2 storage deletion failed:', e);
+                        }
+                    }
+                } catch(e) {
+                    alert('Error: ' + e.message);
+                }
+            }
+        }
+
+        // UPDATE MODAL
+        const updateModal = document.getElementById('update-modal');
+        function openUpdateModal(id, title, subject) {
+            document.getElementById('update-id').value = id;
+            document.getElementById('update-title').value = title;
+            document.getElementById('update-subject').value = subject;
+            document.getElementById('update-file').value = '';
+            updateModal.classList.add('active');
+        }
+
+        updateModal.addEventListener('click', (e) => {
+            if (e.target === updateModal) {
+                updateModal.classList.remove('active');
+            }
+        });
+
+        document.getElementById('update-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('update-id').value;
+            const title = document.getElementById('update-title').value;
+            const subject = document.getElementById('update-subject').value;
+            const fileInput = document.getElementById('update-file').files[0];
+            const progress = document.getElementById('update-progress');
+
+            try {
+                let updates = { title, subject };
+                
+                if (fileInput) {
+                    progress.style.display = 'block';
+                    progress.textContent = 'Requesting secure upload URL...';
+
+                    const res = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fileName: fileInput.name.replace(/[^a-zA-Z0-9.]/g, '_'),
+                            fileType: fileInput.type || 'application/octet-stream'
+                        })
+                    });
+
+                    if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed to get upload URL'); }
+                    const { uploadUrl, authToken, fileName: b2FileName, publicUrl } = await res.json();
+
+                    await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', uploadUrl, true);
+                        xhr.setRequestHeader('Authorization', authToken);
+                        xhr.setRequestHeader('X-Bz-File-Name', encodeURIComponent(b2FileName));
+                        xhr.setRequestHeader('Content-Type', fileInput.type || 'application/octet-stream');
+                        xhr.setRequestHeader('X-Bz-Content-Sha1', 'do_not_verify');
+                        xhr.upload.onprogress = (evt) => {
+                            if (evt.lengthComputable) progress.textContent = `Uploading: ${Math.round((evt.loaded / evt.total) * 100)}%`;
+                        };
+                        xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(`Upload failed (HTTP ${xhr.status}): ${xhr.responseText}`)); };
+                        xhr.onerror = () => reject(new Error('Network error during upload'));
+                        xhr.send(fileInput);
+                    });
+
+                    updates.fileUrl = publicUrl;
+                    updates.fileType = fileInput.name.split('.').pop().toLowerCase();
+                }
+
+                await db.collection('materials').doc(id).update(updates);
+                progress.style.display = 'none';
+                updateModal.classList.remove('active');
+                alert('Material updated successfully!');
+                
+            } catch (err) {
+                progress.style.display = 'none';
+                alert('Update failed: ' + err.message);
+            }
+        });
+
+        // UPLOAD MODAL
+        const uploadModal = document.getElementById('upload-modal');
+        function openUploadModal() {
+            document.getElementById('upload-form').reset();
+            uploadModal.classList.add('active');
+        }
+
+        uploadModal.addEventListener('click', (e) => {
+            if (e.target === uploadModal) {
+                uploadModal.classList.remove('active');
+            }
+        });
+
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('upload-title').value;
+            const subject = document.getElementById('upload-subject').value;
+            const fileInput = document.getElementById('upload-file').files[0];
+            const progress = document.getElementById('upload-progress');
+
+            if (!fileInput) return;
+
+            try {
+                progress.style.display = 'block';
+                progress.textContent = 'Requesting secure upload URL...';
+
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: fileInput.name.replace(/[^a-zA-Z0-9.]/g, '_'),
+                        fileType: fileInput.type || 'application/octet-stream'
+                    })
+                });
+
+                if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed to get upload URL'); }
+                const { uploadUrl, authToken, fileName: b2FileName, publicUrl } = await res.json();
+
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', uploadUrl, true);
+                    xhr.setRequestHeader('Authorization', authToken);
+                    xhr.setRequestHeader('X-Bz-File-Name', encodeURIComponent(b2FileName));
+                    xhr.setRequestHeader('Content-Type', fileInput.type || 'application/octet-stream');
+                    xhr.setRequestHeader('X-Bz-Content-Sha1', 'do_not_verify');
+                    xhr.upload.onprogress = (evt) => {
+                        if (evt.lengthComputable) progress.textContent = `Uploading: ${Math.round((evt.loaded / evt.total) * 100)}%`;
+                    };
+                    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(`Upload failed (HTTP ${xhr.status}): ${xhr.responseText}`)); };
+                    xhr.onerror = () => reject(new Error('Network error during upload'));
+                    xhr.send(fileInput);
+                });
+                
+                const user = auth.currentUser;
+
+                await db.collection('materials').add({
+                    title: title,
+                    subject: subject,
+                    fileUrl: publicUrl,
+                    fileType: fileInput.name.split('.').pop().toLowerCase(),
+                    uploaderId: user ? user.uid : 'admin',
+                    uploaderName: user ? (user.displayName || 'Admin') : 'Admin',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                progress.style.display = 'none';
+                uploadModal.classList.remove('active');
+                alert('Material uploaded successfully!');
+                
+            } catch (err) {
+                progress.style.display = 'none';
+                alert('Upload failed: ' + err.message);
+            }
+        });
+
+    </script>
+</body>
+</html>
