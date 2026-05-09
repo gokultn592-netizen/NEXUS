@@ -1,3 +1,20 @@
+<!--
+    CHANGELOG — admin.html
+    ======================
+    [2026-05-09] Changes made vs original GitHub version:
+
+    1. UPLOAD — Switched from direct AWS SDK (hardcoded keys) to Vercel backend
+       - Both upload form AND update form now call /api/get-upload-url
+       - XHR now POSTs to B2 with Authorization + X-Bz-File-Name + X-Bz-Content-Sha1
+       - B2 credentials never exposed in frontend code
+
+    2. DELETE — Switched from direct AWS SDK deleteObject to Vercel backend
+       - Calls /api/delete-file with the file URL
+       - Backend extracts the key and calls B2's native delete API
+
+    3. SECURITY — Removed AWS SDK script tag and hardcoded B2 keys
+       - accessKeyId and secretAccessKey no longer in client-side code
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -686,7 +703,7 @@
                     // Attempt to delete from Backblaze B2 via backend API
                     if (url.includes('backblazeb2.com')) {
                         try {
-                            await fetch('https://nexus-omega-jet.vercel.app/api/delete-file', {
+                            await fetch('/api/delete-file', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ fileUrl: url })
@@ -732,7 +749,7 @@
                     progress.style.display = 'block';
                     progress.textContent = 'Requesting secure upload URL...';
 
-                    const res = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
+                    const res = await fetch('/api/get-upload-url', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -800,7 +817,7 @@
                 progress.style.display = 'block';
                 progress.textContent = 'Requesting secure upload URL...';
 
-                const res = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
+                const res = await fetch('/api/get-upload-url', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
