@@ -1389,25 +1389,16 @@
         // ========================================
         // GOOGLE SIGN-IN BUTTON HANDLER
         // ========================================
-        // This is the ONLY way to authenticate â€” no email/password
         
         // Handle the result from the redirect flow
-        
         auth.getRedirectResult()
             .then((result) => {
                 if (result && result.user) {
                     console.log('âœ… Redirect sign-in successful:', result.user.email);
-                    // UI handled by onAuthStateChanged
                 }
             })
             .catch((error) => {
-                // Silently ignore cancellations and irrelevant errors
-                if (
-                    error.code === 'auth/redirect-cancelled-by-user' ||
-                    error.code === 'auth/popup-closed-by-user' ||
-                    error.code === 'auth/null-user'
-                ) return;
-                // Only log real errors â€” never auto-open the modal
+                if (error.code === 'auth/redirect-cancelled-by-user') return;
                 console.error('âŒ Redirect sign-in error:', error.code, error.message);
             });
 
@@ -1437,11 +1428,10 @@
 
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 await auth.signInWithRedirect(provider);
-                // Page will navigate away â€” no code runs after this
 
             } catch (error) {
                 console.error('âŒ Google sign-in error:', error);
-                showAuthStatus('error', 'Failed to start sign-in: ' + error.message);
+                showAuthStatus('error', 'Sign-in failed: ' + error.message);
                 googleSignInBtn.disabled = false;
                 googleSignInBtn.innerHTML = `
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
