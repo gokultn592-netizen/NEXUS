@@ -884,7 +884,7 @@
         
         const firebaseConfig = {
             apiKey: "AIzaSyCKqtJJpby6oXpI1wNfqpE5u9-HRwDZzmg",
-            authDomain: "nexus-e7a36.web.app",
+            authDomain: "nexus-e7a36.firebaseapp.com",
             projectId: "nexus-e7a36",
             storageBucket: "nexus-e7a36.firebasestorage.app",
             messagingSenderId: "516259533933",
@@ -1364,6 +1364,18 @@
         // ========================================
         // This is the ONLY way to authenticate — no email/password
         
+        // Handle redirect result on page load
+        auth.getRedirectResult()
+            .then((result) => {
+                if (result && result.user) {
+                    console.log('✅ Redirect sign-in successful:', result.user.email);
+                }
+            })
+            .catch((error) => {
+                if (error.code === 'auth/redirect-cancelled-by-user') return;
+                console.error('❌ Redirect error:', error.code, error.message);
+            });
+
         googleSignInBtn.addEventListener('click', async () => {
             try {
                 googleSignInBtn.disabled = true;
@@ -1390,9 +1402,8 @@
                 provider.addScope('email');
                 provider.addScope('profile');
 
-                // Call popup IMMEDIATELY — no await before this or browser blocks it
-                const result = await auth.signInWithPopup(provider);
-                console.log('✅ Popup sign-in successful', result.user.email);
+                // Redirect — works perfectly on Firebase Hosting
+                await auth.signInWithRedirect(provider);
 
             } catch (error) {
                 // This ACTUALLY runs now if pre-redirect fails
@@ -1643,7 +1654,7 @@
                 // 1. Get a short-lived presigned URL from the Vercel backend
                 // (B2 credentials never leave the server)
                 progressText.textContent = 'Requesting secure upload URL...';
-                const response = await fetch('/api/get-upload-url', {
+                const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
