@@ -1366,35 +1366,27 @@
         
         // Handle the result from the redirect flow
         
-       // FIXED: Runs FIRST, before onAuthStateChanged
         auth.getRedirectResult()
             .then((result) => {
                 if (result && result.user) {
-                    console.log('✅ Redirect sign-in successful');
-                    // DON'T handle UI here — let onAuthStateChanged do it
-                    // to avoid duplicate UI updates
+                    console.log('✅ Redirect sign-in successful:', result.user.email);
+                    // UI handled by onAuthStateChanged
                 }
             })
             .catch((error) => {
-                // Better error categorization
-                if (error.code === 'auth/redirect-cancelled-by-user' || error.code === 'auth/popup-closed-by-user') {
-                    console.log('User cancelled the redirect');
-                    return; // Silently ignore
-                }
-                
-                // Ensure modal is visible so user can actually see the error message
-                authModal.classList.add('active');
-                gsap.to(modalInner, { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.5)" });
-                
-                // Only show alerts for real errors
-                showAuthStatus('error', 'Sign-in failed: ' + error.message);
+                // Silently ignore cancellations and irrelevant errors
+                if (
+                    error.code === 'auth/redirect-cancelled-by-user' ||
+                    error.code === 'auth/popup-closed-by-user' ||
+                    error.code === 'auth/null-user'
+                ) return;
+                // Only log real errors — never auto-open the modal
+                console.error('❌ Redirect sign-in error:', error.code, error.message);
             });
 
         googleSignInBtn.addEventListener('click', async () => {
             try {
                 googleSignInBtn.disabled = true;
-                
-                // Replace literal "...spinner..." text with a cleaner loading state
                 googleSignInBtn.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
                         <style>@keyframes btn-spin { to { transform: rotate(360deg); } }</style>
@@ -1408,7 +1400,7 @@
                             <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
                             <line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line>
                         </svg>
-                        Connecting...
+                        Redirecting to Google...
                     </div>
                 `;
 
@@ -1416,25 +1408,13 @@
                 provider.addScope('email');
                 provider.addScope('profile');
 
-                // Switch to Popup! Redirect fails silently on local servers (127.0.0.1) 
-                // due to strict 3rd-party cookie blocking in modern browsers.
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                const result = await auth.signInWithPopup(provider);  
-                
-                // If we get here, popup succeeded! Modal will close automatically via onAuthStateChanged
-                console.log('✅ Popup sign-in successful', result.user.email);
+                await auth.signInWithRedirect(provider);
+                // Page will navigate away — no code runs after this
 
             } catch (error) {
-                // This ACTUALLY runs now if pre-redirect fails
                 console.error('❌ Google sign-in error:', error);
-                
-                // Ensure modal is visible if error occurs here
-                authModal.classList.add('active');
-                gsap.to(modalInner, { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.5)" });
-                
-                showAuthStatus('error', 'Failed to initiate sign-in: ' + error.message);
-
-                // Reset button so user can try again
+                showAuthStatus('error', 'Failed to start sign-in: ' + error.message);
                 googleSignInBtn.disabled = false;
                 googleSignInBtn.innerHTML = `
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
