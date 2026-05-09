@@ -675,40 +675,41 @@
             }
         });
 
-        // Handle the result from the redirect flow
-        auth.getRedirectResult()
-            .then((result) => {
-                if (result && result.user) {
-                    console.log('✅ Redirect sign-in successful:', result.user.email);
-                }
-            })
-            .catch((error) => {
-                console.error('Redirect error:', error);
-                if (error.code !== 'auth/redirect-cancelled-by-user') {
-                    // Show error in the auth modal if possible, or fallback to alert
-                    if (window.location.href.startsWith('file://')) {
-                        alert('Error: Google Sign-In Redirect does not work on local file:// paths. Please use VS Code Live Server or deploy to Vercel.');
-                    } else {
-                        alert('Sign-in error: ' + error.message);
-                    }
-                }
-            });
-
         // Google Sign-In button
-        googleSignInBtn.addEventListener('click', () => {
+        googleSignInBtn.addEventListener('click', async () => {
             try {
                 googleSignInBtn.disabled = true;
-                googleSignInBtn.innerHTML = 'Redirecting...';
-                
+                googleSignInBtn.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <style>@keyframes btn-spin { to { transform: rotate(360deg); } }</style>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: btn-spin 1s linear infinite;">
+                            <line x1="12" y1="2" x2="12" y2="6"></line>
+                            <line x1="12" y1="18" x2="12" y2="22"></line>
+                            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                            <line x1="2" y1="12" x2="6" y2="12"></line>
+                            <line x1="18" y1="12" x2="22" y2="12"></line>
+                            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                            <line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line>
+                        </svg>
+                        Signing in...
+                    </div>
+                `;
+
                 const provider = new firebase.auth.GoogleAuthProvider();
-                
-                // Use Redirect instead of Popup to completely bypass popup blockers
-                auth.signInWithRedirect(provider);
-                
+                provider.addScope('email');
+                provider.addScope('profile');
+
+                // Popup — works on Vercel without Firebase Hosting
+                await auth.signInWithPopup(provider);
+                // onAuthStateChanged handles everything after this
+
             } catch (error) {
-                console.error('Error:', error);
-                showAuthStatus('error', 'Failed to initiate sign-in redirect.');
-                
+                console.error('Sign-in error:', error);
+                // Silently ignore user closing popup
+                if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+                    showAuthStatus('error', 'Sign-in failed: ' + error.message);
+                }
                 googleSignInBtn.disabled = false;
                 googleSignInBtn.innerHTML = `
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
