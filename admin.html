@@ -473,7 +473,7 @@
         // Firebase Initialization
         const firebaseConfig = {
             apiKey: "AIzaSyCKqtJJpby6oXpI1wNfqpE5u9-HRwDZzmg",
-            authDomain: "nexus-e7a36.web.app",
+            authDomain: "nexus-e7a36.firebaseapp.com",
             projectId: "nexus-e7a36",
             storageBucket: "nexus-e7a36.firebasestorage.app",
             messagingSenderId: "516259533933",
@@ -686,7 +686,7 @@
                     // Attempt to delete from Backblaze B2 via backend API
                     if (url.includes('backblazeb2.com')) {
                         try {
-                            await fetch('/api/delete-file', {
+                            await fetch('https://nexus-omega-jet.vercel.app/api/delete-file', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ fileUrl: url })
@@ -732,7 +732,7 @@
                     progress.style.display = 'block';
                     progress.textContent = 'Requesting secure upload URL...';
 
-                    const res = await fetch('/api/get-upload-url', {
+                    const res = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -800,7 +800,7 @@
                 progress.style.display = 'block';
                 progress.textContent = 'Requesting secure upload URL...';
 
-                const res = await fetch('/api/get-upload-url', {
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
