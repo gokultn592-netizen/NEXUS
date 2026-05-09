@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
 
         if (!bucketId) throw new Error(`Bucket "${bucket}" not found`);
 
-        // Step 3: Get download authorization
+        // Step 3: Get download authorization for entire bucket
         const dlAuthRes = await fetch(`${apiUrl}/b2api/v3/b2_get_download_authorization`, {
             method: 'POST',
             headers: {
@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
             },
             body: JSON.stringify({
                 bucketId,
-                fileNamePrefix: fileName,
+                fileNamePrefix: '',
                 validDurationInSeconds: 3600,
             }),
         });
