@@ -1,0 +1,21 @@
+# ===================================================
+# PRIVATE — never commit these files
+# ===================================================
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Node modules
+node_modules/
+
+# Vercel build output
+.vercel/
+
+# OS / IDE junk
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# Scratch / test files
+scratch/
