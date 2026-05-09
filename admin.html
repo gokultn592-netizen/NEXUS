@@ -1,3 +1,20 @@
+<!--
+    CHANGELOG â€” admin.html
+    ======================
+    [2026-05-09] Changes made vs original GitHub version:
+
+    1. UPLOAD â€” Switched from direct AWS SDK (hardcoded keys) to Vercel backend
+       - Both upload form AND update form now call /api/get-upload-url
+       - XHR now POSTs to B2 with Authorization + X-Bz-File-Name + X-Bz-Content-Sha1
+       - B2 credentials never exposed in frontend code
+
+    2. DELETE â€” Switched from direct AWS SDK deleteObject to Vercel backend
+       - Calls /api/delete-file with the file URL
+       - Backend extracts the key and calls B2's native delete API
+
+    3. SECURITY â€” Removed AWS SDK script tag and hardcoded B2 keys
+       - accessKeyId and secretAccessKey no longer in client-side code
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
