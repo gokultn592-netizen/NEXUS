@@ -498,7 +498,7 @@
         // ========================================
         const firebaseConfig = {
             apiKey: "AIzaSyCKqtJJpby6oXpI1wNfqpE5u9-HRwDZzmg",
-            authDomain: "nexus-e7a36.web.app",
+            authDomain: "nexus-e7a36.firebaseapp.com",
             projectId: "nexus-e7a36",
             storageBucket: "nexus-e7a36.firebasestorage.app",
             messagingSenderId: "516259533933",
@@ -675,6 +675,18 @@
             }
         });
 
+        // Handle redirect result on page load
+        auth.getRedirectResult()
+            .then((result) => {
+                if (result && result.user) {
+                    console.log('✅ Redirect sign-in successful:', result.user.email);
+                }
+            })
+            .catch((error) => {
+                if (error.code === 'auth/redirect-cancelled-by-user') return;
+                console.error('❌ Redirect error:', error.code, error.message);
+            });
+
         // Google Sign-In button
         googleSignInBtn.addEventListener('click', async () => {
             try {
@@ -692,7 +704,7 @@
                             <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
                             <line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line>
                         </svg>
-                        Signing in...
+                        Redirecting...
                     </div>
                 `;
 
@@ -700,16 +712,12 @@
                 provider.addScope('email');
                 provider.addScope('profile');
 
-                // Popup — works on Vercel without Firebase Hosting
-                await auth.signInWithPopup(provider);
-                // onAuthStateChanged handles everything after this
+                // Redirect — works perfectly on Firebase Hosting
+                await auth.signInWithRedirect(provider);
 
             } catch (error) {
                 console.error('Sign-in error:', error);
-                // Silently ignore user closing popup
-                if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-                    showAuthStatus('error', 'Sign-in failed: ' + error.message);
-                }
+                showAuthStatus('error', 'Sign-in failed: ' + error.message);
                 googleSignInBtn.disabled = false;
                 googleSignInBtn.innerHTML = `
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
