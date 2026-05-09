@@ -1390,12 +1390,8 @@
                 provider.addScope('email');
                 provider.addScope('profile');
 
-                // Switch to Popup! Redirect fails silently on local servers (127.0.0.1) 
-                // due to strict 3rd-party cookie blocking in modern browsers.
-                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                const result = await auth.signInWithPopup(provider);  
-                
-                // If we get here, popup succeeded! Modal will close automatically via onAuthStateChanged
+                // Call popup IMMEDIATELY — no await before this or browser blocks it
+                const result = await auth.signInWithPopup(provider);
                 console.log('✅ Popup sign-in successful', result.user.email);
 
             } catch (error) {
