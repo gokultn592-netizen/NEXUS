@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus | Community Discussion</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- GSAP & Lenis -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js"></script>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #030005;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --accent: #9d4edd;
+            --accent-bright: #c77dff;
+            --panel-bg: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --cursor-color: #c77dff;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f8f7f5;
+            --text-main: #18181b;
+            --text-muted: #71717a;
+            --accent: #7b2cbf;
+            --accent-bright: #5a189a;
+            --panel-bg: rgba(0, 0, 0, 0.03);
+            --border: rgba(0, 0, 0, 0.08);
+            --cursor-color: #7b2cbf;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none !important; }
+        body { background: var(--bg-color); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        h1, h2, h3, .logo { font-family: 'Syne', sans-serif; }
+
+        .custom-cursor { position: fixed; top: 0; left: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--cursor-color); pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); mix-blend-mode: difference; transition: width 0.3s, height 0.3s; }
+        .custom-cursor.active { width: 60px; height: 60px; background: transparent; border: 1px solid var(--cursor-color); }
+
+        .noise { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E'); pointer-events: none; z-index: 10; }
+        .blob { position: fixed; width: 80vw; height: 80vw; background: radial-gradient(circle, rgba(157, 78, 221, 0.1) 0%, transparent 60%); border-radius: 50%; pointer-events: none; z-index: 0; top: -40%; left: -20%; filter: blur(80px); }
+
+        header { display: flex; justify-content: space-between; align-items: center; padding: 2.2rem 4vw; position: fixed; top: 0; width: 100%; z-index: 100; mix-blend-mode: difference; }
+        .logo { font-size: 2vw; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links { display: flex; gap: 2.5vw; align-items: center; }
+        .nav-links a { 
+            text-decoration: none; 
+            color: white; 
+            font-size: 0.95rem; 
+            font-weight: 500; 
+            display: flex;
+            align-items: center;
+            height: 100%;
+            line-height: 1;
+        }
+
+        .hero { height: 40vh; display: flex; flex-direction: column; justify-content: center; padding: 8rem 4vw 0; position: relative; z-index: 1; }
+        .hero h1 { font-size: 7vw; line-height: 1.1; font-weight: 800; text-transform: uppercase; }
+        .accent-text { color: transparent; -webkit-text-stroke: 1px var(--text-main); }
+
+        .content-wrapper { padding: 4vw; max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; }
+        .ask-btn { background: var(--accent); color: white; border: none; padding: 1.2rem 2.5rem; border-radius: 3rem; font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 3rem; transition: all 0.3s; }
+        .ask-btn:hover { background: var(--accent-bright); transform: translateY(-3px); box-shadow: 0 10px 20px rgba(157, 78, 221, 0.3); }
+
+        .query-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 1.5rem; padding: 2rem; margin-bottom: 2rem; backdrop-filter: blur(10px); transition: border-color 0.3s; }
+        .query-card:hover { border-color: var(--accent); }
+        .query-header { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; }
+        .query-header img { width: 40px; height: 40px; border-radius: 50%; }
+        .query-info h3 { font-size: 1.2rem; margin-bottom: 0.2rem; }
+        .query-meta { font-size: 0.8rem; color: var(--text-muted); }
+        .query-body { font-size: 1.1rem; line-height: 1.6; color: var(--text-main); margin-bottom: 1.5rem; }
+
+        .replies-section { border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1.5rem; }
+        .reply { display: flex; gap: 1rem; margin-bottom: 1.2rem; padding-left: 1rem; border-left: 2px solid var(--accent); }
+        .reply img { width: 30px; height: 30px; border-radius: 50%; }
+        .reply-content { font-size: 0.95rem; color: var(--text-muted); }
+        .reply-author { font-weight: 600; color: var(--text-main); font-size: 0.85rem; margin-bottom: 0.2rem; }
+
+        .reply-form { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .reply-input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 2rem; padding: 0.8rem 1.5rem; color: white; outline: none; }
+        .reply-input:focus { border-color: var(--accent); }
+        .send-reply-btn { background: var(--accent); border: none; width: 45px; height: 45px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .send-reply-btn:hover { background: var(--accent-bright); transform: scale(1.1); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 1000; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.3s; }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        .modal { background: var(--bg-color); padding: 3rem; border-radius: 2rem; border: 1px solid var(--border); width: 90%; max-width: 600px; }
+        .input-group { margin-bottom: 1.5rem; }
+        .input-group label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); }
+        .input-group input, .input-group textarea { width: 100%; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 0.8rem; color: white; outline: none; font-family: inherit; }
+
+        #user-section { display: flex; align-items: center; gap: 1rem; }
+        .user-badge { display: flex; align-items: center; gap: 0.75rem; background: var(--panel-bg); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 2rem; font-size: 0.9rem; }
+        .user-badge img { width: 32px; height: 32px; border-radius: 50%; }
+        .hidden { display: none !important; }
+
+        /* Notifications */
+        .notification-badge { position: absolute; top: -5px; right: -10px; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; display: none; }
+        .notification-panel { position: fixed; top: 0; right: -400px; width: 400px; height: 100vh; background: var(--bg-color); border-left: 1px solid var(--border); z-index: 1001; padding: 3rem 2rem; transition: right 0.5s; backdrop-filter: blur(20px); }
+        .notification-panel.active { right: 0; }
+        .notification-item { padding: 1.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text-muted); }
+        .notification-item b { color: var(--text-main); display: block; margin-bottom: 0.2rem; }
+        .notification-time { font-size: 0.75rem; color: var(--accent); display: block; margin-top: 0.5rem; }
+    </style>
+</head>
+
+<body>
+    <div class="noise"></div>
+    <div class="blob"></div>
+    <div class="custom-cursor"></div>
+
+    <header>
+        <div class="logo"><a href="index.html" style="color: inherit; text-decoration: none;">Nexus</a></div>
+        <nav class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="notice.html">Notice</a>
+            <a href="discussion.html">Discussion</a>
+            <a href="#" id="notifications-link" style="position: relative;">
+                Notifications
+                <span id="notif-badge" class="notification-badge"></span>
+            </a>
+            <div id="user-section" class="hidden"></div>
+            <a href="#" id="login-link">Login</a>
+        </nav>
+    </header>
+
+    <div id="notification-panel" class="notification-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem;">
+            <h2 style="font-family: 'Syne';">Updates</h2>
+            <button id="close-notifs" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.5rem;">×</button>
+        </div>
+        <div id="notif-list">
+            <p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>
+        </div>
+    </div>
+
+    <section class="hero">
+        <h1>Community<br><span class="accent-text">Discussion.</span></h1>
+        <p style="color: var(--text-muted); margin-top: 1rem; max-width: 500px;">Ask questions, share knowledge, and collaborate with your peers.</p>
+    </section>
+
+    <div class="content-wrapper">
+        <button id="ask-btn" class="ask-btn hidden">Ask a Question</button>
+        <div id="discussion-grid">
+            <!-- Discussions load here -->
+        </div>
+    </div>
+
+    <!-- Ask Modal -->
+    <div class="modal-overlay" id="ask-modal">
+        <div class="modal">
+            <h2>Ask the Community</h2>
+            <form id="ask-form" style="margin-top: 2rem;">
+                <div class="input-group">
+                    <label>Title</label>
+                    <input type="text" id="ask-title" placeholder="What's on your mind?" required>
+                </div>
+                <div class="input-group">
+                    <label>Description</label>
+                    <textarea id="ask-body" rows="5" placeholder="Provide more details..." required></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" class="ask-btn" id="close-modal" style="background: transparent; border: 1px solid var(--border);">Cancel</button>
+                    <button type="submit" class="ask-btn" style="flex: 1; margin: 0;">Post Query</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCKqtJJpby6oXpI1wNfqpE5u9-HRwDZzmg",
+            authDomain: "nexus-e7a36.firebaseapp.com",
+            projectId: "nexus-e7a36",
+            storageBucket: "nexus-e7a36.firebasestorage.app",
+            messagingSenderId: "516259533933",
+            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentUser = null;
+        let userData = null;
+
+        const cursor = document.querySelector('.custom-cursor');
+        document.addEventListener('mousemove', e => gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1 }));
+        function initCursor() { document.querySelectorAll('a, button, .user-badge').forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+        }); }
+
+        auth.onAuthStateChanged(async user => {
+            if (user) {
+                currentUser = user;
+                const snap = await db.collection('users').doc(user.uid).get();
+                userData = snap.exists ? snap.data() : null;
+                if (userData && (userData.role === 'admin' || userData.role === 'friend')) {
+                    showUserBadge(user, userData.role);
+                    document.getElementById('ask-btn').classList.remove('hidden');
+                    loadDiscussions();
+                } else { auth.signOut(); }
+            } else { showLoginBtn(); loadDiscussions(); }
+        });
+
+        function showUserBadge(user, role) {
+            const loginLink = document.getElementById('login-link');
+            const userSection = document.getElementById('user-section');
+            loginLink.classList.add('hidden');
+            userSection.classList.remove('hidden');
+            const name = userData.name || user.displayName || user.email;
+            userSection.innerHTML = `
+                <div class="user-badge">
+                    <img src="${user.photoURL || 'https://via.placeholder.com/32'}" alt="">
+                    <div><div style="font-weight:600;">${name}</div><div style="font-size:0.7rem; color:var(--accent);">${role}</div></div>
+                </div>
+                <a href="#" onclick="auth.signOut()" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">Logout</a>
+            `;
+            initCursor();
+        }
+
+        function showLoginBtn() {
+            document.getElementById('login-link').classList.remove('hidden');
+            document.getElementById('user-section').classList.add('hidden');
+            document.getElementById('ask-btn').classList.add('hidden');
+        }
+
+        document.getElementById('login-link').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
+
+        function loadDiscussions() {
+            db.collection('discussions').orderBy('createdAt', 'desc').onSnapshot(snap => {
+                const grid = document.getElementById('discussion-grid');
+                grid.innerHTML = '';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const card = document.createElement('div');
+                    card.className = 'query-card';
+                    card.innerHTML = `
+                        <div class="query-header">
+                            <img src="${data.authorPhoto || 'https://via.placeholder.com/40'}" alt="">
+                            <div class="query-info">
+                                <h3>${data.title}</h3>
+                                <div class="query-meta">Asked by ${data.authorName} • ${data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Just now'}</div>
+                            </div>
+                        </div>
+                        <div class="query-body">${data.body}</div>
+                        <div class="replies-section" id="replies-${doc.id}">
+                            <!-- Replies load here -->
+                        </div>
+                        ${userData ? `
+                            <form class="reply-form" onsubmit="event.preventDefault(); postReply('${doc.id}', this['reply-text'].value); this.reset();">
+                                <input type="text" name="reply-text" class="reply-input" placeholder="Type your answer..." required>
+                                <button type="submit" class="send-reply-btn">➤</button>
+                            </form>
+                        ` : ''}
+                    `;
+                    grid.appendChild(card);
+                    loadReplies(doc.id);
+                });
+                initCursor();
+            });
+        }
+
+        function loadReplies(id) {
+            db.collection('discussions').doc(id).collection('replies').orderBy('createdAt', 'asc').onSnapshot(snap => {
+                const container = document.getElementById(`replies-${id}`);
+                container.innerHTML = '';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const reply = document.createElement('div');
+                    reply.className = 'reply';
+                    reply.innerHTML = `
+                        <img src="${data.authorPhoto || 'https://via.placeholder.com/30'}" alt="">
+                        <div class="reply-content">
+                            <div class="reply-author">${data.authorName}</div>
+                            <div>${data.text}</div>
+                        </div>
+                    `;
+                    container.appendChild(reply);
+                });
+            });
+        }
+
+        async function postReply(id, text) {
+            if (!userData) return;
+            await db.collection('discussions').doc(id).collection('replies').add({
+                text,
+                authorName: userData.name || currentUser.displayName || 'Anonymous',
+                authorPhoto: currentUser.photoURL || '',
+                authorId: currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Trigger Notification
+            await db.collection('notifications').add({
+                title: 'New Reply',
+                message: `${userData.name || 'Someone'} replied to a discussion.`,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        const askModal = document.getElementById('ask-modal');
+        document.getElementById('ask-btn').addEventListener('click', () => askModal.classList.add('active'));
+        document.getElementById('close-modal').addEventListener('click', () => askModal.classList.remove('active'));
+
+        document.getElementById('ask-form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const title = document.getElementById('ask-title').value;
+            const body = document.getElementById('ask-body').value;
+            await db.collection('discussions').add({
+                title, body,
+                authorName: userData.name || currentUser.displayName || 'Anonymous',
+                authorPhoto: currentUser.photoURL || '',
+                authorId: currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Trigger Notification
+            await db.collection('notifications').add({
+                title: 'New Discussion',
+                message: `${userData.name || 'Someone'} started a new topic: ${title}`,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            askModal.classList.remove('active');
+        });
+
+        // Notifications
+        function initNotifications() {
+            const badge = document.getElementById('notif-badge');
+            const list = document.getElementById('notif-list');
+            const panel = document.getElementById('notification-panel');
+            const trigger = document.getElementById('notifications-link');
+            const closeBtn = document.getElementById('close-notifs');
+
+            trigger.addEventListener('click', (e) => {
+                e.preventDefault();
+                panel.classList.toggle('active');
+                badge.style.display = 'none';
+            });
+
+            closeBtn.addEventListener('click', () => panel.classList.remove('active'));
+
+            db.collection('notifications').orderBy('createdAt', 'desc').limit(10).onSnapshot(snap => {
+                if (snap.empty) {
+                    list.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>';
+                    return;
+                }
+                if (!panel.classList.contains('active')) badge.style.display = 'block';
+                list.innerHTML = '';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const time = data.createdAt ? data.createdAt.toDate().toLocaleTimeString() : 'Just now';
+                    const item = document.createElement('div');
+                    item.className = 'notification-item';
+                    item.innerHTML = `<b>${data.title}</b><span>${data.message}</span><span class="notification-time">${time}</span>`;
+                    list.appendChild(item);
+                });
+            });
+        }
+        initNotifications();
+
+        window.postReply = postReply;
+    </script>
+</body>
+</html>

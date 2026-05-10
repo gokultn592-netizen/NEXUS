@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,9 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
 
     <!-- GSAP & Lenis -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -78,6 +81,7 @@
             mix-blend-mode: difference;
             transition: width 0.3s, height 0.3s, background-color 0.3s;
         }
+
         .custom-cursor.active {
             width: 60px;
             height: 60px;
@@ -96,6 +100,7 @@
             pointer-events: none;
             z-index: 10;
         }
+
         .blob {
             position: fixed;
             width: 80vw;
@@ -121,25 +126,33 @@
             z-index: 100;
             mix-blend-mode: difference;
         }
+
         .logo {
             font-size: 2vw;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
+
         .nav-links {
             display: flex;
             gap: 3vw;
             align-items: center;
         }
+
         .nav-links a {
             text-decoration: none;
             color: white;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 500;
             position: relative;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            height: 100%;
+            line-height: 1;
         }
+
         .nav-links a::after {
             content: '';
             position: absolute;
@@ -151,6 +164,7 @@
             transform: translateX(-100%);
             transition: transform 0.3s ease;
         }
+
         .nav-links a:hover::after {
             transform: translateX(0);
         }
@@ -165,22 +179,27 @@
             padding: 0.5rem 1rem;
             border-radius: 2rem;
             font-size: 0.9rem;
+            cursor: pointer;
         }
+
         .user-badge img {
             width: 32px;
             height: 32px;
             border-radius: 50%;
             object-fit: cover;
         }
+
         .user-badge .user-name {
             color: var(--text-main);
             font-weight: 500;
         }
+
         .user-badge .user-role {
             color: var(--accent);
             font-size: 0.75rem;
             text-transform: uppercase;
         }
+
         #user-section {
             display: flex;
             align-items: center;
@@ -197,14 +216,16 @@
             position: relative;
             z-index: 1;
         }
+
         .hero h1 {
             font-size: 8vw;
-            line-height: 0.9;
+            line-height: 1.1;
             font-weight: 800;
             letter-spacing: -0.04em;
             margin-bottom: 2rem;
             text-transform: uppercase;
         }
+
         .hero .accent-text {
             color: transparent;
             -webkit-text-stroke: 1px var(--text-main);
@@ -215,287 +236,390 @@
             padding: 4vw;
             position: relative;
             z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
         }
+
+        .post-notice-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 3rem;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 3rem;
+            transition: all 0.3s ease;
+            cursor: none;
+        }
+
+        .post-notice-btn:hover {
+            background: var(--accent-bright);
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 10px 20px rgba(157, 78, 221, 0.3);
+        }
+
+        .notice-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
         .notice-card {
             background: var(--panel-bg);
             border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 3rem;
-            margin-bottom: 2rem;
+            border-radius: 1.5rem;
+            padding: 2.5rem;
             position: relative;
             overflow: hidden;
             backdrop-filter: blur(10px);
-            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+
         .notice-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transform: translateY(-5px) scale(1.01);
+            border-color: var(--accent);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
+
+        .notice-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(157, 78, 221, 0.08), transparent 40%);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .notice-card:hover::before {
+            opacity: 1;
+        }
+
         .notice-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 1.5rem;
         }
+
         .notice-header h2 {
-            font-size: 2rem;
+            font-size: 1.8rem;
             color: var(--text-main);
+            max-width: 80%;
         }
+
+        .notice-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
+
         .notice-date {
             color: var(--accent);
-            font-weight: bold;
-            font-size: 0.9rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
         }
+
+        .notice-author {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
         .notice-content {
             font-size: 1.1rem;
             color: var(--text-muted);
             line-height: 1.6;
+            margin-bottom: 2rem;
+            white-space: pre-wrap;
         }
 
-        /* Auth modal */
+        .notice-actions {
+            display: flex;
+            gap: 1rem;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .notice-card:hover .notice-actions {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .action-btn.delete:hover {
+            background: #ef4444;
+            border-color: #ef4444;
+        }
+
+        /* Modal */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(15px);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
             z-index: 1000;
             display: flex;
             justify-content: center;
             align-items: center;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s ease;
+            transition: all 0.4s ease;
         }
+
         .modal-overlay.active {
             opacity: 1;
             pointer-events: all;
         }
+
         .modal {
             background: var(--bg-color);
-            padding: 4rem;
+            padding: 3rem;
             border-radius: 2rem;
             border: 1px solid var(--border);
             width: 90%;
-            max-width: 500px;
-            position: relative;
-            transform: translateY(50px);
-            transition: transform 0.3s ease;
+            max-width: 600px;
+            transform: translateY(30px) scale(0.95);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
         .modal-overlay.active .modal {
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
         }
+
         .modal h2 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-        .modal-subtitle {
-            text-align: center;
-            color: var(--text-muted);
+            font-size: 2rem;
             margin-bottom: 2rem;
+            text-align: center;
         }
-        .google-btn {
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .input-group input, .input-group textarea {
             width: 100%;
-            padding: 1.2rem;
-            background: white;
-            color: #444;
-            border: none;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 1rem;
             border-radius: 1rem;
             font-family: 'Syne', sans-serif;
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1rem;
+            border: none;
+            transition: all 0.3s ease;
             cursor: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            transition: transform 0.3s, box-shadow 0.3s;
         }
-        .google-btn:hover {
+
+        .modal-btn.primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .modal-btn.primary:hover {
+            background: var(--accent-bright);
             transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        .google-btn img {
-            width: 24px;
-            height: 24px;
-        }
-        .auth-status {
-            text-align: center;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-            display: none;
-        }
-        .auth-status.pending {
-            background: rgba(245, 158, 11, 0.1);
-            color: var(--warning);
-            border: 1px solid var(--warning);
-            display: block;
-        }
-        .auth-status.error {
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-            border: 1px solid #ef4444;
-            display: block;
-        }
-        .auth-info {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-top: 1.5rem;
         }
 
-        /* Theme toggle */
-        .switch {
-            font-size: 14px;
-            position: relative;
-            display: inline-block;
-            width: 3.5em;
-            height: 2em;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: var(--border);
-            transition: .4s;
-            border-radius: 30px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "☾";
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1em;
-            color: var(--bg-color);
-            height: 1.6em;
-            width: 1.6em;
-            border-radius: 20px;
-            left: 0.2em;
-            bottom: 0.2em;
-            background-color: var(--text-main);
-            transition: .4s;
-        }
-        input:checked + .slider {
-            background-color: var(--accent);
-        }
-        input:checked + .slider:before {
-            transform: translateX(1.5em);
-            content: "☀";
+        .modal-btn.secondary {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
         }
 
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 12vw; }
-            .notice-header h2 { font-size: 1.5rem; }
-            .custom-cursor { display: none; }
-            .logo { font-size: 4vw; }
+        .modal-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .hidden { display: none !important; }
+
+        .hidden { display: none !important; }
+
+        /* Notifications */
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -10px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: none;
+        }
+
+        .notification-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: var(--bg-color);
+            border-left: 1px solid var(--border);
+            z-index: 1001;
+            padding: 3rem 2rem;
+            transition: right 0.5s cubic-bezier(0.77, 0, 0.175, 1);
+            backdrop-filter: blur(20px);
+        }
+
+        .notification-panel.active { right: 0; }
+        .notification-item { padding: 1.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text-muted); }
+        .notification-item b { color: var(--text-main); display: block; margin-bottom: 0.2rem; }
+        .notification-time { font-size: 0.75rem; color: var(--accent); display: block; margin-top: 0.5rem; }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 12vw; }
+            .notice-header h2 { font-size: 1.4rem; }
+            .custom-cursor { display: none; }
+            .logo { font-size: 5vw; }
+        }
     </style>
 </head>
-<body>
 
+<body>
     <div class="noise"></div>
     <div class="blob"></div>
     <div class="custom-cursor"></div>
 
     <header>
         <div class="logo">
-            <a href="index.html" style="color: inherit; text-decoration: none;">Class Material Hub</a>
+            <a href="index.html" style="color: inherit; text-decoration: none;">Nexus</a>
         </div>
         <nav class="nav-links">
             <a href="index.html">Home</a>
             <a href="notice.html">Notice</a>
-            <a href="#" id="notifications-link">Notifications</a>
+            <a href="discussion.html">Discussion</a>
+            <a href="#" id="notifications-link" style="position: relative;">
+                Notifications
+                <span id="notif-badge" class="notification-badge"></span>
+            </a>
             <div id="user-section" class="hidden"></div>
             <a href="#" id="login-link">Login</a>
-            <label class="switch">
-                <input type="checkbox" id="theme-toggle">
-                <span class="slider"></span>
-            </label>
         </nav>
     </header>
+
+    <div id="notification-panel" class="notification-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem;">
+            <h2 style="font-family: 'Syne';">Updates</h2>
+            <button id="close-notifs" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.5rem;">×</button>
+        </div>
+        <div id="notif-list">
+            <p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>
+        </div>
+    </div>
 
     <section class="hero">
         <h1>Notice<br><span class="accent-text">Board.</span></h1>
         <p style="font-size: 1.2rem; max-width: 500px; color: var(--text-muted);">
-            Stay up to date with the latest class announcements and schedules.
+            Real-time announcements and class schedules for the Nexus community.
         </p>
     </section>
 
     <div class="content-wrapper">
-        <!-- Notice 1 -->
-        <div class="notice-card">
-            <div class="notice-header">
-                <h2>Mid-term Exam Scheduled</h2>
-                <span class="notice-date">May 5, 2026</span>
-            </div>
-            <p class="notice-content">
-                Please be informed that the mid-term exams for all science subjects will commence on May 15.
-                Make sure to I notice the file got cut off. Let me provide the complete `notice.html` with the full Google Auth system:
+        <button id="post-notice-btn" class="post-notice-btn hidden">
+            <span>+ Post New Notice</span>
+        </button>
 
-```html
-                review the calculus and physics materials uploaded recently.
-            </p>
-        </div>
-
-        <!-- Notice 2 -->
-        <div class="notice-card">
-            <div class="notice-header">
-                <h2>New Physics Lab Manual</h2>
-                <span class="notice-date">May 3, 2026</span>
+        <div id="notice-grid" class="notice-grid">
+            <!-- Notices loaded here -->
+            <div style="text-align: center; padding: 4rem; color: var(--text-muted);">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">⌛</div>
+                <p>Loading latest announcements...</p>
             </div>
-            <p class="notice-content">
-                The updated Physics Lab manual has been uploaded. All students must download the latest version
-                before the practical session next week.
-            </p>
-        </div>
-
-        <!-- Notice 3 -->
-        <div class="notice-card">
-            <div class="notice-header">
-                <h2>Community Notes Upload Drive</h2>
-                <span class="notice-date">May 1, 2026</span>
-            </div>
-            <p class="notice-content">
-                Help your peers by uploading your study notes. Top contributors will be featured on the main
-                dashboard next month!
-            </p>
         </div>
     </div>
 
-    <!-- Auth Modal — Google Sign-In Only -->
+    <!-- Post/Edit Notice Modal -->
+    <div class="modal-overlay" id="notice-modal">
+        <div class="modal">
+            <h2 id="modal-title">Post New Notice</h2>
+            <form id="notice-form">
+                <input type="hidden" id="notice-id">
+                <div class="input-group">
+                    <label>Title</label>
+                    <input type="text" id="notice-form-title" placeholder="e.g. Mid-term Exam Schedule" required>
+                </div>
+                <div class="input-group">
+                    <label>Content</label>
+                    <textarea id="notice-form-content" rows="6" placeholder="Write the announcement details here..." required></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn secondary" id="close-modal">Cancel</button>
+                    <button type="submit" class="modal-btn primary">Publish Notice</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
     <div class="modal-overlay" id="auth-modal">
         <div class="modal">
             <h2>Welcome</h2>
-            <p class="modal-subtitle">Sign in to access class materials</p>
-            <div class="auth-status" id="auth-status"></div>
-            <button class="google-btn" id="google-signin-btn">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+            <p style="text-align:center; color:var(--text-muted); margin-bottom:2rem;">Sign in with Google to access Nexus</p>
+            <button class="modal-btn primary" id="google-signin-btn" style="width:100%;">
                 Continue with Google
             </button>
-            <div class="auth-info">
-                <p>🔒 Secure authentication via Google</p>
-                <p>New users require admin approval before accessing materials</p>
-            </div>
         </div>
     </div>
 
     <script>
-        // ========================================
-        // FIREBASE INITIALIZATION
-        // ========================================
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyCKqtJJpby6oXpI1wNfqpE5u9-HRwDZzmg",
             authDomain: "nexus-e7a36.firebaseapp.com",
@@ -508,210 +632,260 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
         let currentUser = null;
-        let isAdmin = false;
+        let userData = null;
 
-        // ========================================
-        // CUSTOM CURSOR
-        // ========================================
+        // Custom Cursor
         const cursor = document.querySelector('.custom-cursor');
         document.addEventListener('mousemove', (e) => {
             gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1, ease: "power2.out" });
         });
-        document.querySelectorAll('a, button, .notice-card').forEach(el => {
-            el.addEventListener('mouseenter', () => cursor.classList.add('active'));
-            el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
-        });
 
-        // ========================================
-        // SMOOTH SCROLLING
-        // ========================================
-        const lenis = new Lenis({
-            duration: 1.2,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-            smooth: true
-        });
+        function initCursorHover() {
+            document.querySelectorAll('a, button, .notice-card, .user-badge').forEach(el => {
+                el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+                el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+            });
+        }
+
+        // Smooth Scroll
+        const lenis = new Lenis();
         function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
         requestAnimationFrame(raf);
 
-        // ========================================
-        // THEME TOGGLE
-        // ========================================
-        const themeToggle = document.getElementById('theme-toggle');
-        let currentTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        if (currentTheme === 'light') themeToggle.checked = true;
-        themeToggle.addEventListener('change', (e) => {
-            currentTheme = e.target.checked ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', currentTheme);
-            localStorage.setItem('theme', currentTheme);
-        });
-
-        // ========================================
-        // GOOGLE AUTHENTICATION SYSTEM
-        // ========================================
-        const loginLink = document.getElementById('login-link');
-        const userSection = document.getElementById('user-section');
-        const authModal = document.getElementById('auth-modal');
-        const googleSignInBtn = document.getElementById('google-signin-btn');
-        const authStatus = document.getElementById('auth-status');
-
-        // Auth state listener — the security guard
+        // Auth Listener
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // User signed in with Google
                 currentUser = user;
-                console.log('👤 Signed in:', user.email);
-                
-                // Check Firestore for approval status
-                const userData = await getUserData(user.uid);
-                
+                const docSnap = await db.collection('users').doc(user.uid).get();
+                userData = docSnap.exists ? docSnap.data() : null;
+
                 if (userData && (userData.role === 'admin' || userData.role === 'friend')) {
-                    // APPROVED USER — show their info
-                    isAdmin = userData.role === 'admin';
                     showUserBadge(user, userData.role);
-                    
+                    document.getElementById('post-notice-btn').classList.remove('hidden');
+                    loadNotices();
                 } else {
-                    // NEW OR PENDING USER
-                    if (!userData) {
-                        // First time — create pending record
-                        await createPendingUser(user);
-                    }
-                    
                     // Show pending message and logout
-                    showAuthStatus('pending', 'Your account is pending admin approval.');
-                    
-                    authModal.classList.add('active');
-                    alert('Login successful, but your account is marked as PENDING. An admin must approve your account in Firebase before you can view materials.');
-                    
+                    alert('Your account is marked as PENDING. An admin must approve your account.');
                     await auth.signOut();
                     currentUser = null;
                     showLoginButton();
                 }
-                
             } else {
-                // No user logged in
                 currentUser = null;
-                isAdmin = false;
+                userData = null;
                 showLoginButton();
+                loadNotices(); // Publicly viewable? Let's assume yes, but no editing.
             }
         });
 
-        // Get user data from Firestore
         async function getUserData(uid) {
-            try {
-                const docSnap = await db.collection('users').doc(uid).get();
-                return docSnap.exists ? docSnap.data() : null;
-            } catch (error) {
-                console.error('Error:', error);
-                return null;
-            }
+            const doc = await db.collection('users').doc(uid).get();
+            return doc.exists ? doc.data() : null;
         }
 
-        // Create pending user record
-        async function createPendingUser(user) {
-            try {
-                await db.collection('users').doc(user.uid).set({
-                    uid: user.uid,
-                    email: user.email,
-                    name: user.displayName || 'Unknown',
-                    photoURL: user.photoURL || '',
-                    role: 'pending',
-                    approved: false,
-                    provider: 'google',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log('⏳ Pending user created:', user.email);
-            } catch (error) {
-                console.error('Error creating user:', error);
-                alert('FATAL DATABASE ERROR: Could not create user profile in Firestore. Check your Firebase Security Rules. Error: ' + error.message);
-            }
-        }
-
-        // Show user badge in header
         function showUserBadge(user, role) {
+            const loginLink = document.getElementById('login-link');
+            const userSection = document.getElementById('user-section');
             loginLink.classList.add('hidden');
             userSection.classList.remove('hidden');
+            
+            const nameDisplay = userData && userData.name ? userData.name : (user.displayName || user.email);
+
             userSection.innerHTML = `
-                <div class="user-badge">
+                <div class="user-badge" id="user-badge-trigger" title="Click to change display name">
                     <img src="${user.photoURL || 'https://via.placeholder.com/32'}" alt="Profile">
                     <div>
-                        <div class="user-name">${user.displayName || user.email}</div>
+                        <div class="user-name">${nameDisplay}</div>
                         <div class="user-role">${role}</div>
                     </div>
                 </div>
-                <a href="#" id="logout-link" style="color: var(--text-muted); font-size: 0.9rem; text-decoration: none;" class="magnetic">Logout</a>
+                <a href="#" id="logout-link" style="color: var(--text-muted); font-size: 0.9rem; text-decoration: none;">Logout</a>
             `;
+            
             document.getElementById('logout-link').addEventListener('click', (e) => {
                 e.preventDefault();
                 auth.signOut();
             });
+
+            document.getElementById('user-badge-trigger').addEventListener('click', async () => {
+                const newName = prompt('Enter new display name:', nameDisplay);
+                if (newName && newName.trim() !== '' && newName !== nameDisplay) {
+                    if (confirm(`Change display name to "${newName.trim()}"?`)) {
+                        await db.collection('users').doc(user.uid).update({ name: newName.trim() });
+                        window.location.reload();
+                    }
+                }
+            });
+            initCursorHover();
         }
 
-        // Show login button
         function showLoginButton() {
-            loginLink.classList.remove('hidden');
-            userSection.classList.add('hidden');
-            userSection.innerHTML = '';
+            document.getElementById('login-link').classList.remove('hidden');
+            document.getElementById('user-section').classList.add('hidden');
+            document.getElementById('post-notice-btn').classList.add('hidden');
         }
 
-        // Show auth status in modal
-        function showAuthStatus(type, message) {
-            authStatus.className = 'auth-status ' + type;
-            authStatus.textContent = message;
-        }
-
-        // Login link click
-        loginLink.addEventListener('click', (e) => {
+        document.getElementById('login-link').addEventListener('click', (e) => {
             e.preventDefault();
-            authModal.classList.add('active');
+            document.getElementById('auth-modal').classList.add('active');
         });
 
-        // Close modal on outside click
-        authModal.addEventListener('click', (e) => {
-            if (e.target === authModal) {
-                authModal.classList.remove('active');
-                authStatus.className = 'auth-status';
-                authStatus.textContent = '';
+        document.getElementById('google-signin-btn').addEventListener('click', () => {
+            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+            document.getElementById('auth-modal').classList.remove('active');
+        });
+
+        // NOTICE LOGIC
+        function loadNotices() {
+            db.collection('notices').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+                const grid = document.getElementById('notice-grid');
+                grid.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    grid.innerHTML = '<div style="text-align: center; padding: 4rem; color: var(--text-muted);">No notices posted yet.</div>';
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const notice = doc.data();
+                    const date = notice.createdAt ? notice.createdAt.toDate().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Just now';
+                    
+                    const card = document.createElement('div');
+                    card.className = 'notice-card';
+                    card.innerHTML = `
+                        <div class="notice-header">
+                            <h2>${notice.title}</h2>
+                            <div class="notice-meta">
+                                <span class="notice-date">${date}</span>
+                                <span class="notice-author">by ${notice.authorName}</span>
+                            </div>
+                        </div>
+                        <p class="notice-content">${notice.content}</p>
+                        ${(userData && (userData.role === 'admin' || userData.uid === notice.authorId)) ? `
+                            <div class="notice-actions">
+                                <button class="action-btn" onclick="editNotice('${doc.id}', '${notice.title.replace(/'/g, "\\'")}', '${notice.content.replace(/'/g, "\\'")}')">Edit</button>
+                                <button class="action-btn delete" onclick="deleteNotice('${doc.id}')">Delete</button>
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    card.addEventListener('mousemove', (e) => {
+                        const rect = card.getBoundingClientRect();
+                        card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                        card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                    });
+                    
+                    grid.appendChild(card);
+                });
+                initCursorHover();
+            });
+        }
+
+        // Modal Logic
+        const noticeModal = document.getElementById('notice-modal');
+        const noticeForm = document.getElementById('notice-form');
+        
+        document.getElementById('post-notice-btn').addEventListener('click', () => {
+            document.getElementById('modal-title').textContent = 'Post New Notice';
+            noticeForm.reset();
+            document.getElementById('notice-id').value = '';
+            noticeModal.classList.add('active');
+        });
+
+        document.getElementById('close-modal').addEventListener('click', () => noticeModal.classList.remove('active'));
+
+        noticeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('notice-id').value;
+            const title = document.getElementById('notice-form-title').value;
+            const content = document.getElementById('notice-form-content').value;
+
+            if (!userData) return;
+
+            const noticeData = {
+                title,
+                content,
+                authorName: userData.name || currentUser.displayName || 'Anonymous',
+                authorId: currentUser.uid,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('notices').doc(id).update(noticeData);
+                } else {
+                    noticeData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('notices').add(noticeData);
+                    
+                    // Trigger Notification
+                    await db.collection('notifications').add({
+                        title: 'New Announcement',
+                        message: `${noticeData.authorName} posted: ${noticeData.title}`,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                noticeModal.classList.remove('active');
+            } catch (err) {
+                alert('Error saving notice: ' + err.message);
             }
         });
 
-        // Handle redirect result on page load
-        auth.getRedirectResult()
-            .then((result) => {
-                if (result && result.user) {
-                    console.log('✅ Redirect sign-in successful:', result.user.email);
-                }
-            })
-            .catch((error) => {
-                if (error.code === 'auth/redirect-cancelled-by-user') return;
-                console.error('❌ Redirect error:', error.code, error.message);
+        function editNotice(id, title, content) {
+            document.getElementById('modal-title').textContent = 'Edit Notice';
+            document.getElementById('notice-id').value = id;
+            document.getElementById('notice-form-title').value = title;
+            document.getElementById('notice-form-content').value = content;
+            noticeModal.classList.add('active');
+        }
+
+        async function deleteNotice(id) {
+            if (confirm('Delete this announcement permanently?')) {
+                await db.collection('notices').doc(id).delete();
+            }
+        }
+
+        window.editNotice = editNotice;
+        window.deleteNotice = deleteNotice;
+
+        // Notifications
+        function initNotifications() {
+            const badge = document.getElementById('notif-badge');
+            const list = document.getElementById('notif-list');
+            const panel = document.getElementById('notification-panel');
+            const trigger = document.getElementById('notifications-link');
+            const closeBtn = document.getElementById('close-notifs');
+
+            trigger.addEventListener('click', (e) => {
+                e.preventDefault();
+                panel.classList.toggle('active');
+                badge.style.display = 'none';
             });
 
-        // Google Sign-In button - synchronous popup
-        googleSignInBtn.addEventListener('click', () => {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            provider.addScope('email');
-            provider.addScope('profile');
+            closeBtn.addEventListener('click', () => panel.classList.remove('active'));
 
-            auth.signInWithPopup(provider)
-                .then((result) => {
-                    console.log('✅ Signed in:', result.user.email);
-                })
-                .catch((error) => {
-                    if (
-                        error.code === 'auth/popup-closed-by-user' ||
-                        error.code === 'auth/cancelled-popup-request'
-                    ) return;
-                    showAuthStatus('error', 'Sign-in failed: ' + error.message);
+            db.collection('notifications').orderBy('createdAt', 'desc').limit(10).onSnapshot(snap => {
+                if (snap.empty) {
+                    list.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>';
+                    return;
+                }
+                if (!panel.classList.contains('active')) badge.style.display = 'block';
+                list.innerHTML = '';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const time = data.createdAt ? data.createdAt.toDate().toLocaleTimeString() : 'Just now';
+                    const item = document.createElement('div');
+                    item.className = 'notification-item';
+                    item.innerHTML = `<b>${data.title}</b><span>${data.message}</span><span class="notification-time">${time}</span>`;
+                    list.appendChild(item);
                 });
-        });
+            });
+        }
+        initNotifications();
 
-        // Page load animations
+        // Animations
         gsap.from('.hero h1', { y: 100, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.2 });
         gsap.from('.hero p', { y: 50, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.4 });
-        gsap.from('.notice-card', { y: 50, opacity: 0, stagger: 0.15, duration: 1, ease: "power3.out", delay: 0.6 });
-
-        console.log('🚀 Notice page loaded with Google Auth');
     </script>
 </body>
+
 </html>

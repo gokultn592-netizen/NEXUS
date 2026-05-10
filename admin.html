@@ -333,7 +333,10 @@
 
     <header>
         <div class="logo">Admin Master Control</div>
-        <a href="index.html" class="magnetic-btn">Exit to App</a>
+        <div style="display: flex; gap: 1rem;">
+            <a href="discussion.html" class="magnetic-btn">Discussion</a>
+            <a href="index.html" class="magnetic-btn">Exit to App</a>
+        </div>
     </header>
 
     <div class="admin-container">
@@ -535,9 +538,15 @@
                 tbody.innerHTML = '';
                 snapshot.forEach(doc => {
                     const user = doc.data();
+                    // Account Name = manual Firestore name, Alias = Google name
+                    const accountName = user.name || 'N/A';
+                    const aliasName = user.googleName || '';
+                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td>${user.name || 'N/A'}</td>
+                        <td>
+                            <input type="text" value="${accountName}" onblur="adminUpdateUserName('${doc.id}', this.value)" style="width: 100%; background:transparent; border:none; color:var(--text-main); font-weight:600; font-size:1rem;">
+                        </td>
                         <td>${user.email}</td>
                         <td>
                             <select onchange="updateRole('${doc.id}', this.value)">
@@ -554,6 +563,27 @@
                 });
                 initCursorInteractions();
             });
+        }
+
+        async function adminUpdateUserName(uid, newName) {
+            if (newName.trim()) {
+                const userDoc = await db.collection('users').doc(uid).get();
+                const currentName = userDoc.exists ? userDoc.data().name : '';
+                
+                if (newName.trim() === currentName) return;
+
+                if (confirm(`Change user name to "${newName.trim()}"?`)) {
+                    try {
+                        await db.collection('users').doc(uid).update({ name: newName.trim() });
+                    } catch(e) {
+                        alert('Error updating name: ' + e.message);
+                        loadMembers();
+                    }
+                } else {
+                    // Revert the input by reloading the members list
+                    loadMembers();
+                }
+            }
         }
 
         async function updateRole(uid, newRole) {
@@ -665,7 +695,9 @@
                     tr.innerHTML = `
                         <td>${file.title}</td>
                         <td>${file.subject}</td>
-                        <td>${file.uploaderName}</td>
+                        <td style="font-size: 0.85rem;">
+                            ${file.uploaderName}
+                        </td>
                         <td>
                             <button class="magnetic-btn" onclick="openUpdateModal('${doc.id}', '${file.title.replace(/'/g, "\\'")}', '${file.subject}')">Update</button>
                             <button class="magnetic-btn btn-danger" onclick="deleteFile('${doc.id}', '${file.fileUrl}')">Delete</button>
