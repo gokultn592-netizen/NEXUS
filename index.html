@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Material Hub | Elevated</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Lenis for smooth scrolling -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js"></script>
+
+    <!-- ========================================
+         FIREBASE COMPAT SDK
+         ========================================
+         "Compat" = compatibility mode, uses older Firebase v8 syntax
+         but with v9+ features. Easier for beginners.
+         We load these as regular scripts (not modules).
+    -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+
+
+    <style>
+        :root {
+            --bg-color: #030005;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --accent: #9d4edd;
+            --accent-bright: #c77dff;
+            --panel-bg: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --cursor-color: #c77dff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f8f7f5;
+            --text-main: #18181b;
+            --text-muted: #71717a;
+            --accent: #7b2cbf;
+            --accent-bright: #5a189a;
+            --panel-bg: rgba(0, 0, 0, 0.03);
+            --border: rgba(0, 0, 0, 0.08);
+            --cursor-color: #7b2cbf;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none !important;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease;
+        }
+
+        h1, h2, h3, .logo {
+            font-family: 'Syne', sans-serif;
+        }
+
+        /* ========================================
+           CUSTOM CURSOR
+           ======================================== */
+        .custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--cursor-color);
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: difference;
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
+        }
+        .custom-cursor.active {
+            width: 60px;
+            height: 60px;
+            background-color: transparent;
+            border: 1px solid var(--cursor-color);
+        }
+
+        /* Background effects */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E');
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .blob {
+            position: fixed;
+            width: 80vw;
+            height: 80vw;
+            background: radial-gradient(circle, rgba(157,78,221,0.15) 0%, transparent 60%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            top: -40%;
+            left: -20%;
+            filter: blur(80px);
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 4vw;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            mix-blend-mode: difference;
+        }
+        .logo {
+            font-size: 2vw;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .nav-links {
+            display: flex;
+            gap: 3vw;
+            align-items: center;
+        }
+        .nav-links a {
+            text-decoration: none;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: white;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        .nav-links a:hover::after {
+            transform: translateX(0);
+        }
+
+        /* Theme toggle switch */
+        .switch {
+            font-size: 14px;
+            position: relative;
+            display: inline-block;
+            width: 3.5em;
+            height: 2em;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            transition: .4s;
+            border-radius: 30px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "☾";
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1em;
+            color: var(--bg-color);
+            height: 1.6em;
+            width: 1.6em;
+            border-radius: 20px;
+            left: 0.2em;
+            bottom: 0.2em;
+            background-color: var(--text-main);
+            transition: .4s;
+        }
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+        input:checked + .slider:before {
+            transform: translateX(1.5em);
+            content: "☀";
+        }
+
+        /* Hero section */
+        .hero {
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0 4vw;
+            position: relative;
+            z-index: 1;
+        }
+        .hero h1 {
+            font-size: 8vw;
+            line-height: 0.9;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+        }
+        .hero .accent-text {
+            color: transparent;
+            -webkit-text-stroke: 1px var(--text-main);
+        }
+
+        /* Marquee notice board */
+        .marquee-container {
+            width: 100%;
+            overflow: hidden;
+            background: var(--accent);
+            color: #000;
+            padding: 1rem 0;
+            transform: rotate(-2deg) scale(1.05);
+            position: relative;
+            z-index: 2;
+        }
+        .marquee {
+            white-space: nowrap;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            display: inline-block;
+        }
+        .marquee span {
+            padding: 0 2rem;
+        }
+
+        /* Main content layout */
+        .content-wrapper {
+            display: flex;
+            padding: 8vw 4vw;
+            gap: 6vw;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 20vw;
+            position: sticky;
+            top: 20vh;
+            height: max-content;
+        }
+        .sidebar h2 {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+        }
+        .subject-item {
+            font-family: 'Syne', sans-serif;
+            font-size: 2.5vw;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            transition: color 0.3s, transform 0.3s;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            cursor: none;
+        }
+        .subject-item.active,
+        .subject-item:hover {
+            color: var(--text-main);
+            transform: translateX(20px);
+        }
+
+        /* Files grid */
+        .main-panel {
+            flex: 1;
+        }
+        .files-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 3rem;
+        }
+        .file-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2.5rem 2rem;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+            z-index: 1;
+        }
+        .file-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 1rem;
+            padding: 1px; /* Border thickness */
+            background: linear-gradient(135deg, var(--accent), transparent, var(--accent-bright));
+            -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .file-card:hover {
+            transform: scale(1.03) translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(157, 78, 221, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .file-card:hover::before {
+            opacity: 1;
+        }
+        .file-icon {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            z-index: 3;
+        }
+        .file-card:hover .file-icon {
+            transform: scale(1.2) rotate(10deg);
+        }
+        .file-name {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 3;
+        }
+        .file-meta {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 3;
+        }
+
+        /* Buttons */
+        .magnetic-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem 2rem;
+            border-radius: 2rem;
+            background: transparent;
+            color: var(--text-main);
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.3s, border-color 0.3s;
+            z-index: 1;
+        }
+        .magnetic-btn::after {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: -100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease-in-out;
+            z-index: -1;
+        }
+        .magnetic-btn:hover::after {
+            left: 100%;
+        }
+        .magnetic-btn:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(157, 78, 221, 0.4);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            box-shadow: inset 0 0 0 0 var(--accent);
+            transition: color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .btn-outline:hover {
+            box-shadow: inset 200px 0 0 0 var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 1rem;
+            position: relative;
+            z-index: 3;
+        }
+        .file-actions .magnetic-btn {
+            padding: 0.8rem 1.5rem;
+            font-size: 0.8rem;
+            flex: 1;
+        }
+
+        /* Upload FAB */
+        .upload-fab {
+            position: fixed;
+            bottom: 3rem;
+            right: 3rem;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: transparent;
+            color: #fff;
+            border: none;
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 90;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 0 20px rgba(157, 78, 221, 0.5);
+            overflow: hidden;
+        }
+        .upload-fab::before {
+            content: "";
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            background: conic-gradient(transparent, transparent, transparent, var(--accent-bright));
+            animation: rotate 2s linear infinite;
+            z-index: -1;
+        }
+        .upload-fab::after {
+            content: "+";
+            position: absolute;
+            inset: 3px;
+            background: var(--bg-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+        @keyframes rotate {
+            100% { transform: rotate(360deg); }
+        }
+        .upload-fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px var(--accent-bright);
+        }
+
+        /* ========================================
+           AUTH MODAL — GOOGLE ONLY
+           ======================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(15px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal {
+            background: var(--bg-color);
+            padding: 4rem;
+            border-radius: 2rem;
+            border: 1px solid var(--border);
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+            transform: translateY(50px);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .modal-subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            font-size: 1rem;
+        }
+
+        /* Google Sign-In Button (Prominent) */
+        .google-btn {
+            width: 100%;
+            padding: 1.2rem;
+            background: white;
+            color: #444;
+            border: none;
+            border-radius: 1rem;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-bottom: 1.5rem;
+        }
+        .google-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .google-btn img {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Status messages */
+        .auth-status {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .auth-status.pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+            display: block;
+        }
+        .auth-status.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid var(--error);
+            display: block;
+        }
+        .auth-status.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+            display: block;
+        }
+
+        .auth-info {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 1.5rem;
+            line-height: 1.5;
+        }
+
+        /* Upload modal */
+        #upload-modal .modal {
+            padding: 3rem;
+        }
+        #upload-modal h2 {
+            font-size: 2rem;
+            margin-bottom: 2rem;
+        }
+        .input-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1.2rem 1rem;
+            font-size: 1.2rem;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            font-family: 'Inter', sans-serif;
+        }
+        .input-group input:focus,
+        .input-group select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(157, 78, 221, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        select option {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+        }
+        .input-group label {
+            position: absolute;
+            left: 1rem;
+            top: 1.2rem;
+            color: var(--text-muted);
+            font-family: 'Syne', sans-serif;
+            font-weight: 600;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            background: var(--bg-color);
+            padding: 0 0.4rem;
+            border-radius: 0.2rem;
+        }
+        .input-group input:focus ~ label,
+        .input-group input:valid ~ label,
+        .input-group select:focus ~ label,
+        .input-group select:valid ~ label {
+            top: -0.6rem;
+            left: 0.8rem;
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+        .submit-btn {
+            width: 100%;
+            margin-top: 2rem;
+            padding: 1.2rem;
+            font-size: 1.2rem;
+        }
+
+        /* User badge in header */
+        #user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+        }
+        .user-badge img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .user-badge .user-name {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+        .user-badge .user-role {
+            color: var(--accent);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Mouse glow effect on cards */
+        .file-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(400px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.08), transparent 60%);
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .file-card:hover::after {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .content-wrapper {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                position: static;
+                margin-bottom: 3rem;
+            }
+            .hero h1 {
+                font-size: 12vw;
+            }
+            .subject-item {
+                font-size: 8vw;
+            }
+            .custom-cursor {
+                display: none;
+            }
+            .logo {
+                font-size: 4vw;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background effects -->
+    <div class="noise"></div>
+    <div class="blob"></div>
+    <div class="custom-cursor"></div>
+
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <a href="index.html" style="color: inherit; text-decoration: none;" class="magnetic">
+                Class Material Hub
+            </a>
+        </div>
+        <nav class="nav-links">
+            <a href="notice.html" class="magnetic">Notice</a>
+            <a href="#" class="magnetic" id="notifications-link">Notifications</a>
+            <!-- User info shows here when logged in -->
+            <div id="user-section" class="hidden">
+                <!-- Populated by JavaScript -->
+            </div>
+            <!-- Login button shows when logged out -->
+            <a href="#" id="login-link" class="magnetic">Login</a>
+            <!-- Theme toggle -->
+            <label class="switch magnetic">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider"></span>
+            </label>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <h1>Discover.<br><span class="accent-text">Learn.</span><br>Grow.</h1>
+        <p style="font-size: 1.2rem; max-width: 500px; color: var(--text-muted);">
+            A premium, immersive experience to browse, study, and share class materials without the friction.
+        </p>
+    </section>
+
+    <!-- Marquee Notice Board -->
+    <a href="notice.html" style="text-decoration: none; color: inherit; cursor: none;">
+        <div class="marquee-container">
+            <div class="marquee" id="marquee">
+                <span>📢 May 5: Mid-term exam scheduled for May 15.</span>
+                <span>✦</span>
+                <span>📢 May 3: New Physics lab manual available.</span>
+                <span>✦</span>
+                <span>📢 Upload your notes to help the community!</span>
+                <span>✦</span>
+                <span>📢 May 5: Mid-term exam scheduled for May 15.</span>
+                <span>✦</span>
+                <span>📢 May 3: New Physics lab manual available.</span>
+                <span>✦</span>
+                <span>📢 Upload your notes to help the community!</span>
+                <span>✦</span>
+            </div>
+        </div>
+    </a>
+
+    <!-- Main Content -->
+    <div class="content-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <h2>Subjects</h2>
+            <div class="subject-list" id="subject-list">
+                <a class="subject-item active magnetic" data-subject="all">All Materials</a>
+                <!-- Subjects loaded dynamically -->
+                <div id="dynamic-subjects-container"></div>
+            </div>
+        </aside>
+
+        <!-- Main Panel -->
+        <main class="main-panel">
+            <div class="files-grid" id="files-grid">
+                <!-- Files loaded dynamically from Firestore -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Upload FAB -->
+    <button class="upload-fab magnetic hidden" id="upload-fab">
+        +
+    </button>
+
+    <!-- ========================================
+         AUTH MODAL — GOOGLE SIGN-IN ONLY
+         ======================================== -->
+    <div class="modal-overlay" id="auth-modal">
+        <div class="modal">
+            <h2>Welcome</h2>
+            <p class="modal-subtitle">Sign in to access class materials</p>
+            
+            <!-- Status message area (hidden by default) -->
+            <div class="auth-status" id="auth-status"></div>
+            
+            <!-- Google Sign-In Button -->
+            <button class="google-btn magnetic" id="google-signin-btn">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                Continue with Google
+            </button>
+            
+            <div class="auth-info">
+                <p>🔒 Secure authentication via Google</p>
+                <p>New users require admin approval before accessing materials</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-overlay" id="upload-modal">
+        <div class="modal">
+            <h2>Upload Material</h2>
+            <form id="upload-form">
+                <div class="input-group">
+                    <input type="text" id="upload-title" required>
+                    <label>Document Title</label>
+                </div>
+                <div class="input-group">
+                    <select id="upload-subject" required>
+                        <option value="" disabled selected>Select Subject</option>
+                        <!-- Subjects loaded dynamically -->
+                    </select>
+                </div>
+                <div class="input-group">
+                    <input type="file" id="upload-file" accept=".pdf,.doc,.docx,.ppt,.pptx" required>
+                </div>
+                <button type="submit" class="magnetic-btn submit-btn">Upload</button>
+                <div style="text-align: center; margin-top: 1rem; display: none;" id="upload-progress">
+                    <span style="color: var(--accent);">Uploading...</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================
+         JAVASCRIPT — ALL AUTH LOGIC WITH COMMENTS
+         ======================================== -->
+    <script>
+        // ========================================
+        // SECTION 1: FIREBASE INITIALIZATION
+        // ========================================
+        // Initialize Firebase with your project config
+        // This connects your website to Firebase services
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCKqtJJpby6oXpI1wNfqpE5u9-HRwDZzmg",
+            authDomain: "nexus-e7a36.firebaseapp.com",
+            projectId: "nexus-e7a36",
+            storageBucket: "nexus-e7a36.firebasestorage.app",
+            messagingSenderId: "516259533933",
+            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
+        };
+        
+        // Initialize Firebase app (the root connection)
+        firebase.initializeApp(firebaseConfig);
+        
+        // Get references to Firebase services
+        const auth = firebase.auth();           // Authentication service
+        const db = firebase.firestore();        // Database service
+        
+        // Global state variable to track current user
+        let currentUser = null;
+        // Global state to track if current user is admin
+        let isAdmin = false;
+
+        // ========================================
+        // SECTION 2: SMOOTH SCROLLING (LENIS)
+        // ========================================
+        // Lenis provides buttery smooth scrolling
+        
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smooth: true
+        });
+        
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // ========================================
+        // SECTION 3: CUSTOM CURSOR
+        // ========================================
+        // Creates a custom cursor that follows mouse movement
+        
+        const cursor = document.querySelector('.custom-cursor');
+        
+        // Listen for mouse movement across entire page
+        document.addEventListener('mousemove', (e) => {
+            // e.clientX/Y = mouse position in viewport
+            // gsap.to = animate the cursor to follow with slight delay
+            gsap.to(cursor, {
+                x: e.clientX,
+                y: e.clientY,
+                duration: 0.1,
+                ease: "power2.out"
+            });
+        });
+
+        // Add hover effect: cursor grows when over interactive elements
+        const interactives = document.querySelectorAll('a, button, .file-card, .magnetic-btn');
+        interactives.forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+        });
+
+        // ========================================
+        // SECTION 4: MAGNETIC BUTTONS
+        // ========================================
+        // Buttons that "stick" to cursor when hovered
+        
+        function initMagneticButtons() {
+            const magnetics = document.querySelectorAll('.magnetic, .magnetic-btn');
+            magnetics.forEach(btn => {
+                btn.addEventListener('mousemove', (e) => {
+                    const rect = btn.getBoundingClientRect();
+                    const h = rect.width / 2;
+                    const v = rect.height / 2;
+                    const x = e.clientX - rect.left - h;
+                    const y = e.clientY - rect.top - v;
+                    
+                    gsap.to(btn, {
+                        x: x * 0.4,
+                        y: y * 0.4,
+                        duration: 0.4,
+                        ease: "power3.out"
+                    });
+                });
+                btn.addEventListener('mouseleave', () => {
+                    gsap.to(btn, { 
+                        x: 0, 
+                        y: 0, 
+                        duration: 0.7, 
+                        ease: "elastic.out(1, 0.3)" 
+                    });
+                });
+            });
+        }
+        initMagneticButtons();
+
+        // ========================================
+        // SECTION 5: MARQUEE ANIMATION
+        // ========================================
+        // Infinite scrolling text animation
+        
+        gsap.to('.marquee', {
+            xPercent: -50,      // Move left by 50% (half the duplicated content)
+            ease: "none",       // Linear movement
+            duration: 10,       // 10 seconds per loop
+            repeat: -1          // Infinite repeat
+        });
+
+        // ========================================
+        // SECTION 6: PAGE LOAD ANIMATIONS
+        // ========================================
+        // Staggered entrance animations
+        
+        gsap.from('.hero h1', {
+            y: 100, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.2
+        });
+        gsap.from('.hero p', {
+            y: 50, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.4
+        });
+        gsap.from('.marquee-container', {
+            rotate: 0, scale: 1, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.6
+        });
+        gsap.from('.subject-item', {
+            x: -50, opacity: 0, stagger: 0.1, duration: 1, ease: "power3.out", delay: 0.8
+        });
+
+        // ========================================
+        // SECTION 7: THEME TOGGLE
+        // ========================================
+        
+        const themeToggle = document.getElementById('theme-toggle');
+        let currentTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        if (currentTheme === 'light') themeToggle.checked = true;
+        
+        themeToggle.addEventListener('change', (e) => {
+            currentTheme = e.target.checked ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            localStorage.setItem('theme', currentTheme);
+        });
+
+        // ========================================
+        // SECTION 8: AUTHENTICATION LOGIC
+        // ========================================
+        // THE HEART OF THE SYSTEM — Google Auth with Admin Approval
+        
+        // DOM elements for auth
+        const loginLink = document.getElementById('login-link');
+        const userSection = document.getElementById('user-section');
+        const authModal = document.getElementById('auth-modal');
+        const modalInner = authModal.querySelector('.modal');
+        const googleSignInBtn = document.getElementById('google-signin-btn');
+        const authStatus = document.getElementById('auth-status');
+        const uploadFab = document.getElementById('upload-fab');
+
+        // ========================================
+        // AUTH STATE LISTENER (THE GUARD)
+        // ========================================
+        // onAuthStateChanged = Firebase's security guard
+        // It runs automatically whenever someone logs in or out
+        // This is the SINGLE SOURCE OF TRUTH for auth state
+        
+        auth.onAuthStateChanged(async (user) => {
+            // "user" = Firebase user object (null if nobody is logged in)
+            
+            if (user) {
+                // ==================================================
+                // SOMEONE IS LOGGED IN (via Google)
+                // ==================================================
+                
+                currentUser = user;
+                console.log('👤 User logged in:', user.email);
+                
+                // Check if this user is approved in Firestore
+                // We MUST check Firestore because Firebase Auth doesn't know about our approval system
+                const userData = await getUserData(user.uid);
+                
+                if (userData && userData.role === 'admin') {
+                    // ==================================================
+                    // ADMIN USER — Full access
+                    // ==================================================
+                    isAdmin = true;
+                    console.log('👑 Admin access granted');
+                    
+                    // Show admin UI
+                    showUserBadge(user, 'admin');
+                    showUploadButton();
+                    loadSubjects();
+                    loadFiles();
+                    
+                } else if (userData && userData.role === 'friend') {
+                    // ==================================================
+                    // APPROVED FRIEND — Full access
+                    // ==================================================
+                    isAdmin = false;
+                    console.log('👤 Friend access granted');
+                    
+                    // Show friend UI
+                    showUserBadge(user, 'friend');
+                    showUploadButton();
+                    loadSubjects();
+                    loadFiles();
+                    
+                } else {
+                    // ==================================================
+                    // NEW OR PENDING USER — No access yet
+                    // ==================================================
+                    // This happens when:
+                    // 1. First time signing in with Google
+                    // 2. Admin hasn't approved them yet
+                    
+                    console.log('⏳ User pending approval');
+                    
+                    // Create pending record in Firestore (if not exists)
+                    if (!userData) {
+                        try {
+                            await createPendingUser(user);
+                        } catch (err) {
+                            console.error('Failed to create pending user:', err);
+                        }
+                    }
+                    
+                    // Keep them logged in but show the pending UI
+                    showPendingState(user);
+                }
+                
+            } else {
+                // ==================================================
+                // NO ONE IS LOGGED IN
+                // ==================================================
+                
+                currentUser = null;
+                isAdmin = false;
+                console.log('🔒 No user logged in');
+                
+                // Show login button
+                showLoginButton();
+                showLockedState();
+            }
+        });
+
+        // ========================================
+        // GET USER DATA FROM FIRESTORE
+        // ========================================
+        // Looks up user in database by their Firebase UID
+        
+        async function getUserData(uid) {
+            try {
+                // db.collection('users') = the "users" table/collection
+                // .doc(uid) = specific row identified by user's unique ID
+                const docRef = db.collection('users').doc(uid);
+                const docSnap = await docRef.get();
+                // .get() = read operation (returns a "snapshot")
+                
+                if (docSnap.exists) {
+                    // User found in database — return their data
+                    return docSnap.data();
+                    // .data() = converts Firestore document to plain JavaScript object
+                } else {
+                    // User not found — they're new
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error getting user data:', error);
+                return null;
+            }
+        }
+
+        // ========================================
+        // CREATE PENDING USER RECORD
+        // ========================================
+        // Called when someone signs in with Google for the first time
+        // Creates their profile with "pending" status
+        
+        async function createPendingUser(user) {
+            try {
+                // Prepare user data object
+                const userData = {
+                    uid: user.uid,                          // Firebase unique ID
+                    email: user.email,                       // Google email
+                    name: user.displayName || 'Unknown',     // Google display name
+                    photoURL: user.photoURL || '',           // Google profile photo
+                    role: 'pending',                         // ⏳ WAITING FOR APPROVAL
+                    approved: false,                         // Not approved yet
+                    provider: 'google',                      // Signed in via Google
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    // serverTimestamp() = Firebase sets the time (prevents clock cheating)
+                };
+                
+                // Save to Firestore
+                // .doc(user.uid) = use UID as document ID (easy lookup later)
+                // .set(userData) = create the document
+                await db.collection('users').doc(user.uid).set(userData);
+                
+                console.log('✅ Pending user created:', user.email);
+                
+            } catch (error) {
+                console.error('Error creating pending user:', error);
+                alert('FATAL DATABASE ERROR: Could not create user profile in Firestore. Check your Firebase Security Rules. Error: ' + error.message);
+            }
+        }
+
+        // ========================================
+        // UI HELPER FUNCTIONS
+        // ========================================
+        
+        // Show user badge in header (when logged in)
+        function showUserBadge(user, role) {
+            // Hide login link
+            loginLink.classList.add('hidden');
+            
+            // Show user section
+            userSection.classList.remove('hidden');
+            
+            let adminPortalBtn = '';
+            if (role === 'admin') {
+                adminPortalBtn = `<a href="#" id="admin-portal-link" class="magnetic" style="color: var(--warning); font-size: 0.9rem; margin-right: 1rem; text-decoration: none; font-weight: 600; text-transform: uppercase;">Admin Portal</a>`;
+            }
+
+            userSection.innerHTML = `
+                ${adminPortalBtn}
+                <div class="user-badge magnetic">
+                    <img src="${user.photoURL || 'https://via.placeholder.com/32'}" alt="Profile">
+                    <div>
+                        <div class="user-name">${user.displayName || user.email}</div>
+                        <div class="user-role">${role}</div>
+                    </div>
+                </div>
+                <a href="#" id="logout-link" class="magnetic" style="color: var(--text-muted);">Logout</a>
+            `;
+            
+            // Add logout listener
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                auth.signOut();
+            });
+
+            // Add Admin Portal listener
+            const adminLink = document.getElementById('admin-portal-link');
+            if (adminLink) {
+                adminLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const password = prompt('Enter Master Password to access Admin Portal:');
+                    if (password === 'NEXUSEM50') {
+                        // Store short-lived session token in sessionStorage
+                        sessionStorage.setItem('admin_access', 'granted');
+                        window.location.href = 'admin.html';
+                    } else if (password !== null) {
+                        alert('Access Denied. Incorrect password.');
+                    }
+                });
+            }
+            
+            // Re-init magnetic buttons for new elements
+            initMagneticButtons();
+        }
+
+        // Show login button (when logged out)
+        function showLoginButton() {
+            loginLink.classList.remove('hidden');
+            userSection.classList.add('hidden');
+            userSection.innerHTML = '';
+        }
+
+        // Show upload button (for approved users)
+        function showUploadButton() {
+            uploadFab.classList.remove('hidden');
+        }
+
+        // Hide upload button (for logged out/pending users)
+        function hideUploadButton() {
+            uploadFab.classList.add('hidden');
+        }
+
+        // Show auth status message in modal
+        function showAuthStatus(type, message) {
+            authStatus.className = 'auth-status ' + type;
+            authStatus.textContent = message;
+        }
+
+        // Clear auth status
+        function clearAuthStatus() {
+            authStatus.className = 'auth-status';
+            authStatus.textContent = '';
+        }
+
+        // Show locked state (no access)
+        function showLockedState() {
+            hideUploadButton();
+            
+            // Show "please login" message in files grid
+            const filesGrid = document.getElementById('files-grid');
+            filesGrid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">🔒</div>
+                    <h3 style="font-family: 'Syne', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-main);">
+                        Access Restricted
+                    </h3>
+                    <p>Please sign in with Google to view class materials.</p>
+                    <p style="margin-top: 0.5rem; font-size: 0.9rem;">New accounts require admin approval.</p>
+                </div>
+            `;
+        }
+
+        // Show pending state (waiting for approval)
+        function showPendingState(user) {
+            hideUploadButton();
+            
+            // Close auth modal if open
+            if (authModal.classList.contains('active')) {
+                gsap.to(modalInner, {
+                    y: 20, 
+                    opacity: 0, 
+                    duration: 0.3, 
+                    ease: "power2.in",
+                    onComplete: () => {
+                        authModal.classList.remove('active');
+                        clearAuthStatus();
+                    }
+                });
+            }
+            
+            // Show badge in header but with "Pending" role
+            showUserBadge(user, 'Pending Approval');
+            
+            // Show "pending approval" message in files grid
+            const filesGrid = document.getElementById('files-grid');
+            filesGrid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">⏳</div>
+                    <h3 style="font-family: 'Syne', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; color: var(--warning);">
+                        Waiting for Admin Approval
+                    </h3>
+                    <p>Your account has been created, but an admin needs to grant you access.</p>
+                    <p style="margin-top: 0.5rem; font-size: 0.9rem;">Please check back later.</p>
+                </div>
+            `;
+        }
+
+        // ========================================
+        // LOGIN LINK CLICK HANDLER
+        // ========================================
+        
+        loginLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Show auth modal
+            authModal.classList.add('active');
+            // Animate modal entrance
+            gsap.fromTo(modalInner, 
+                { y: 50, opacity: 0 }, 
+                { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.5)" }
+            );
+        });
+
+        // ========================================
+        // CLOSE MODAL WHEN CLICKING OUTSIDE
+        // ========================================
+        
+        authModal.addEventListener('click', (e) => {
+            // e.target = element actually clicked
+            // If clicked on overlay (not modal content), close it
+            if (e.target === authModal) {
+                gsap.to(modalInner, {
+                    y: 20, 
+                    opacity: 0, 
+                    duration: 0.3, 
+                    ease: "power2.in",
+                    onComplete: () => {
+                        authModal.classList.remove('active');
+                        clearAuthStatus();
+                    }
+                });
+            }
+        });
+
+        // ========================================
+        // GOOGLE SIGN-IN BUTTON HANDLER
+        // ========================================
+        // This is the ONLY way to authenticate — no email/password
+        
+        // ========================================
+        // GOOGLE SIGN-IN BUTTON HANDLER
+        // ========================================
+
+        googleSignInBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.addScope('email');
+            provider.addScope('profile');
+
+            // Popup called SYNCHRONOUSLY inside click handler
+            // No async/await before this = browser never blocks it
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    console.log('✅ Signed in:', result.user.email);
+                    // onAuthStateChanged handles UI
+                })
+                .catch((error) => {
+                    if (
+                        error.code === 'auth/popup-closed-by-user' ||
+                        error.code === 'auth/cancelled-popup-request'
+                    ) return;
+                    console.error('❌ Sign-in error:', error);
+                    showAuthStatus('error', 'Sign-in failed: ' + error.message);
+                });
+        });
+
+        // ========================================
+        // SECTION 9: FILE MANAGEMENT
+        // ========================================
+        
+        const filesGrid = document.getElementById('files-grid');
+        let currentSubjectFilter = 'all';
+        let filesListener = null;  // Store Firestore listener to unsubscribe later
+
+        // ========================================
+        // LOAD FILES FROM FIRESTORE (REAL-TIME)
+        // ========================================
+        // onSnapshot = live listener that auto-updates when data changes
+        
+        function loadFiles() {
+            // If already listening, stop old listener (prevents duplicates)
+            if (filesListener) {
+                filesListener();
+            }
+            
+            // Build query based on subject filter
+            let query = db.collection('materials').orderBy('createdAt', 'desc');
+            
+            if (currentSubjectFilter !== 'all') {
+                query = db.collection('materials')
+                    .where('subject', '==', currentSubjectFilter)
+                    .orderBy('createdAt', 'desc');
+            }
+            
+            // Start real-time listener
+            filesListener = query.onSnapshot((snapshot) => {
+                // snapshot = current state of the collection
+                // Automatically fires when documents are added/updated/deleted
+                
+                const files = [];
+                snapshot.forEach((doc) => {
+                    // doc = single document
+                    // doc.id = Firestore auto-generated ID
+                    // doc.data() = document fields as JavaScript object
+                    files.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                renderFiles(files);
+                
+            }, (error) => {
+                console.error('Error loading files:', error);
+                filesGrid.innerHTML = '<p style="color: var(--error); text-align: center;">Error loading materials</p>';
+            });
+        }
+
+        // ========================================
+        // RENDER FILES TO PAGE
+        // ========================================
+        
+        function renderFiles(files) {
+            filesGrid.innerHTML = '';
+            
+            if (files.length === 0) {
+                filesGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-muted);">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+                        <p>No materials found.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            files.forEach((file, index) => {
+                // Determine icon based on file type
+                let icon = '📄';
+                if (file.fileType === 'pdf') icon = '📕';
+                else if (file.fileType === 'pptx' || file.fileType === 'ppt') icon = '📊';
+                else if (file.fileType === 'docx' || file.fileType === 'doc') icon = '📘';
+                
+                // Format date
+                const date = file.createdAt 
+                    ? new Date(file.createdAt.toDate()).toLocaleDateString() 
+                    : 'Recently';
+                
+                // Create card element
+                const card = document.createElement('div');
+                card.className = 'file-card';
+                card.innerHTML = `
+                    <div class="file-icon">${icon}</div>
+                    <h3 class="file-name">${escapeHtml(file.title)}</h3>
+                    <p class="file-meta">${file.subject} • ${escapeHtml(file.uploaderName)} • ${date}</p>
+                    <div class="file-actions">
+                        <button class="magnetic-btn" onclick="viewFile('${file.fileUrl}')">View</button>
+                        <button class="magnetic-btn btn-outline" onclick="downloadFile('${file.fileUrl}', '${file.title}')">Download</button>
+                    </div>
+                `;
+                
+                filesGrid.appendChild(card);
+                
+                // Animate entrance
+                gsap.from(card, {
+                    y: 30,
+                    opacity: 0,
+                    duration: 0.6,
+                    delay: index * 0.1,
+                    ease: "power3.out"
+                });
+            });
+            
+            // Re-init magnetic buttons for new elements
+            initMagneticButtons();
+            
+            // Add mouse tracking for glow effect
+            initCardGlow();
+        }
+
+        // ========================================
+        // SUBJECT FILTERING AND LOADING
+        // ========================================
+        
+        let subjectsListener = null;
+
+        function loadSubjects() {
+            if (subjectsListener) {
+                subjectsListener();
+            }
+
+            subjectsListener = db.collection('subjects').orderBy('name').onSnapshot((snapshot) => {
+                const dynamicContainer = document.getElementById('dynamic-subjects-container');
+                const uploadSelect = document.getElementById('upload-subject');
+                
+                // Clear existing
+                dynamicContainer.innerHTML = '';
+                uploadSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
+                
+                snapshot.forEach((doc) => {
+                    const subjectData = doc.data();
+                    const subjectName = subjectData.name;
+                    const subjectId = doc.id;
+                    
+                    // Add to Sidebar
+                    const a = document.createElement('a');
+                    a.className = 'subject-item magnetic';
+                    a.dataset.subject = subjectName;
+                    a.textContent = subjectName;
+                    dynamicContainer.appendChild(a);
+                    
+                    // Add to Upload Select
+                    const option = document.createElement('option');
+                    option.value = subjectName;
+                    option.textContent = subjectName;
+                    uploadSelect.appendChild(option);
+                });
+                
+                // Re-attach filter listeners
+                attachSubjectFilterListeners();
+                initMagneticButtons();
+            });
+        }
+
+        function attachSubjectFilterListeners() {
+            document.querySelectorAll('.subject-item').forEach(item => {
+                // Remove old event listeners by cloning if necessary, or just avoid duplicates
+                item.addEventListener('click', (e) => {
+                    // Update active state
+                    document.querySelectorAll('.subject-item').forEach(i => i.classList.remove('active'));
+                    e.target.classList.add('active');
+                    
+                    // Update filter
+                    currentSubjectFilter = e.target.dataset.subject;
+                    
+                    // Reload files with new filter
+                    loadFiles();
+                });
+            });
+        }
+
+        // Attach listener for the "All Materials" default
+        attachSubjectFilterListeners();
+
+        // ========================================
+        // UPLOAD FUNCTIONALITY
+        // ========================================
+        
+        const uploadModal = document.getElementById('upload-modal');
+        const uploadModalInner = uploadModal.querySelector('.modal');
+        const uploadForm = document.getElementById('upload-form');
+
+        // Open upload modal
+        uploadFab.addEventListener('click', () => {
+            if (!currentUser) {
+                alert('Please sign in first!');
+                return;
+            }
+            uploadModal.classList.add('active');
+            gsap.fromTo(uploadModalInner, 
+                { y: 50, opacity: 0 }, 
+                { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.5)" }
+            );
+        });
+
+        // Close upload modal
+        uploadModal.addEventListener('click', (e) => {
+            if (e.target === uploadModal) {
+                gsap.to(uploadModalInner, {
+                    y: 20, 
+                    opacity: 0, 
+                    duration: 0.3, 
+                    ease: "power2.in",
+                    onComplete: () => uploadModal.classList.remove('active')
+                });
+            }
+        });
+
+        // Handle file upload
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('upload-title').value;
+            const subject = document.getElementById('upload-subject').value;
+            const file = document.getElementById('upload-file').files[0];
+            
+            if (!file) return;
+            
+            const progressContainer = document.getElementById('upload-progress');
+            const progressText = progressContainer.querySelector('span') || progressContainer;
+            progressContainer.style.display = 'block';
+            progressText.textContent = 'Preparing secure upload...';
+            
+            try {
+                // 1. Get a short-lived presigned URL from the Vercel backend
+                // (B2 credentials never leave the server)
+                progressText.textContent = 'Requesting secure upload URL...';
+                const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: file.name.replace(/[^a-zA-Z0-9.]/g, '_'),
+                        fileType: file.type || 'application/octet-stream'
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to get upload URL');
+                }
+
+                const { uploadUrl, authToken, fileName: b2FileName, publicUrl } = await response.json();
+
+                // 2. Upload directly to B2 using native B2 upload protocol
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', uploadUrl, true);
+                    // Required B2 native upload headers
+                    xhr.setRequestHeader('Authorization', authToken);
+                    xhr.setRequestHeader('X-Bz-File-Name', encodeURIComponent(b2FileName));
+                    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                    xhr.setRequestHeader('X-Bz-Content-Sha1', 'do_not_verify');
+                    xhr.upload.onprogress = (evt) => {
+                        if (evt.lengthComputable) {
+                            const percent = Math.round((evt.loaded / evt.total) * 100);
+                            progressText.textContent = `Uploading: ${percent}%`;
+                        }
+                    };
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) resolve();
+                        else {
+                            console.error('B2 upload error response:', xhr.responseText);
+                            reject(new Error(`Upload failed (HTTP ${xhr.status}): ${xhr.responseText}`));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error during upload'));
+                    xhr.send(file);
+                });
+                
+                progressText.textContent = 'Saving to database...';
+
+                // 3. Save to Firestore
+                await db.collection('materials').add({
+                    title: title,
+                    subject: subject,
+                    fileUrl: publicUrl,
+                    fileType: file.name.split('.').pop().toLowerCase(),
+                    uploaderId: currentUser.uid,
+                    uploaderName: currentUser.displayName || 'Anonymous',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert('✅ Material uploaded successfully!');
+                uploadForm.reset();
+                progressContainer.style.display = 'none';
+                uploadModal.classList.remove('active');
+                
+            } catch (err) {
+                console.error(err);
+                alert('Error: ' + err.message);
+                progressContainer.style.display = 'none';
+            }
+        });
+
+        // ========================================
+        // UTILITY FUNCTIONS
+        // ========================================
+        
+        // Prevent XSS attacks
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Get signed download URL from Vercel backend
+        async function getSignedUrl(fileUrl) {
+            // Extract file name from public URL
+            const match = fileUrl.match(/\/file\/[^/]+\/(.+)$/);
+            if (!match) return fileUrl;
+            const fileName = match[1];
+
+            const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-download-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName })
+            });
+
+            if (!response.ok) return fileUrl; // fallback to original
+            const { signedUrl } = await response.json();
+            return signedUrl;
+        }
+
+        // View file in new tab
+        window.viewFile = async function(url) {
+            if (!url) { alert('File URL not available'); return; }
+            try {
+                const signedUrl = await getSignedUrl(url);
+                window.open(signedUrl, '_blank');
+            } catch (e) {
+                window.open(url, '_blank');
+            }
+        };
+
+        // Download file
+        window.downloadFile = async function(url, filename) {
+            if (!url) { alert('File URL not available'); return; }
+            try {
+                const signedUrl = await getSignedUrl(url);
+                const a = document.createElement('a');
+                a.href = signedUrl;
+                a.download = filename || 'download';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (e) {
+                alert('Download failed: ' + e.message);
+            }
+        };
+
+        // Card glow effect on mouse move
+        function initCardGlow() {
+            document.querySelectorAll('.file-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    card.style.setProperty('--mouse-x', `${x}px`);
+                    card.style.setProperty('--mouse-y', `${y}px`);
+                });
+            });
+        }
+
+        // ========================================
+        // INITIALIZATION COMPLETE
+        // ========================================
+        
+        console.log('🚀 Class Material Hub initialized');
+        console.log('🔑 Google Auth with Admin Approval enabled');
+        console.log('📋 To make yourself admin:');
+        console.log('   1. Sign in with Google');
+        console.log('   2. Check Firestore → users collection');
+        console.log('   3. Find your document, change role to "admin"');
+        
+    </script>
+</body>
+</html>
