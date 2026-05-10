@@ -935,18 +935,7 @@
     <a href="notice.html" style="text-decoration: none; color: inherit; cursor: none;">
         <div class="marquee-container">
             <div class="marquee" id="marquee">
-                <span>📢 May 5: Mid-term exam scheduled for May 15.</span>
-                <span>✦</span>
-                <span>📢 May 3: New Physics lab manual available.</span>
-                <span>✦</span>
-                <span>📢 Upload your notes to help the community!</span>
-                <span>✦</span>
-                <span>📢 May 5: Mid-term exam scheduled for May 15.</span>
-                <span>✦</span>
-                <span>📢 May 3: New Physics lab manual available.</span>
-                <span>✦</span>
-                <span>📢 Upload your notes to help the community!</span>
-                <span>✦</span>
+                <span>📢 Loading latest community updates...</span>
             </div>
         </div>
     </a>
@@ -1139,12 +1128,32 @@
         // ========================================
         // Infinite scrolling text animation
 
-        gsap.to('.marquee', {
-            xPercent: -50,      // Move left by 50% (half the duplicated content)
-            ease: "none",       // Linear movement
-            duration: 10,       // 10 seconds per loop
-            repeat: -1          // Infinite repeat
-        });
+        function initMarqueeNotices() {
+            db.collection('notices').orderBy('createdAt', 'desc').limit(5).onSnapshot(snap => {
+                const marquee = document.getElementById('marquee');
+                let content = '';
+
+                if (snap.empty) {
+                    content = '<span>📢 No notices available at the moment. Stay tuned!</span> ';
+                } else {
+                    snap.forEach(doc => {
+                        const notice = doc.data();
+                        content += `<span>📢 ${notice.title}</span> <span>✦</span> `;
+                    });
+                }
+
+                marquee.innerHTML = (content + ' ').repeat(6);
+
+                gsap.killTweensOf('.marquee');
+                gsap.to('.marquee', {
+                    xPercent: -50,
+                    ease: "none",
+                    duration: 20,
+                    repeat: -1
+                });
+            });
+        }
+        initMarqueeNotices();
 
         // ========================================
         // SECTION 6: PAGE LOAD ANIMATIONS
