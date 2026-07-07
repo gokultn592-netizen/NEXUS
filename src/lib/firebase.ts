@@ -6,7 +6,7 @@ import { getStorage } from 'firebase/storage';
 // IMPORTANT: Replace "YOUR_API_KEY" with your Web API Key from the Firebase Console 
 // (Project Settings > General > Web API Key)
 const firebaseConfig = {
-  apiKey: "AQ.Ab8RN6J1coKidOLtr3DpH081OQ-mH7G8VizfBQy1fSywOYpvIw",
+  apiKey: "AQ.Ab8RN6IeqOdMd1Kh8EXDIIefifO8C2nEuDyTvM0bk_2qP-jgaw",
   authDomain: "nexus-e7a36.firebaseapp.com",
   projectId: "nexus-e7a36",
   storageBucket: "nexus-e7a36.appspot.com",
