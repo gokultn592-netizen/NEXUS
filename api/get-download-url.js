@@ -94,3 +94,18 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: error.message });
     }
 };
+
+async function getBucketId(apiUrl, authToken, accountId, bucketName) {
+    const listRes = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets?accountId=${accountId}&bucketName=${bucketName}`, {
+        headers: { Authorization: authToken },
+    });
+    if (!listRes.ok) {
+        throw new Error('Failed to list buckets to get bucketId');
+    }
+    const listData = await listRes.json();
+    const bucketId = listData.buckets?.[0]?.bucketId;
+    if (!bucketId) {
+        throw new Error(`Bucket "${bucketName}" not found`);
+    }
+    return bucketId;
+}
