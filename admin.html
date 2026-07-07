@@ -495,18 +495,27 @@
             window.location.href = 'index.html';
         }
 
-        // Firebase Initialization
-        const firebaseConfig = {
-            apiKey: "AQ.Ab8RN6IeqOdMd1Kh8EXDIIefifO8C2nEuDyTvM0bk_2qP-jgaw",
-            authDomain: "nexus-e7a36.firebaseapp.com",
-            projectId: "nexus-e7a36",
-            storageBucket: "nexus-e7a36.firebasestorage.app",
-            messagingSenderId: "516259533933",
-            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        let auth = null;
+        let db = null;
+
+        async function initializeAppFlow() {
+            try {
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
+                if (!res.ok) throw new Error('Failed to fetch firebase config: ' + res.statusText);
+                const config = await res.json();
+                
+                firebase.initializeApp(config);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                
+                initAuthListener();
+                initNotifications();
+            } catch (err) {
+                console.error('Initialization error:', err);
+                alert('Failed to initialize system connection: ' + err.message);
+            }
+        }
+        initializeAppFlow();
         
         // Custom Cursor & Button Interactions
         const cursor = document.querySelector('.custom-cursor');
@@ -532,24 +541,25 @@
             });
         });
 
-        // Security Guard
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                const docSnap = await db.collection('users').doc(user.uid).get();
-                const userData = docSnap.exists ? docSnap.data() : null;
-                if (!userData || userData.role !== 'admin') {
-                    alert('You do not have Firestore admin privileges.');
-                    window.location.href = 'index.html';
+        function initAuthListener() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    const docSnap = await db.collection('users').doc(user.uid).get();
+                    const userData = docSnap.exists ? docSnap.data() : null;
+                    if (!userData || userData.role !== 'admin') {
+                        alert('You do not have Firestore admin privileges.');
+                        window.location.href = 'index.html';
+                    } else {
+                        // Admin verified, load data
+                        loadMembers();
+                        loadSubjects();
+                        loadFiles();
+                    }
                 } else {
-                    // Admin verified, load data
-                    loadMembers();
-                    loadSubjects();
-                    loadFiles();
+                    window.location.href = 'index.html';
                 }
-            } else {
-                window.location.href = 'index.html';
-            }
-        });
+            });
+        }
 
         // ==========================================
         // MEMBERS
@@ -966,7 +976,6 @@
             }
         }
         window.deleteNotification = deleteNotification;
-        initNotifications();
 
     </script>
 </body>

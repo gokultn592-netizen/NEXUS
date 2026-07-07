@@ -619,18 +619,30 @@
     </div>
 
     <script>
-        // Firebase Config
-        const firebaseConfig = {
-            apiKey: "AQ.Ab8RN6IeqOdMd1Kh8EXDIIefifO8C2nEuDyTvM0bk_2qP-jgaw",
-            authDomain: "nexus-e7a36.firebaseapp.com",
-            projectId: "nexus-e7a36",
-            storageBucket: "nexus-e7a36.firebasestorage.app",
-            messagingSenderId: "516259533933",
-            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        let auth = null;
+        let db = null;
+
+        async function initializeAppFlow() {
+            try {
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
+                if (!res.ok) throw new Error('Failed to fetch firebase config: ' + res.statusText);
+                const config = await res.json();
+                
+                firebase.initializeApp(config);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                
+                initAuthListener();
+                initNotifications();
+            } catch (err) {
+                console.error('Initialization error:', err);
+                const grid = document.getElementById('notice-grid');
+                if (grid) {
+                    grid.innerHTML = `<p style="color: var(--error); text-align: center; padding: 2rem;">Failed to initialize system connection: ${err.message}</p>`;
+                }
+            }
+        }
+        initializeAppFlow();
         let currentUser = null;
         let userData = null;
 
@@ -652,31 +664,32 @@
         function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
         requestAnimationFrame(raf);
 
-        // Auth Listener
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                currentUser = user;
-                const docSnap = await db.collection('users').doc(user.uid).get();
-                userData = docSnap.exists ? docSnap.data() : null;
+        function initAuthListener() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    const docSnap = await db.collection('users').doc(user.uid).get();
+                    userData = docSnap.exists ? docSnap.data() : null;
 
-                if (userData && (userData.role === 'admin' || userData.role === 'friend')) {
-                    showUserBadge(user, userData.role);
-                    document.getElementById('post-notice-btn').classList.remove('hidden');
-                    loadNotices();
+                    if (userData && (userData.role === 'admin' || userData.role === 'friend')) {
+                        showUserBadge(user, userData.role);
+                        document.getElementById('post-notice-btn').classList.remove('hidden');
+                        loadNotices();
+                    } else {
+                        // Show pending message and logout
+                        alert('Your account is marked as PENDING. An admin must approve your account.');
+                        await auth.signOut();
+                        currentUser = null;
+                        showLoginButton();
+                    }
                 } else {
-                    // Show pending message and logout
-                    alert('Your account is marked as PENDING. An admin must approve your account.');
-                    await auth.signOut();
                     currentUser = null;
+                    userData = null;
                     showLoginButton();
+                    loadNotices(); // Publicly viewable? Let's assume yes, but no editing.
                 }
-            } else {
-                currentUser = null;
-                userData = null;
-                showLoginButton();
-                loadNotices(); // Publicly viewable? Let's assume yes, but no editing.
-            }
-        });
+            });
+        }
 
         async function getUserData(uid) {
             const doc = await db.collection('users').doc(uid).get();
@@ -911,7 +924,6 @@
             }
         }
         window.deleteNotification = deleteNotification;
-        initNotifications();
 
         // Animations
         gsap.from('.hero h1', { y: 100, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.2 });

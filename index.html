@@ -1025,26 +1025,39 @@
         // Initialize Firebase with your project config
         // This connects your website to Firebase services
 
-        const firebaseConfig = {
-            apiKey: "AQ.Ab8RN6IeqOdMd1Kh8EXDIIefifO8C2nEuDyTvM0bk_2qP-jgaw",
-            authDomain: "nexus-e7a36.firebaseapp.com",
-            projectId: "nexus-e7a36",
-            storageBucket: "nexus-e7a36.firebasestorage.app",
-            messagingSenderId: "516259533933",
-            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
-        };
-
-        // Initialize Firebase app (the root connection)
-        firebase.initializeApp(firebaseConfig);
-
-        // Get references to Firebase services
-        const auth = firebase.auth();           // Authentication service
-        const db = firebase.firestore();        // Database service
+        // Global variables for Firebase services
+        let auth = null;
+        let db = null;
 
         // Global state variable to track current user
         let currentUser = null;
         // Global state to track if current user is admin
         let isAdmin = false;
+
+        // Initialize Firebase asynchronously by fetching configuration from serverless API
+        async function initializeAppFlow() {
+            try {
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
+                if (!res.ok) throw new Error('Failed to fetch firebase config: ' + res.statusText);
+                const config = await res.json();
+                
+                firebase.initializeApp(config);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                
+                // Initialize database/auth-dependent flows
+                initMarqueeNotices();
+                initAuthListener();
+                initNotifications();
+            } catch (err) {
+                console.error('Initialization error:', err);
+                const filesGrid = document.getElementById('files-grid');
+                if (filesGrid) {
+                    filesGrid.innerHTML = `<p style="color: var(--error); text-align: center; padding: 2rem;">Failed to initialize system connection: ${err.message}</p>`;
+                }
+            }
+        }
+        initializeAppFlow();
 
         // ========================================
         // SECTION 2: SMOOTH SCROLLING (LENIS)
@@ -1153,7 +1166,6 @@
                 });
             });
         }
-        initMarqueeNotices();
 
         // ========================================
         // SECTION 6: PAGE LOAD ANIMATIONS
@@ -1209,84 +1221,86 @@
         // It runs automatically whenever someone logs in or out
         // This is the SINGLE SOURCE OF TRUTH for auth state
 
-        auth.onAuthStateChanged(async (user) => {
-            // "user" = Firebase user object (null if nobody is logged in)
+        function initAuthListener() {
+            auth.onAuthStateChanged(async (user) => {
+                // "user" = Firebase user object (null if nobody is logged in)
 
-            if (user) {
-                // ==================================================
-                // SOMEONE IS LOGGED IN (via Google)
-                // ==================================================
-
-                currentUser = user;
-                console.log('👤 User logged in:', user.email);
-
-                // Check if this user is approved in Firestore
-                // We MUST check Firestore because Firebase Auth doesn't know about our approval system
-                const userData = await getUserData(user.uid);
-
-                if (userData && userData.role === 'admin') {
+                if (user) {
                     // ==================================================
-                    // ADMIN USER — Full access
+                    // SOMEONE IS LOGGED IN (via Google)
                     // ==================================================
-                    isAdmin = true;
-                    console.log('👑 Admin access granted');
 
-                    // Show admin UI
-                    showUserBadge(user, 'admin', userData);
-                    showUploadButton();
-                    loadSubjects();
-                    loadFiles();
+                    currentUser = user;
+                    console.log('👤 User logged in:', user.email);
 
-                } else if (userData && userData.role === 'friend') {
-                    // ==================================================
-                    // APPROVED FRIEND — Full access
-                    // ==================================================
-                    isAdmin = false;
-                    console.log('👤 Friend access granted');
+                    // Check if this user is approved in Firestore
+                    // We MUST check Firestore because Firebase Auth doesn't know about our approval system
+                    const userData = await getUserData(user.uid);
 
-                    // Show friend UI
-                    showUserBadge(user, 'friend', userData);
-                    showUploadButton();
-                    loadSubjects();
-                    loadFiles();
+                    if (userData && userData.role === 'admin') {
+                        // ==================================================
+                        // ADMIN USER — Full access
+                        // ==================================================
+                        isAdmin = true;
+                        console.log('👑 Admin access granted');
+
+                        // Show admin UI
+                        showUserBadge(user, 'admin', userData);
+                        showUploadButton();
+                        loadSubjects();
+                        loadFiles();
+
+                    } else if (userData && userData.role === 'friend') {
+                        // ==================================================
+                        // APPROVED FRIEND — Full access
+                        // ==================================================
+                        isAdmin = false;
+                        console.log('👤 Friend access granted');
+
+                        // Show friend UI
+                        showUserBadge(user, 'friend', userData);
+                        showUploadButton();
+                        loadSubjects();
+                        loadFiles();
+
+                    } else {
+                        // ==================================================
+                        // NEW OR PENDING USER — No access yet
+                        // ==================================================
+                        // This happens when:
+                        // 1. First time signing in with Google
+                        // 2. Admin hasn't approved them yet
+
+                        console.log('⏳ User pending approval');
+
+                        // Create pending record in Firestore (if not exists)
+                        if (!userData) {
+                            try {
+                                await createPendingUser(user);
+                            } catch (err) {
+                                console.error('Failed to create pending user:', err);
+                            }
+                        }
+
+                        // Keep them logged in but show the pending UI
+                        showPendingState(user, userData);
+                    }
 
                 } else {
                     // ==================================================
-                    // NEW OR PENDING USER — No access yet
+                    // NO ONE IS LOGGED IN
                     // ==================================================
-                    // This happens when:
-                    // 1. First time signing in with Google
-                    // 2. Admin hasn't approved them yet
 
-                    console.log('⏳ User pending approval');
+                    currentUser = null;
+                    isAdmin = false;
+                    console.log('🔒 No user logged in');
 
-                    // Create pending record in Firestore (if not exists)
-                    if (!userData) {
-                        try {
-                            await createPendingUser(user);
-                        } catch (err) {
-                            console.error('Failed to create pending user:', err);
-                        }
-                    }
-
-                    // Keep them logged in but show the pending UI
-                    showPendingState(user, userData);
+                    // Show login button
+                    showLoginButton();
+                    showLockedState();
                 }
-
-            } else {
-                // ==================================================
-                // NO ONE IS LOGGED IN
-                // ==================================================
-
-                currentUser = null;
-                isAdmin = false;
-                console.log('🔒 No user logged in');
-
-                // Show login button
-                showLoginButton();
-                showLockedState();
-            }
-        });
+            });
+        }
 
         // ========================================
         // GET USER DATA FROM FIRESTORE
@@ -2021,7 +2035,6 @@
         }
 
         window.deleteNotification = deleteNotification;
-        initNotifications();
 
         // Card glow effect on mouse move
         function initCardGlow() {

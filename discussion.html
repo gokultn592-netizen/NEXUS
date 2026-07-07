@@ -181,17 +181,30 @@
     </div>
 
     <script>
-        const firebaseConfig = {
-            apiKey: "AQ.Ab8RN6IeqOdMd1Kh8EXDIIefifO8C2nEuDyTvM0bk_2qP-jgaw",
-            authDomain: "nexus-e7a36.firebaseapp.com",
-            projectId: "nexus-e7a36",
-            storageBucket: "nexus-e7a36.firebasestorage.app",
-            messagingSenderId: "516259533933",
-            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        let auth = null;
+        let db = null;
+
+        async function initializeAppFlow() {
+            try {
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
+                if (!res.ok) throw new Error('Failed to fetch firebase config: ' + res.statusText);
+                const config = await res.json();
+                
+                firebase.initializeApp(config);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                
+                initAuthListener();
+                initNotifications();
+            } catch (err) {
+                console.error('Initialization error:', err);
+                const grid = document.getElementById('discussion-grid');
+                if (grid) {
+                    grid.innerHTML = `<p style="color: var(--error); text-align: center; padding: 2rem;">Failed to initialize system connection: ${err.message}</p>`;
+                }
+            }
+        }
+        initializeAppFlow();
         let currentUser = null;
         let userData = null;
 
@@ -202,18 +215,20 @@
             el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
         }); }
 
-        auth.onAuthStateChanged(async user => {
-            if (user) {
-                currentUser = user;
-                const snap = await db.collection('users').doc(user.uid).get();
-                userData = snap.exists ? snap.data() : null;
-                if (userData && (userData.role === 'admin' || userData.role === 'friend')) {
-                    showUserBadge(user, userData.role);
-                    document.getElementById('ask-btn').classList.remove('hidden');
-                    loadDiscussions();
-                } else { auth.signOut(); }
-            } else { showLoginBtn(); loadDiscussions(); }
-        });
+        function initAuthListener() {
+            auth.onAuthStateChanged(async user => {
+                if (user) {
+                    currentUser = user;
+                    const snap = await db.collection('users').doc(user.uid).get();
+                    userData = snap.exists ? snap.data() : null;
+                    if (userData && (userData.role === 'admin' || userData.role === 'friend')) {
+                        showUserBadge(user, userData.role);
+                        document.getElementById('ask-btn').classList.remove('hidden');
+                        loadDiscussions();
+                    } else { auth.signOut(); }
+                } else { showLoginBtn(); loadDiscussions(); }
+            });
+        }
 
         function showUserBadge(user, role) {
             const loginLink = document.getElementById('login-link');
@@ -411,7 +426,6 @@
             }
         }
         window.deleteNotification = deleteNotification;
-        initNotifications();
 
         async function deleteDiscussion(id) {
             if (confirm('Are you sure you want to delete this discussion and all its replies?')) {
