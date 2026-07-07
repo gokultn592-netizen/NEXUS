@@ -1,19 +1,19 @@
 /*
-    CHANGELOG â€” api/delete-file.js
+    CHANGELOG — api/delete-file.js
     ================================
     [2026-05-09] Changes made vs original GitHub version:
 
-    COMPLETE REWRITE â€” old version called a /api/delete-file backend route that
+    COMPLETE REWRITE — old version called a /api/delete-file backend route that
     didn't exist, so deletions always failed silently.
 
     New version uses B2's native HTTP API:
-      Step 1: b2_authorize_account      â†’ gets auth token + API URL
-      Step 2: b2_list_file_versions     â†’ finds the fileId for the given filename
-      Step 3: b2_delete_file_version    â†’ permanently deletes the file from B2
+      Step 1: b2_authorize_account      → gets auth token + API URL
+      Step 2: b2_list_file_versions     → finds the fileId for the given filename
+      Step 3: b2_delete_file_version    → permanently deletes the file from B2
 
-    No AWS SDK dependency needed â€” uses Node.js built-in fetch().
+    No AWS SDK dependency needed — uses Node.js built-in fetch().
 */
-// Vercel Serverless Function â€” B2 Native File Deletion
+// Vercel Serverless Function — B2 Native File Deletion
 // Uses B2's own delete API instead of S3-compatible DeleteObject.
 
 module.exports = async function handler(req, res) {
@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
         const appKey = process.env.B2_APP_KEY;
         const bucket = process.env.B2_BUCKET;
 
-        // â”€â”€â”€ Step 1: Authorize Account â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Step 1: Authorize Account ────────────────────────────────────────
         const authResponse = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
             headers: {
                 Authorization: 'Basic ' + Buffer.from(`${keyId}:${appKey}`).toString('base64'),
@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
         const apiUrl    = authData.apiInfo.storageApi.apiUrl;
         const authToken = authData.authorizationToken;
 
-        // â”€â”€â”€ Step 2: Extract file name from URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Step 2: Extract file name from URL ───────────────────────────────
         // URL format: https://fXXX.backblazeb2.com/file/bucket-name/materials/xxx_file.pdf
         const fileNameMatch = fileUrl.match(/\/file\/[^/]+\/(.+)$/);
         if (!fileNameMatch) {
@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
         }
         const fileName = fileNameMatch[1];
 
-        // â”€â”€â”€ Step 3: List file versions to get the fileId â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Step 3: List file versions to get the fileId ─────────────────────
         const listResponse = await fetch(`${apiUrl}/b2api/v3/b2_list_file_versions?bucketName=${bucket}&startFileName=${encodeURIComponent(fileName)}&maxFileCount=1`, {
             headers: { Authorization: authToken },
         });
@@ -79,11 +79,11 @@ module.exports = async function handler(req, res) {
         const file = listData.files?.[0];
 
         if (!file || file.fileName !== fileName) {
-            // File already gone â€” treat as success
+            // File already gone — treat as success
             return res.status(200).json({ success: true, message: 'File not found (already deleted)' });
         }
 
-        // â”€â”€â”€ Step 4: Delete the file â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Step 4: Delete the file ──────────────────────────────────────────
         const deleteResponse = await fetch(`${apiUrl}/b2api/v3/b2_delete_file_version`, {
             method: 'POST',
             headers: {

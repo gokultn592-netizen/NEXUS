@@ -1,4 +1,5 @@
 // Vercel Serverless Function — B2 Signed Download URL
+// Generates a time-limited download URL for private B2 files
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,7 +11,10 @@ module.exports = async function handler(req, res) {
 
     try {
         const { fileName } = req.body;
-        if (!fileName) return res.status(400).json({ error: 'Missing fileName' });
+
+        if (!fileName) {
+            return res.status(400).json({ error: 'Missing fileName' });
+        }
 
         const keyId  = process.env.B2_KEY_ID;
         const appKey = process.env.B2_APP_KEY;
@@ -28,47 +32,60 @@ module.exports = async function handler(req, res) {
             throw new Error(`B2 auth failed: ${err.message}`);
         }
 
-        const authData    = await authResponse.json();
-        const apiUrl      = authData.apiInfo.storageApi.apiUrl;
-        const authToken   = authData.authorizationToken;
-        const downloadUrl = authData.apiInfo.storageApi.downloadUrl;
+        const authData  = await authResponse.json();
+        const apiUrl    = authData.apiInfo.storageApi.apiUrl;
+        const authToken = authData.authorizationToken;
 
-        // Step 2: Get bucket ID
-        const listRes = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets?accountId=${authData.accountId}&bucketName=${bucket}`, {
-            headers: { Authorization: authToken },
-        });
-
-        if (!listRes.ok) {
-            const err = await listRes.json();
-            throw new Error(`B2 list buckets failed: ${err.message}`);
-        }
-
-        const listData = await listRes.json();
-        const bucketId = listData.buckets?.[0]?.bucketId;
-
-        if (!bucketId) throw new Error(`Bucket "${bucket}" not found`);
-
-        // Step 3: Get download authorization for entire bucket
-        const dlAuthRes = await fetch(`${apiUrl}/b2api/v3/b2_get_download_authorization`, {
+        // Step 2: Get download authorization (valid for 1 hour)
+        const dlAuthResponse = await fetch(`${apiUrl}/b2api/v3/b2_get_download_authorization`, {
             method: 'POST',
             headers: {
                 Authorization: authToken,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                bucketId,
-                fileNamePrefix: '',
-                validDurationInSeconds: 3600,
+                bucketId:               authData.apiInfo.storageApi.bucketId || await getBucketId(apiUrl, authToken, authData.accountId, bucket),
+                fileNamePrefix:         fileName,
+                validDurationInSeconds: 3600, // 1 hour
             }),
         });
 
-        if (!dlAuthRes.ok) {
-            const err = await dlAuthRes.json();
-            throw new Error(`B2 download auth failed: ${JSON.stringify(err)}`);
+        // Fallback: get bucketId first then retry
+        if (!dlAuthResponse.ok) {
+            // Get bucket ID
+            const listRes = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets?accountId=${authData.accountId}&bucketName=${bucket}`, {
+                headers: { Authorization: authToken },
+            });
+            const listData = await listRes.json();
+            const bucketId = listData.buckets?.[0]?.bucketId;
+
+            const dlAuthResponse2 = await fetch(`${apiUrl}/b2api/v3/b2_get_download_authorization`, {
+                method: 'POST',
+                headers: {
+                    Authorization: authToken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    bucketId,
+                    fileNamePrefix:         fileName,
+                    validDurationInSeconds: 3600,
+                }),
+            });
+
+            if (!dlAuthResponse2.ok) {
+                const err = await dlAuthResponse2.json();
+                throw new Error(`B2 download auth failed: ${err.message}`);
+            }
+
+            const dlAuthData = await dlAuthResponse2.json();
+            const downloadUrl = authData.apiInfo.storageApi.downloadUrl;
+            const signedUrl = `${downloadUrl}/file/${bucket}/${fileName}?Authorization=${dlAuthData.authorizationToken}`;
+            return res.status(200).json({ signedUrl });
         }
 
-        const dlAuthData = await dlAuthRes.json();
-        const signedUrl  = `${downloadUrl}/file/${bucket}/${fileName}?Authorization=${dlAuthData.authorizationToken}`;
+        const dlAuthData  = await dlAuthResponse.json();
+        const downloadUrl = authData.apiInfo.storageApi.downloadUrl;
+        const signedUrl   = `${downloadUrl}/file/${bucket}/${fileName}?Authorization=${dlAuthData.authorizationToken}`;
 
         return res.status(200).json({ signedUrl });
 

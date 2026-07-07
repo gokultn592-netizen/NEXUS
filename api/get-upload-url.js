@@ -1,20 +1,20 @@
 /*
-    CHANGELOG â€” api/get-upload-url.js
+    CHANGELOG — api/get-upload-url.js
     ==================================
     [2026-05-09] Changes made vs original GitHub version:
 
-    COMPLETE REWRITE â€” old version used AWS SDK S3 presigned URLs which caused
+    COMPLETE REWRITE — old version used AWS SDK S3 presigned URLs which caused
     "authorization token missing" errors due to SigV4 CORS incompatibilities with B2.
 
     New version uses B2's native HTTP API:
-      Step 1: b2_authorize_account  â†’ gets auth token + API URL
-      Step 2: b2_list_buckets       â†’ gets bucket ID
-      Step 3: b2_get_upload_url     â†’ gets a direct upload endpoint + short-lived token
+      Step 1: b2_authorize_account  → gets auth token + API URL
+      Step 2: b2_list_buckets       → gets bucket ID
+      Step 3: b2_get_upload_url     → gets a direct upload endpoint + short-lived token
     Returns: { uploadUrl, authToken, fileName, publicUrl }
 
-    No AWS SDK dependency needed â€” uses Node.js built-in fetch().
+    No AWS SDK dependency needed — uses Node.js built-in fetch().
 */
-// Vercel Serverless Function â€” B2 Native Upload URL
+// Vercel Serverless Function — B2 Native Upload URL
 // Uses B2's own API instead of S3-compatible presigned URLs.
 // This avoids the "authorization token missing" error caused by
 // SigV4 presigned URL incompatibilities with B2's CORS policy.
@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
         const appKey = process.env.B2_APP_KEY;
         const bucket = process.env.B2_BUCKET;
 
-        // â”€â”€â”€ Step 1: Authorize Account â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Step 1: Authorize Account ────────────────────────────────────────
         const authResponse = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
             headers: {
                 Authorization: 'Basic ' + Buffer.from(`${keyId}:${appKey}`).toString('base64'),
@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
         const apiUrl   = authData.apiInfo.storageApi.apiUrl;
         const authToken = authData.authorizationToken;
 
-        // â”€â”€â”€ Step 2: List buckets to find the bucket ID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Step 2: List buckets to find the bucket ID ───────────────────────
         const listResponse = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets?accountId=${authData.accountId}&bucketName=${bucket}`, {
             headers: { Authorization: authToken },
         });
@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
             throw new Error(`Bucket "${bucket}" not found`);
         }
 
-        // â”€â”€â”€ Step 3: Get Upload URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Step 3: Get Upload URL ───────────────────────────────────────────
         const uploadUrlResponse = await fetch(`${apiUrl}/b2api/v3/b2_get_upload_url`, {
             method: 'POST',
             headers: {
@@ -94,7 +94,7 @@ module.exports = async function handler(req, res) {
 
         const uploadData = await uploadUrlResponse.json();
 
-        // â”€â”€â”€ Build the public download URL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── Build the public download URL ────────────────────────────────────
         const uniqueFileName = `materials/${Date.now()}_${fileName}`;
         const downloadUrl    = authData.apiInfo.storageApi.downloadUrl;
         const publicUrl      = `${downloadUrl}/file/${bucket}/${uniqueFileName}`;
