@@ -243,5 +243,6 @@ const pwaHelper = {
     }
 };
 
-// Auto initialize on script evaluation
+// Expose to window for inline click handlers and background sync
+window.pwaHelper = pwaHelper;
 pwaHelper.init();
