@@ -172,7 +172,13 @@ const pwaHelper = {
                 console.log('[PWA Cache] Serving file from cache:', cleanUrl);
                 const blob = await match.blob();
                 const blobUrl = URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank');
+                
+                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                if (isMobile) {
+                    window.location.href = blobUrl;
+                } else {
+                    window.open(blobUrl, '_blank');
+                }
                 return;
             }
             
@@ -185,7 +191,13 @@ const pwaHelper = {
             const response = await this.fetchAndCacheFile(id, fileUrl, version);
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
-            window.open(blobUrl, '_blank');
+            
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                window.location.href = blobUrl;
+            } else {
+                window.open(blobUrl, '_blank');
+            }
         } catch (err) {
             console.error('[PWA Cache] Error viewing file:', err);
             // Dynamic fallback
