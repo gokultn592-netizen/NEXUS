@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEXUS - Elite Group</title>
 
+    <!-- PWA Basics -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#9d4edd">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="pwa-helper.js"></script>
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1044,6 +1050,7 @@
                 firebase.initializeApp(config);
                 auth = firebase.auth();
                 db = firebase.firestore();
+                db.enablePersistence().catch(err => console.warn('Firestore persistence disabled:', err));
                 
                 // Initialize database/auth-dependent flows
                 initMarqueeNotices();
@@ -1634,6 +1641,9 @@
                 });
 
                 renderFiles(files);
+                if (window.pwaHelper) {
+                    pwaHelper.checkAndSyncFiles(files);
+                }
 
             }, (error) => {
                 console.error('Error loading files:', error);
@@ -1678,8 +1688,8 @@
                     <h3 class="file-name">${escapeHtml(file.title)}</h3>
                     <p class="file-meta">${file.subject} • ${escapeHtml(file.uploaderName)} • ${date}</p>
                     <div class="file-actions">
-                        <button class="magnetic-btn" onclick="viewFile('${file.fileUrl}')">View</button>
-                        <button class="magnetic-btn btn-outline" onclick="downloadFile('${file.fileUrl}', '${file.title}')">Download</button>
+                        <button class="magnetic-btn" onclick="window.pwaHelper ? pwaHelper.viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}) : viewFile('${file.fileUrl}')">View</button>
+                        <button class="magnetic-btn btn-outline" onclick="window.pwaHelper ? pwaHelper.downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}) : downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`)">Download</button>
                     </div>
                 `;
 
@@ -1875,6 +1885,7 @@
                     fileType: file.name.split('.').pop().toLowerCase(),
                     uploaderId: currentUser.uid,
                     uploaderName: uploaderName,
+                    version: 1,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 

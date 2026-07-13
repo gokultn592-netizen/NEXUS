@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Control | Admin Portal</title>
     
+    <!-- PWA Basics -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#9d4edd">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="pwa-helper.js"></script>
+    
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -507,6 +513,7 @@
                 firebase.initializeApp(config);
                 auth = firebase.auth();
                 db = firebase.firestore();
+                db.enablePersistence().catch(err => console.warn('Firestore persistence disabled:', err));
                 
                 initAuthListener();
                 initNotifications();
@@ -825,6 +832,7 @@
 
                     updates.fileUrl = publicUrl;
                     updates.fileType = fileInput.name.split('.').pop().toLowerCase();
+                    updates.version = firebase.firestore.FieldValue.increment(1);
                 }
 
                 await db.collection('materials').doc(id).update(updates);
@@ -900,6 +908,7 @@
                     fileType: fileInput.name.split('.').pop().toLowerCase(),
                     uploaderId: user ? user.uid : 'admin',
                     uploaderName: user ? (user.displayName || 'Admin') : 'Admin',
+                    version: 1,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 

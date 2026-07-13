@@ -20,11 +20,11 @@ $bucketId = $listResponse.buckets[0].bucketId
 # 3. Update Bucket with CORS rules
 $corsRules = @(
     @{
-        corsRuleName = "allow-browser-upload"
+        corsRuleName = "allow-browser-upload-download"
         allowedOrigins = @("*")
-        allowedOperations = @("b2_upload_file", "b2_upload_part", "s3_put", "s3_post")
+        allowedOperations = @("b2_upload_file", "b2_upload_part", "s3_put", "s3_post", "s3_get", "b2_download_file_by_name", "b2_download_file_by_id")
         allowedHeaders = @("*")
-        exposeHeaders = @("x-bz-content-sha1")
+        exposeHeaders = @("x-bz-content-sha1", "content-range", "content-length", "accept-ranges")
         maxAgeSeconds = 3600
     }
 )
