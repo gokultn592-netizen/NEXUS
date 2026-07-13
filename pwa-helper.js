@@ -170,6 +170,7 @@ const pwaHelper = {
             
             if (match) {
                 console.log('[PWA Cache] Serving file from cache:', cleanUrl);
+                alert('⚡ Offline Cache: Loading file from local memory...');
                 const blob = await match.blob();
                 const blobUrl = URL.createObjectURL(blob);
                 
@@ -188,6 +189,7 @@ const pwaHelper = {
             }
             
             console.log('[PWA Cache] File not in cache. Downloading and caching...');
+            alert('📥 Caching: Downloading file for offline access...');
             const response = await this.fetchAndCacheFile(id, fileUrl, version);
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
@@ -215,6 +217,7 @@ const pwaHelper = {
             let blob;
             if (match) {
                 console.log('[PWA Cache] Serving download from cache:', cleanUrl);
+                alert('⚡ Offline Cache: Loading file from local memory...');
                 blob = await match.blob();
             } else {
                 if (!navigator.onLine) {
@@ -222,6 +225,7 @@ const pwaHelper = {
                     return;
                 }
                 console.log('[PWA Cache] File not in cache. Downloading and caching...');
+                alert('📥 Caching: Downloading file for offline access...');
                 const response = await this.fetchAndCacheFile(id, fileUrl, version);
                 blob = await response.blob();
             }
