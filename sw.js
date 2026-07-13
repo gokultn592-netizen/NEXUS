@@ -18,7 +18,8 @@ const EXTERNAL_ASSETS = [
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap',
+  'https://nexus-omega-jet.vercel.app/api/firebase-config'
 ];
 
 const ALL_PRECACHE = [...STATIC_ASSETS, ...EXTERNAL_ASSETS];
@@ -85,12 +86,20 @@ self.addEventListener('fetch', (event) => {
   // 3. Local static shell assets (HTML, helper JS, manifest) — Stale-While-Revalidate
   const isStatic = STATIC_ASSETS.some(asset => {
     if (asset === '/') return url.pathname === '/';
-    return url.pathname === asset || url.pathname.endsWith(asset);
+    const cleanAsset = asset.endsWith('.html') ? asset.slice(0, -5) : asset;
+    return url.pathname === asset || url.pathname === cleanAsset || url.pathname.endsWith(asset) || url.pathname.endsWith(cleanAsset);
   });
 
   if (isStatic) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        
+        // Clean URL fallback: e.g. /notice -> /notice.html
+        if (!url.pathname.endsWith('.html') && url.pathname !== '/') {
+          return caches.match(url.pathname + '.html');
+        }
+      }).then((response) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {
           if (networkResponse.ok) {
             const copy = networkResponse.clone();
@@ -99,7 +108,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         }).catch(() => {/* ignore network fail */});
 
-        return cachedResponse || fetchPromise;
+        return response || fetchPromise;
       })
     );
     return;
