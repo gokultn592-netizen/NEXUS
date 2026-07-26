@@ -1,6 +1,10 @@
 // Vercel Serverless Function — B2 Signed Download URL
 // Generates a time-limited download URL for private B2 files
 
+let cachedAuth = null;
+let cachedAuthTime = 0;
+let cachedBucketId = null;
+
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -20,21 +24,30 @@ module.exports = async function handler(req, res) {
         const appKey = process.env.B2_APP_KEY;
         const bucket = process.env.B2_BUCKET;
 
-        // Step 1: Authorize
-        const authResponse = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
-            headers: {
-                Authorization: 'Basic ' + Buffer.from(`${keyId}:${appKey}`).toString('base64'),
-            },
-        });
+        // Reuse cached authorization if < 12 hours old
+        const now = Date.now();
+        if (!cachedAuth || (now - cachedAuthTime) > 12 * 3600 * 1000) {
+            const authResponse = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
+                headers: {
+                    Authorization: 'Basic ' + Buffer.from(`${keyId}:${appKey}`).toString('base64'),
+                },
+            });
 
-        if (!authResponse.ok) {
-            const err = await authResponse.json();
-            throw new Error(`B2 auth failed: ${err.message}`);
+            if (!authResponse.ok) {
+                const err = await authResponse.json();
+                throw new Error(`B2 auth failed: ${err.message}`);
+            }
+
+            cachedAuth = await authResponse.json();
+            cachedAuthTime = now;
         }
 
-        const authData  = await authResponse.json();
-        const apiUrl    = authData.apiInfo.storageApi.apiUrl;
-        const authToken = authData.authorizationToken;
+        const apiUrl    = cachedAuth.apiInfo.storageApi.apiUrl;
+        const authToken = cachedAuth.authorizationToken;
+
+        if (!cachedBucketId) {
+            cachedBucketId = cachedAuth.apiInfo.storageApi.bucketId || await getBucketId(apiUrl, authToken, cachedAuth.accountId, bucket);
+        }
 
         // Step 2: Get download authorization (valid for 1 hour)
         const dlAuthResponse = await fetch(`${apiUrl}/b2api/v3/b2_get_download_authorization`, {
@@ -44,7 +57,7 @@ module.exports = async function handler(req, res) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                bucketId:               authData.apiInfo.storageApi.bucketId || await getBucketId(apiUrl, authToken, authData.accountId, bucket),
+                bucketId:               cachedBucketId,
                 fileNamePrefix:         fileName,
                 validDurationInSeconds: 3600, // 1 hour
             }),
