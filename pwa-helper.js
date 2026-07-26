@@ -150,20 +150,20 @@ const pwaHelper = {
         if (!match) return fileUrl;
         const fileName = match[1];
 
-        // 1. Check sessionStorage cache (valid for 50 minutes)
+        // 1. Check localStorage cache (valid for 50 minutes, persists across tab closes)
         const cacheKey = `nexus_b2_url_${fileName}`;
         try {
-            const cachedStr = sessionStorage.getItem(cacheKey);
+            const cachedStr = localStorage.getItem(cacheKey);
             if (cachedStr) {
                 const cachedData = JSON.parse(cachedStr);
                 // 50 minutes in ms = 3,000,000 ms
                 if (Date.now() - cachedData.timestamp < 50 * 60 * 1000) {
-                    console.log('[PWA Helper] Serving signed URL from sessionStorage cache:', fileName);
+                    console.log('[PWA Helper] Serving signed URL from localStorage cache:', fileName);
                     return cachedData.signedUrl;
                 }
             }
         } catch (e) {
-            console.warn('[PWA Helper] sessionStorage read error:', e);
+            console.warn('[PWA Helper] localStorage read error:', e);
         }
 
         // 2. Fetch new signed URL from Vercel backend
@@ -176,15 +176,15 @@ const pwaHelper = {
         if (!response.ok) return fileUrl;
         const { signedUrl } = await response.json();
 
-        // 3. Cache the signed URL in sessionStorage
+        // 3. Cache the signed URL in localStorage
         if (signedUrl) {
             try {
-                sessionStorage.setItem(cacheKey, JSON.stringify({
+                localStorage.setItem(cacheKey, JSON.stringify({
                     signedUrl: signedUrl,
                     timestamp: Date.now()
                 }));
             } catch (e) {
-                console.warn('[PWA Helper] sessionStorage write error:', e);
+                console.warn('[PWA Helper] localStorage write error:', e);
             }
         }
 
