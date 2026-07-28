@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=11"></script>
+    <script src="pwa-helper.js?v=12"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -776,19 +776,29 @@
         // UPDATE MODAL
         const updateModal = document.getElementById('update-modal');
         function openUpdateModal(id, title, subject, fileUrl) {
-            document.getElementById('update-id').value = id;
-            document.getElementById('update-title').value = title;
-            document.getElementById('update-subject').value = subject;
-            document.getElementById('update-file-url').value = fileUrl || '';
-            document.getElementById('update-file').value = '';
-            updateModal.classList.add('active');
+            const idEl = document.getElementById('update-id');
+            const titleEl = document.getElementById('update-title');
+            const subjectEl = document.getElementById('update-subject');
+            const fileUrlEl = document.getElementById('update-file-url');
+            const fileEl = document.getElementById('update-file');
+
+            if (idEl) idEl.value = id || '';
+            if (titleEl) titleEl.value = title || '';
+            if (subjectEl) subjectEl.value = subject || '';
+            if (fileUrlEl) fileUrlEl.value = fileUrl || '';
+            if (fileEl) fileEl.value = '';
+
+            if (updateModal) updateModal.classList.add('active');
         }
 
-        updateModal.addEventListener('click', (e) => {
-            if (e.target === updateModal) {
-                updateModal.classList.remove('active');
-            }
-        });
+        if (updateModal) {
+            updateModal.addEventListener('click', (e) => {
+                if (e.target === updateModal) {
+                    updateModal.classList.remove('active');
+                }
+            });
+        }
+
         function uploadFileToGitHub(file, onProgress, existingFileUrl) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -836,41 +846,51 @@
             });
         }
 
-        document.getElementById('update-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('update-id').value;
-            const title = document.getElementById('update-title').value;
-            const subject = document.getElementById('update-subject').value;
-            const fileInput = document.getElementById('update-file').files[0];
-            const existingFileUrl = document.getElementById('update-file-url').value;
-            const progress = document.getElementById('update-progress');
+        const updateForm = document.getElementById('update-form');
+        if (updateForm) {
+            updateForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('update-id')?.value || '';
+                const title = document.getElementById('update-title')?.value || '';
+                const subject = document.getElementById('update-subject')?.value || '';
+                const fileInput = document.getElementById('update-file')?.files?.[0];
+                const existingFileUrl = document.getElementById('update-file-url')?.value || '';
+                const progress = document.getElementById('update-progress');
 
-            try {
-                let updates = { title, subject };
-                
-                if (fileInput) {
-                    progress.style.display = 'block';
-                    progress.textContent = 'Replacing file on GitHub Storage...';
-
-                    const publicUrl = await uploadFileToGitHub(fileInput, (msg) => {
-                        progress.textContent = msg;
-                    }, existingFileUrl);
-
-                    updates.fileUrl = publicUrl;
-                    updates.fileType = fileInput.name.split('.').pop().toLowerCase();
-                    updates.version = firebase.firestore.FieldValue.increment(1);
+                if (!id) {
+                    alert('Error: Material ID is missing.');
+                    return;
                 }
 
-                await db.collection('materials').doc(id).update(updates);
-                progress.style.display = 'none';
-                updateModal.classList.remove('active');
-                alert('Material updated & old file replaced on GitHub!');
-                
-            } catch (err) {
-                progress.style.display = 'none';
-                alert('Update failed: ' + err.message);
-            }
-        });
+                try {
+                    let updates = { title, subject };
+                    
+                    if (fileInput) {
+                        if (progress) {
+                            progress.style.display = 'block';
+                            progress.textContent = 'Replacing file on GitHub Storage...';
+                        }
+
+                        const publicUrl = await uploadFileToGitHub(fileInput, (msg) => {
+                            if (progress) progress.textContent = msg;
+                        }, existingFileUrl);
+
+                        updates.fileUrl = publicUrl;
+                        updates.fileType = fileInput.name.split('.').pop().toLowerCase();
+                        updates.version = firebase.firestore.FieldValue.increment(1);
+                    }
+
+                    await db.collection('materials').doc(id).update(updates);
+                    if (progress) progress.style.display = 'none';
+                    if (updateModal) updateModal.classList.remove('active');
+                    alert('Material updated & old file replaced on GitHub!');
+                    
+                } catch (err) {
+                    if (progress) progress.style.display = 'none';
+                    alert('Update failed: ' + err.message);
+                }
+            });
+        }
 
         // UPLOAD MODAL
         const uploadModal = document.getElementById('upload-modal');
