@@ -206,6 +206,87 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
+    ensureDocViewerModal() {
+        if (document.getElementById('nexus-doc-viewer-modal')) return;
+        const modalHtml = `
+        <div id="nexus-doc-viewer-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,0,5,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); z-index:999999; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.1);">
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <span id="nexus-doc-viewer-icon" style="font-size:1.8rem;">📄</span>
+                    <div>
+                        <h3 id="nexus-doc-viewer-title" style="margin:0; color:#fff; font-size:1.1rem; font-family:sans-serif;">Document Reader</h3>
+                        <span id="nexus-doc-viewer-sub" style="font-size:0.8rem; color:#a1a1aa;">NEXUS Reader</span>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <button id="nexus-doc-viewer-dl-btn" style="background:#9d4edd; color:#fff; border:none; padding:0.5rem 1.2rem; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.9rem;">Download</button>
+                    <button onclick="window.pwaHelper ? pwaHelper.closeDocViewer() : (document.getElementById('nexus-doc-viewer-modal').style.display='none')" style="background:rgba(255,255,255,0.1); color:#fff; border:none; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1.4rem; display:flex; align-items:center; justify-content:center;">×</button>
+                </div>
+            </div>
+            <div id="nexus-doc-viewer-body" style="flex:1; width:100%; height:100%; display:flex; justify-content:center; align-items:center; overflow:hidden; position:relative;">
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    closeDocViewer() {
+        const modal = document.getElementById('nexus-doc-viewer-modal');
+        const body = document.getElementById('nexus-doc-viewer-body');
+        if (modal) modal.style.display = 'none';
+        if (body) body.innerHTML = '';
+    },
+
+    openDocViewer(fileUrl, title, blobData) {
+        this.ensureDocViewerModal();
+        const modal = document.getElementById('nexus-doc-viewer-modal');
+        const body = document.getElementById('nexus-doc-viewer-body');
+        const titleEl = document.getElementById('nexus-doc-viewer-title');
+        const downloadBtn = document.getElementById('nexus-doc-viewer-dl-btn');
+
+        if (!modal || !body) return;
+
+        titleEl.textContent = title || 'Document Reader';
+        body.innerHTML = '<div style="color:#9d4edd; font-family:sans-serif; text-align:center;"><h2>⚡ Rendering Document...</h2></div>';
+        modal.style.display = 'flex';
+
+        downloadBtn.onclick = () => {
+            this.downloadFile(fileUrl, title);
+        };
+
+        const isPdf = fileUrl.toLowerCase().includes('.pdf');
+        const isImage = /\.(png|jpe?g|gif|webp|svg)/i.test(fileUrl);
+
+        try {
+            if (isImage) {
+                const imgSrc = blobData ? URL.createObjectURL(blobData) : fileUrl;
+                body.innerHTML = `<img src="${imgSrc}" style="max-width:90%; max-height:90%; object-fit:contain; border-radius:8px; box-shadow:0 20px 50px rgba(0,0,0,0.5);" />`;
+                return;
+            }
+
+            // PDF or Document: Render inline object/iframe inside the page container
+            let renderUrl = fileUrl;
+            if (blobData) {
+                const typedBlob = new Blob([blobData], { type: isPdf ? 'application/pdf' : (blobData.type || 'application/octet-stream') });
+                renderUrl = URL.createObjectURL(typedBlob);
+            }
+
+            if (isPdf) {
+                body.innerHTML = `<object data="${renderUrl}" type="application/pdf" width="100%" height="100%">
+                    <iframe src="${renderUrl}" width="100%" height="100%" style="border:none;"></iframe>
+                </object>`;
+            } else if (navigator.onLine) {
+                body.innerHTML = `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true" width="100%" height="100%" style="border:none;"></iframe>`;
+            } else {
+                body.innerHTML = `<object data="${renderUrl}" width="100%" height="100%">
+                    <iframe src="${renderUrl}" width="100%" height="100%" style="border:none;"></iframe>
+                </object>`;
+            }
+        } catch (err) {
+            console.error('Doc viewer rendering error:', err);
+            body.innerHTML = `<iframe src="${fileUrl}" width="100%" height="100%" style="border:none;"></iframe>`;
+        }
+    },
+
     // Handle view operation offline-first using in-app Document Viewer
     async viewFile(fileUrl, id, version, title) {
         try {
@@ -232,21 +313,10 @@ const pwaHelper = {
                 blob = new Blob([rawBlob], { type: rawBlob.type && rawBlob.type !== 'text/plain' ? rawBlob.type : mimeType });
             }
 
-            if (window.openDocViewer) {
-                window.openDocViewer(fileUrl, title || 'Study Material', blob);
-            } else if (blob) {
-                const blobUrl = URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank');
-            } else {
-                window.open(fileUrl, '_blank');
-            }
+            this.openDocViewer(fileUrl, title || 'Study Material', blob);
         } catch (err) {
             console.error('[PWA Cache] Error viewing file:', err);
-            if (window.openDocViewer) {
-                window.openDocViewer(fileUrl, title || 'Study Material', null);
-            } else {
-                window.open(fileUrl, '_blank');
-            }
+            this.openDocViewer(fileUrl, title || 'Study Material', null);
         }
     },
 
