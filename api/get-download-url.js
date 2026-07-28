@@ -66,7 +66,7 @@ module.exports = async function handler(req, res) {
         // Fallback: get bucketId first then retry
         if (!dlAuthResponse.ok) {
             // Get bucket ID
-            const listRes = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets?accountId=${authData.accountId}&bucketName=${bucket}`, {
+            const listRes = await fetch(`${apiUrl}/b2api/v3/b2_list_buckets?accountId=${cachedAuth.accountId}&bucketName=${bucket}`, {
                 headers: { Authorization: authToken },
             });
             const listData = await listRes.json();
@@ -91,13 +91,13 @@ module.exports = async function handler(req, res) {
             }
 
             const dlAuthData = await dlAuthResponse2.json();
-            const downloadUrl = authData.apiInfo.storageApi.downloadUrl;
+            const downloadUrl = cachedAuth.apiInfo.storageApi.downloadUrl;
             const signedUrl = `${downloadUrl}/file/${bucket}/${fileName}?Authorization=${dlAuthData.authorizationToken}`;
             return res.status(200).json({ signedUrl });
         }
 
         const dlAuthData  = await dlAuthResponse.json();
-        const downloadUrl = authData.apiInfo.storageApi.downloadUrl;
+        const downloadUrl = cachedAuth.apiInfo.storageApi.downloadUrl;
         const signedUrl   = `${downloadUrl}/file/${bucket}/${fileName}?Authorization=${dlAuthData.authorizationToken}`;
 
         return res.status(200).json({ signedUrl });
