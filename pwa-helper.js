@@ -216,30 +216,55 @@ const pwaHelper = {
             }
         </style>
         <div id="nexus-doc-viewer-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,0,5,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); z-index:999999; flex-direction:column;">
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.1);">
-                <div style="display:flex; align-items:center; gap:1rem;">
-                    <span id="nexus-doc-viewer-icon" style="font-size:1.8rem;">📄</span>
+            <div id="nexus-doc-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.8rem 1.5rem; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.1); transition: all 0.3s ease;">
+                <div style="display:flex; align-items:center; gap:0.8rem;">
+                    <span id="nexus-doc-viewer-icon" style="font-size:1.6rem;">📄</span>
                     <div>
-                        <h3 id="nexus-doc-viewer-title" style="margin:0; color:#fff; font-size:1.1rem; font-family:sans-serif;">Document Reader</h3>
-                        <span id="nexus-doc-viewer-sub" style="font-size:0.8rem; color:#a1a1aa;">NEXUS Reader</span>
+                        <h3 id="nexus-doc-viewer-title" style="margin:0; color:#fff; font-size:1rem; font-family:sans-serif;">Document Reader</h3>
+                        <span id="nexus-doc-viewer-sub" style="font-size:0.75rem; color:#a1a1aa;">NEXUS Reader</span>
                     </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:1rem;">
-                    <button id="nexus-doc-viewer-dl-btn" style="background:#9d4edd; color:#fff; border:none; padding:0.5rem 1.2rem; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.9rem;">Download</button>
-                    <button onclick="window.pwaHelper ? pwaHelper.closeDocViewer() : (document.getElementById('nexus-doc-viewer-modal').style.display='none')" style="background:rgba(255,255,255,0.1); color:#fff; border:none; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1.4rem; display:flex; align-items:center; justify-content:center;">×</button>
+                <div style="display:flex; align-items:center; gap:0.8rem;">
+                    <button id="nexus-doc-viewer-dl-btn" style="background:#9d4edd; color:#fff; border:none; padding:0.4rem 1rem; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem;">Download</button>
+                    <button onclick="window.pwaHelper ? pwaHelper.toggleDocHeader() : null" title="Hide Top Bar for Full Screen" style="background:rgba(255,255,255,0.1); color:#fff; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+                    <button onclick="window.pwaHelper ? pwaHelper.closeDocViewer() : null" title="Exit Document Reader" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4); padding:0.4rem 0.8rem; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem;">Exit</button>
                 </div>
             </div>
+
+            <!-- Floating Restore Button when Header Bar is Hidden -->
+            <button id="nexus-doc-viewer-restore-btn" onclick="window.pwaHelper ? pwaHelper.toggleDocHeader() : null" title="Show Top Header Bar" style="display:none; position:fixed; top:12px; right:12px; z-index:1000000; background:rgba(157,78,221,0.9); backdrop-filter:blur(10px); color:#fff; border:1px solid rgba(255,255,255,0.2); padding:0.4rem 0.8rem; border-radius:20px; cursor:pointer; font-size:0.8rem; font-weight:600; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                👁️ Show Bar
+            </button>
+
             <div id="nexus-doc-viewer-body" style="flex:1; width:100%; height:100%; display:flex; justify-content:center; align-items:center; overflow:hidden; position:relative;">
             </div>
         </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
+    toggleDocHeader() {
+        const header = document.getElementById('nexus-doc-viewer-header');
+        const restoreBtn = document.getElementById('nexus-doc-viewer-restore-btn');
+        if (!header) return;
+
+        if (header.style.display === 'none') {
+            header.style.display = 'flex';
+            if (restoreBtn) restoreBtn.style.display = 'none';
+        } else {
+            header.style.display = 'none';
+            if (restoreBtn) restoreBtn.style.display = 'flex';
+        }
+    },
+
     closeDocViewer() {
         const modal = document.getElementById('nexus-doc-viewer-modal');
         const body = document.getElementById('nexus-doc-viewer-body');
+        const header = document.getElementById('nexus-doc-viewer-header');
+        const restoreBtn = document.getElementById('nexus-doc-viewer-restore-btn');
         if (modal) modal.style.display = 'none';
         if (body) body.innerHTML = '';
+        if (header) header.style.display = 'flex';
+        if (restoreBtn) restoreBtn.style.display = 'none';
     },
 
     openDocViewer(fileUrl, title, blobData) {
