@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=7"></script>
+    <script src="pwa-helper.js?v=8"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -103,10 +103,17 @@
             border-radius: 50%;
             background-color: var(--cursor-color);
             pointer-events: none;
-            z-index: 9999;
+            z-index: 10000000 !important;
             transform: translate(-50%, -50%);
             mix-blend-mode: difference;
             transition: width 0.3s, height 0.3s, background-color 0.3s;
+        }
+
+        #nexus-doc-viewer-modal,
+        #nexus-doc-viewer-modal *,
+        #doc-viewer-modal,
+        #doc-viewer-modal * {
+            cursor: auto !important;
         }
 
         .custom-cursor.active {

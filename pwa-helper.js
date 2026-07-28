@@ -209,6 +209,12 @@ const pwaHelper = {
     ensureDocViewerModal() {
         if (document.getElementById('nexus-doc-viewer-modal')) return;
         const modalHtml = `
+        <style>
+            #nexus-doc-viewer-modal,
+            #nexus-doc-viewer-modal * {
+                cursor: auto !important;
+            }
+        </style>
         <div id="nexus-doc-viewer-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,0,5,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); z-index:999999; flex-direction:column;">
             <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.1);">
                 <div style="display:flex; align-items:center; gap:1rem;">
