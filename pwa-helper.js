@@ -232,6 +232,8 @@ const pwaHelper = {
                 const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' ? rawBlob.type : mimeType) });
                 const blobUrl = URL.createObjectURL(pdfBlob);
                 window.open(blobUrl, '_blank');
+                // Cleanup Blob URL to free RAM after 60 seconds
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
             } else {
                 window.open(fileUrl, '_blank');
             }
