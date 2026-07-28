@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=3"></script>
+    <script src="pwa-helper.js?v=4"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1810,6 +1810,46 @@
             }
         });
 
+        function uploadFileToGitHub(file, onProgress) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onprogress = (evt) => {
+                    if (evt.lengthComputable && onProgress) {
+                        const percent = Math.round((evt.loaded / evt.total) * 50);
+                        onProgress(`Reading file: ${percent}%`);
+                    }
+                };
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.onload = async () => {
+                    try {
+                        if (onProgress) onProgress('Uploading to GitHub Storage...');
+                        const base64Data = reader.result;
+                        const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+                        
+                        const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                fileName: fileName,
+                                fileBase64: base64Data
+                            })
+                        });
+
+                        if (!res.ok) {
+                            const err = await res.json();
+                            throw new Error(err.error || 'GitHub upload failed');
+                        }
+
+                        const data = await res.json();
+                        resolve(data.publicUrl);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
         // Handle file upload
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1826,49 +1866,8 @@
             progressText.textContent = 'Preparing secure upload...';
 
             try {
-                // 1. Get a short-lived presigned URL from the Vercel backend
-                // (B2 credentials never leave the server)
-                progressText.textContent = 'Requesting secure upload URL...';
-                const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fileName: file.name.replace(/[^a-zA-Z0-9.]/g, '_'),
-                        fileType: file.type || 'application/octet-stream'
-                    })
-                });
-
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Failed to get upload URL');
-                }
-
-                const { uploadUrl, authToken, fileName: b2FileName, publicUrl } = await response.json();
-
-                // 2. Upload directly to B2 using native B2 upload protocol
-                await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('POST', uploadUrl, true);
-                    // Required B2 native upload headers
-                    xhr.setRequestHeader('Authorization', authToken);
-                    xhr.setRequestHeader('X-Bz-File-Name', encodeURIComponent(b2FileName));
-                    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-                    xhr.setRequestHeader('X-Bz-Content-Sha1', 'do_not_verify');
-                    xhr.upload.onprogress = (evt) => {
-                        if (evt.lengthComputable) {
-                            const percent = Math.round((evt.loaded / evt.total) * 100);
-                            progressText.textContent = `Uploading: ${percent}%`;
-                        }
-                    };
-                    xhr.onload = () => {
-                        if (xhr.status >= 200 && xhr.status < 300) resolve();
-                        else {
-                            console.error('B2 upload error response:', xhr.responseText);
-                            reject(new Error(`Upload failed (HTTP ${xhr.status}): ${xhr.responseText}`));
-                        }
-                    };
-                    xhr.onerror = () => reject(new Error('Network error during upload'));
-                    xhr.send(file);
+                const publicUrl = await uploadFileToGitHub(file, (msg) => {
+                    progressText.textContent = msg;
                 });
 
                 progressText.textContent = 'Saving to database...';

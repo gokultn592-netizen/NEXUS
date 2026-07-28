@@ -37,6 +37,47 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Missing fileUrl' });
         }
 
+        // Handle GitHub file deletion
+        if (fileUrl.includes('githubusercontent.com') || fileUrl.includes('github.com')) {
+            const token = process.env.GITHUB_TOKEN;
+            const repo = process.env.GITHUB_REPO || 'gokultn592-netizen/NEXUS';
+            const match = fileUrl.match(/\/materials\/(.+)$/);
+            const path = match ? `materials/${match[1]}` : fileUrl.split('/').slice(-2).join('/');
+
+            // Get SHA
+            const checkRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+                headers: {
+                    Authorization: `token ${token}`,
+                    'User-Agent': 'NEXUS-App'
+                }
+            });
+            if (!checkRes.ok) {
+                return res.status(200).json({ success: true, message: 'File already deleted from GitHub' });
+            }
+            const fileData = await checkRes.json();
+
+            // Delete
+            const deleteRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `token ${token}`,
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'NEXUS-App'
+                },
+                body: JSON.stringify({
+                    message: `Delete material: ${path}`,
+                    sha: fileData.sha
+                })
+            });
+
+            if (!deleteRes.ok) {
+                const errText = await deleteRes.text();
+                throw new Error(`GitHub delete failed: ${errText}`);
+            }
+
+            return res.status(200).json({ success: true });
+        }
+
         const keyId  = process.env.B2_KEY_ID;
         const appKey = process.env.B2_APP_KEY;
         const bucket = process.env.B2_BUCKET;

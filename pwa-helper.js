@@ -146,6 +146,10 @@ const pwaHelper = {
     },
 
     async getSignedUrl(fileUrl) {
+        if (fileUrl.includes('raw.githubusercontent.com') || fileUrl.includes('github.com')) {
+            return fileUrl;
+        }
+
         const match = fileUrl.match(/\/file\/[^/]+\/(.+)$/);
         if (!match) return fileUrl;
         const fileName = match[1];
