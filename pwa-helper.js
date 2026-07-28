@@ -195,47 +195,75 @@ const pwaHelper = {
         return signedUrl;
     },
 
+    // Helper to extract proper MIME type from filename or URL
+    getMimeType(url) {
+        const clean = (url || '').toLowerCase();
+        if (clean.includes('.pdf')) return 'application/pdf';
+        if (clean.includes('.png')) return 'image/png';
+        if (clean.includes('.jpg') || clean.includes('.jpeg')) return 'image/jpeg';
+        if (clean.includes('.pptx') || clean.includes('.ppt')) return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        if (clean.includes('.docx') || clean.includes('.doc')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        return 'application/octet-stream';
+    },
+
     // Handle view operation offline-first
     async viewFile(fileUrl, id, version) {
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        // Pre-open tab synchronously to prevent browser popup blocker
+        let newTab = null;
+        if (!isMobile) {
+            newTab = window.open('about:blank', '_blank');
+            if (newTab) {
+                newTab.document.write('<html><head><title>Loading Material...</title></head><body style="background:#030005;color:#9d4edd;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;margin:0;"><h2>⚡ Loading document...</h2></body></html>');
+            }
+        }
+
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
             const cache = await caches.open('nexus-files-cache');
-            const match = await cache.match(cleanUrl);
+            let match = await cache.match(cleanUrl);
             
-            if (match) {
-                console.log('[PWA Cache] Serving file from cache:', cleanUrl);
-                const blob = await match.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                
-                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-                if (isMobile) {
-                    window.location.href = blobUrl;
-                } else {
-                    window.open(blobUrl, '_blank');
+            if (!match) {
+                if (!navigator.onLine) {
+                    if (newTab) newTab.close();
+                    alert('You are offline, and this file has not been cached yet.');
+                    return;
                 }
-                return;
+                console.log('[PWA Cache] File not in cache. Downloading and caching...');
+                await this.fetchAndCacheFile(id, fileUrl, version);
+                match = await cache.match(cleanUrl);
+            } else {
+                console.log('[PWA Cache] Serving file from cache:', cleanUrl);
             }
             
-            if (!navigator.onLine) {
-                alert('You are offline, and this file has not been cached yet.');
-                return;
+            let blob;
+            if (match) {
+                const rawBlob = await match.blob();
+                const mimeType = this.getMimeType(cleanUrl);
+                blob = new Blob([rawBlob], { type: rawBlob.type && rawBlob.type !== 'text/plain' ? rawBlob.type : mimeType });
+            } else {
+                // Fallback fetch
+                const signedUrl = await this.getSignedUrl(fileUrl);
+                const resp = await fetch(signedUrl);
+                const rawBlob = await resp.blob();
+                const mimeType = this.getMimeType(cleanUrl);
+                blob = new Blob([rawBlob], { type: mimeType });
             }
-            
-            console.log('[PWA Cache] File not in cache. Downloading and caching...');
-            const response = await this.fetchAndCacheFile(id, fileUrl, version);
-            const blob = await response.blob();
+
             const blobUrl = URL.createObjectURL(blob);
             
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isMobile) {
-                window.location.href = blobUrl;
+            if (newTab && !newTab.closed) {
+                newTab.location.href = blobUrl;
             } else {
-                window.open(blobUrl, '_blank');
+                window.location.href = blobUrl;
             }
         } catch (err) {
             console.error('[PWA Cache] Error viewing file:', err);
-            // Dynamic fallback
-            window.open(fileUrl, '_blank');
+            if (newTab && !newTab.closed) {
+                newTab.location.href = fileUrl;
+            } else {
+                window.open(fileUrl, '_blank');
+            }
         }
     },
 
