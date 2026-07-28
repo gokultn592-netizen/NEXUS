@@ -215,8 +215,8 @@ const pwaHelper = {
                 cursor: auto !important;
             }
         </style>
-        <div id="nexus-doc-viewer-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,0,5,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); z-index:999999; flex-direction:column;">
-            <div id="nexus-doc-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.8rem 1.5rem; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.1); transition: all 0.3s ease;">
+        <div id="nexus-doc-viewer-modal" data-lenis-prevent="true" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,0,5,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); z-index:999999; flex-direction:column; pointer-events:auto;">
+            <div id="nexus-doc-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.8rem 1.5rem; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.1); transition: all 0.3s ease; flex-shrink:0;">
                 <div style="display:flex; align-items:center; gap:0.8rem;">
                     <span id="nexus-doc-viewer-icon" style="font-size:1.6rem;">📄</span>
                     <div>
@@ -236,7 +236,7 @@ const pwaHelper = {
                 👁️ Show Bar
             </button>
 
-            <div id="nexus-doc-viewer-body" style="flex:1; width:100%; height:100%; display:flex; justify-content:center; align-items:center; overflow:hidden; position:relative;">
+            <div id="nexus-doc-viewer-body" data-lenis-prevent="true" style="flex:1; width:100%; height:100%; display:flex; justify-content:center; align-items:center; overflow:hidden; position:relative; touch-action:pan-y;">
             </div>
         </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
@@ -325,7 +325,14 @@ const pwaHelper = {
                     body.innerHTML = '';
 
                     const wrapper = document.createElement('div');
-                    wrapper.style.cssText = 'overflow-y:auto; overflow-x:hidden; height:100%; width:100%; display:flex; flex-direction:column; align-items:center; gap:1rem; padding:1rem 0; box-sizing:border-box; -webkit-overflow-scrolling:touch;';
+                    wrapper.setAttribute('data-lenis-prevent', 'true');
+                    wrapper.id = 'nexus-pdf-scroll-container';
+                    wrapper.style.cssText = 'overflow-y: scroll !important; overflow-x: auto !important; height: 100% !important; width: 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 1.5rem !important; padding: 1.5rem 0 !important; box-sizing: border-box !important; touch-action: pan-y !important; -webkit-overflow-scrolling: touch !important; pointer-events: auto !important;';
+                    
+                    // Stop event propagation to prevent smooth scroll hijackers
+                    wrapper.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+                    wrapper.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+
                     body.appendChild(wrapper);
 
                     const containerWidth = body.clientWidth || window.innerWidth;
@@ -333,14 +340,14 @@ const pwaHelper = {
                     for (let num = 1; num <= pdf.numPages; num++) {
                         const page = await pdf.getPage(num);
                         const unscaledViewport = page.getViewport({ scale: 1 });
-                        const targetScale = Math.min((containerWidth - 16) / unscaledViewport.width, 2.0);
+                        const targetScale = Math.min((containerWidth - 24) / unscaledViewport.width, 2.0);
                         const viewport = page.getViewport({ scale: targetScale > 0.5 ? targetScale : 1.0 });
 
                         const canvas = document.createElement('canvas');
                         const context = canvas.getContext('2d');
                         canvas.height = viewport.height;
                         canvas.width = viewport.width;
-                        canvas.style.cssText = 'max-width:98%; height:auto; box-shadow:0 10px 30px rgba(0,0,0,0.6); border-radius:4px; background:white; margin:0 auto; display:block;';
+                        canvas.style.cssText = 'max-width:98%; height:auto; box-shadow:0 10px 30px rgba(0,0,0,0.6); border-radius:4px; background:white; margin:0 auto; display:block; flex-shrink:0;';
 
                         wrapper.appendChild(canvas);
                         await page.render({ canvasContext: context, viewport: viewport }).promise;
