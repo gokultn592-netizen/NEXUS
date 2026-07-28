@@ -267,23 +267,7 @@ const pwaHelper = {
         if (restoreBtn) restoreBtn.style.display = 'none';
     },
 
-    async loadPdfJsIfNeeded() {
-        if (window.pdfjsLib) return;
-        return new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            script.onload = () => {
-                if (window.pdfjsLib) {
-                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                }
-                resolve();
-            };
-            script.onerror = () => resolve();
-            document.head.appendChild(script);
-        });
-    },
-
-    async openDocViewer(fileUrl, title, blobData) {
+    openDocViewer(fileUrl, title, blobData) {
         this.ensureDocViewerModal();
         const modal = document.getElementById('nexus-doc-viewer-modal');
         const body = document.getElementById('nexus-doc-viewer-body');
@@ -293,7 +277,6 @@ const pwaHelper = {
         if (!modal || !body) return;
 
         titleEl.textContent = title || 'Document Reader';
-        body.innerHTML = '<div style="color:#9d4edd; font-family:sans-serif; text-align:center; padding:3rem;"><h2>⚡ Rendering Document...</h2></div>';
         modal.style.display = 'flex';
 
         downloadBtn.onclick = () => {
@@ -310,75 +293,23 @@ const pwaHelper = {
                 return;
             }
 
-            // Load PDF.js for 100% full-screen mobile / PWA canvas rendering
-            await this.loadPdfJsIfNeeded();
-
-            if (isPdf && window.pdfjsLib) {
-                try {
-                    let pdfSource = fileUrl;
-                    if (blobData) {
-                        pdfSource = new Uint8Array(await blobData.arrayBuffer());
-                    }
-
-                    const loadingTask = pdfjsLib.getDocument(typeof pdfSource === 'string' ? pdfSource : { data: pdfSource });
-                    const pdf = await loadingTask.promise;
-                    body.innerHTML = '';
-
-                    const wrapper = document.createElement('div');
-                    wrapper.setAttribute('data-lenis-prevent', 'true');
-                    wrapper.id = 'nexus-pdf-scroll-container';
-                    wrapper.style.cssText = 'overflow-y: scroll !important; overflow-x: auto !important; height: 100% !important; width: 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 1.5rem !important; padding: 1.5rem 0 !important; box-sizing: border-box !important; touch-action: pan-y !important; -webkit-overflow-scrolling: touch !important; pointer-events: auto !important;';
-                    
-                    // Stop event propagation to prevent smooth scroll hijackers
-                    wrapper.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
-                    wrapper.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
-
-                    body.appendChild(wrapper);
-
-                    const containerWidth = body.clientWidth || window.innerWidth;
-
-                    for (let num = 1; num <= pdf.numPages; num++) {
-                        const page = await pdf.getPage(num);
-                        const unscaledViewport = page.getViewport({ scale: 1 });
-                        const targetScale = Math.min((containerWidth - 24) / unscaledViewport.width, 2.0);
-                        const viewport = page.getViewport({ scale: targetScale > 0.5 ? targetScale : 1.0 });
-
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-                        canvas.style.cssText = 'max-width:98%; height:auto; box-shadow:0 10px 30px rgba(0,0,0,0.6); border-radius:4px; background:white; margin:0 auto; display:block; flex-shrink:0;';
-
-                        wrapper.appendChild(canvas);
-                        await page.render({ canvasContext: context, viewport: viewport }).promise;
-                    }
-                    return;
-                } catch (pdfErr) {
-                    console.warn('[PWA Reader] PDF.js render warning, using fallback:', pdfErr);
-                }
-            }
-
-            // Fallback for non-PDF files or legacy browsers
+            // Native Hardware-Accelerated PDF Engine (<embed type="application/pdf">)
             let renderUrl = fileUrl;
             if (blobData) {
-                const typedBlob = new Blob([blobData], { type: isPdf ? 'application/pdf' : (blobData.type || 'application/octet-stream') });
-                renderUrl = URL.createObjectURL(typedBlob);
+                const pdfBlob = new Blob([blobData], { type: isPdf ? 'application/pdf' : (blobData.type || 'application/pdf') });
+                renderUrl = URL.createObjectURL(pdfBlob);
             }
 
             if (isPdf) {
-                body.innerHTML = `<object data="${renderUrl}" type="application/pdf" width="100%" height="100%">
-                    <iframe src="${renderUrl}" width="100%" height="100%" style="border:none;"></iframe>
-                </object>`;
+                body.innerHTML = `<embed src="${renderUrl}" type="application/pdf" width="100%" height="100%" style="width:100%; height:100%; border:none; display:block;" />`;
             } else if (navigator.onLine) {
                 body.innerHTML = `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true" width="100%" height="100%" style="border:none;"></iframe>`;
             } else {
-                body.innerHTML = `<object data="${renderUrl}" width="100%" height="100%">
-                    <iframe src="${renderUrl}" width="100%" height="100%" style="border:none;"></iframe>
-                </object>`;
+                body.innerHTML = `<embed src="${renderUrl}" width="100%" height="100%" style="border:none;" />`;
             }
         } catch (err) {
             console.error('Doc viewer rendering error:', err);
-            body.innerHTML = `<iframe src="${fileUrl}" width="100%" height="100%" style="border:none;"></iframe>`;
+            body.innerHTML = `<embed src="${fileUrl}" type="application/pdf" width="100%" height="100%" style="border:none;" />`;
         }
     },
 
