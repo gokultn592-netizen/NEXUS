@@ -267,7 +267,23 @@ const pwaHelper = {
         if (restoreBtn) restoreBtn.style.display = 'none';
     },
 
-    openDocViewer(fileUrl, title, blobData) {
+    async loadPdfJsIfNeeded() {
+        if (window.pdfjsLib) return;
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = () => {
+                if (window.pdfjsLib) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                }
+                resolve();
+            };
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+        });
+    },
+
+    async openDocViewer(fileUrl, title, blobData) {
         this.ensureDocViewerModal();
         const modal = document.getElementById('nexus-doc-viewer-modal');
         const body = document.getElementById('nexus-doc-viewer-body');
@@ -277,7 +293,7 @@ const pwaHelper = {
         if (!modal || !body) return;
 
         titleEl.textContent = title || 'Document Reader';
-        body.innerHTML = '<div style="color:#9d4edd; font-family:sans-serif; text-align:center;"><h2>⚡ Rendering Document...</h2></div>';
+        body.innerHTML = '<div style="color:#9d4edd; font-family:sans-serif; text-align:center; padding:3rem;"><h2>⚡ Rendering Document...</h2></div>';
         modal.style.display = 'flex';
 
         downloadBtn.onclick = () => {
@@ -290,11 +306,52 @@ const pwaHelper = {
         try {
             if (isImage) {
                 const imgSrc = blobData ? URL.createObjectURL(blobData) : fileUrl;
-                body.innerHTML = `<img src="${imgSrc}" style="max-width:90%; max-height:90%; object-fit:contain; border-radius:8px; box-shadow:0 20px 50px rgba(0,0,0,0.5);" />`;
+                body.innerHTML = `<img src="${imgSrc}" style="width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; display:block;" />`;
                 return;
             }
 
-            // PDF or Document: Render inline object/iframe inside the page container
+            // Load PDF.js for 100% full-screen mobile / PWA canvas rendering
+            await this.loadPdfJsIfNeeded();
+
+            if (isPdf && window.pdfjsLib) {
+                try {
+                    let pdfSource = fileUrl;
+                    if (blobData) {
+                        pdfSource = new Uint8Array(await blobData.arrayBuffer());
+                    }
+
+                    const loadingTask = pdfjsLib.getDocument(typeof pdfSource === 'string' ? pdfSource : { data: pdfSource });
+                    const pdf = await loadingTask.promise;
+                    body.innerHTML = '';
+
+                    const wrapper = document.createElement('div');
+                    wrapper.style.cssText = 'overflow-y:auto; overflow-x:hidden; height:100%; width:100%; display:flex; flex-direction:column; align-items:center; gap:1rem; padding:1rem 0; box-sizing:border-box; -webkit-overflow-scrolling:touch;';
+                    body.appendChild(wrapper);
+
+                    const containerWidth = body.clientWidth || window.innerWidth;
+
+                    for (let num = 1; num <= pdf.numPages; num++) {
+                        const page = await pdf.getPage(num);
+                        const unscaledViewport = page.getViewport({ scale: 1 });
+                        const targetScale = Math.min((containerWidth - 16) / unscaledViewport.width, 2.0);
+                        const viewport = page.getViewport({ scale: targetScale > 0.5 ? targetScale : 1.0 });
+
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        canvas.style.cssText = 'max-width:98%; height:auto; box-shadow:0 10px 30px rgba(0,0,0,0.6); border-radius:4px; background:white; margin:0 auto; display:block;';
+
+                        wrapper.appendChild(canvas);
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    }
+                    return;
+                } catch (pdfErr) {
+                    console.warn('[PWA Reader] PDF.js render warning, using fallback:', pdfErr);
+                }
+            }
+
+            // Fallback for non-PDF files or legacy browsers
             let renderUrl = fileUrl;
             if (blobData) {
                 const typedBlob = new Blob([blobData], { type: isPdf ? 'application/pdf' : (blobData.type || 'application/octet-stream') });
