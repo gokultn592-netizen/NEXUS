@@ -206,114 +206,7 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    ensureDocViewerModal() {
-        if (document.getElementById('nexus-doc-viewer-modal')) return;
-        const modalHtml = `
-        <style>
-            #nexus-doc-viewer-modal,
-            #nexus-doc-viewer-modal * {
-                cursor: auto !important;
-            }
-        </style>
-        <div id="nexus-doc-viewer-modal" data-lenis-prevent="true" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,0,5,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); z-index:999999; flex-direction:column; pointer-events:auto;">
-            <div id="nexus-doc-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.8rem 1.5rem; background:rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.1); transition: all 0.3s ease; flex-shrink:0;">
-                <div style="display:flex; align-items:center; gap:0.8rem;">
-                    <span id="nexus-doc-viewer-icon" style="font-size:1.6rem;">📄</span>
-                    <div>
-                        <h3 id="nexus-doc-viewer-title" style="margin:0; color:#fff; font-size:1rem; font-family:sans-serif;">Document Reader</h3>
-                        <span id="nexus-doc-viewer-sub" style="font-size:0.75rem; color:#a1a1aa;">NEXUS Reader</span>
-                    </div>
-                </div>
-                <div style="display:flex; align-items:center; gap:0.8rem;">
-                    <button id="nexus-doc-viewer-dl-btn" style="background:#9d4edd; color:#fff; border:none; padding:0.4rem 1rem; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem;">Download</button>
-                    <button onclick="window.pwaHelper ? pwaHelper.toggleDocHeader() : null" title="Hide Top Bar for Full Screen" style="background:rgba(255,255,255,0.1); color:#fff; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center;">✕</button>
-                    <button onclick="window.pwaHelper ? pwaHelper.closeDocViewer() : null" title="Exit Document Reader" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4); padding:0.4rem 0.8rem; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem;">Exit</button>
-                </div>
-            </div>
-
-            <!-- Floating Restore Button when Header Bar is Hidden -->
-            <button id="nexus-doc-viewer-restore-btn" onclick="window.pwaHelper ? pwaHelper.toggleDocHeader() : null" title="Show Top Header Bar" style="display:none; position:fixed; top:12px; right:12px; z-index:1000000; background:rgba(157,78,221,0.9); backdrop-filter:blur(10px); color:#fff; border:1px solid rgba(255,255,255,0.2); padding:0.4rem 0.8rem; border-radius:20px; cursor:pointer; font-size:0.8rem; font-weight:600; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
-                👁️ Show Bar
-            </button>
-
-            <div id="nexus-doc-viewer-body" data-lenis-prevent="true" style="flex:1; width:100%; height:100%; display:flex; justify-content:center; align-items:center; overflow:hidden; position:relative; touch-action:pan-y;">
-            </div>
-        </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    },
-
-    toggleDocHeader() {
-        const header = document.getElementById('nexus-doc-viewer-header');
-        const restoreBtn = document.getElementById('nexus-doc-viewer-restore-btn');
-        if (!header) return;
-
-        if (header.style.display === 'none') {
-            header.style.display = 'flex';
-            if (restoreBtn) restoreBtn.style.display = 'none';
-        } else {
-            header.style.display = 'none';
-            if (restoreBtn) restoreBtn.style.display = 'flex';
-        }
-    },
-
-    closeDocViewer() {
-        const modal = document.getElementById('nexus-doc-viewer-modal');
-        const body = document.getElementById('nexus-doc-viewer-body');
-        const header = document.getElementById('nexus-doc-viewer-header');
-        const restoreBtn = document.getElementById('nexus-doc-viewer-restore-btn');
-        if (modal) modal.style.display = 'none';
-        if (body) body.innerHTML = '';
-        if (header) header.style.display = 'flex';
-        if (restoreBtn) restoreBtn.style.display = 'none';
-    },
-
-    openDocViewer(fileUrl, title, blobData) {
-        this.ensureDocViewerModal();
-        const modal = document.getElementById('nexus-doc-viewer-modal');
-        const body = document.getElementById('nexus-doc-viewer-body');
-        const titleEl = document.getElementById('nexus-doc-viewer-title');
-        const downloadBtn = document.getElementById('nexus-doc-viewer-dl-btn');
-
-        if (!modal || !body) return;
-
-        titleEl.textContent = title || 'Document Reader';
-        modal.style.display = 'flex';
-
-        downloadBtn.onclick = () => {
-            this.downloadFile(fileUrl, title);
-        };
-
-        const isPdf = fileUrl.toLowerCase().includes('.pdf');
-        const isImage = /\.(png|jpe?g|gif|webp|svg)/i.test(fileUrl);
-
-        try {
-            if (isImage) {
-                const imgSrc = blobData ? URL.createObjectURL(blobData) : fileUrl;
-                body.innerHTML = `<img src="${imgSrc}" style="width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; display:block;" />`;
-                return;
-            }
-
-            // Native Hardware-Accelerated PDF Engine (<embed type="application/pdf">)
-            let renderUrl = fileUrl;
-            if (blobData) {
-                const pdfBlob = new Blob([blobData], { type: isPdf ? 'application/pdf' : (blobData.type || 'application/pdf') });
-                renderUrl = URL.createObjectURL(pdfBlob);
-            }
-
-            if (isPdf) {
-                body.innerHTML = `<embed src="${renderUrl}" type="application/pdf" width="100%" height="100%" style="width:100%; height:100%; border:none; display:block;" />`;
-            } else if (navigator.onLine) {
-                body.innerHTML = `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true" width="100%" height="100%" style="border:none;"></iframe>`;
-            } else {
-                body.innerHTML = `<embed src="${renderUrl}" width="100%" height="100%" style="border:none;" />`;
-            }
-        } catch (err) {
-            console.error('Doc viewer rendering error:', err);
-            body.innerHTML = `<embed src="${fileUrl}" type="application/pdf" width="100%" height="100%" style="border:none;" />`;
-        }
-    },
-
-    // Handle view operation offline-first using in-app Document Viewer
+    // Handle view operation offline-first using Native Browser Engine
     async viewFile(fileUrl, id, version, title) {
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
@@ -332,17 +225,19 @@ const pwaHelper = {
                 console.log('[PWA Cache] Serving file from cache:', cleanUrl);
             }
             
-            let blob = null;
             if (match) {
                 const rawBlob = await match.blob();
                 const mimeType = this.getMimeType(cleanUrl);
-                blob = new Blob([rawBlob], { type: rawBlob.type && rawBlob.type !== 'text/plain' ? rawBlob.type : mimeType });
+                const isPdf = cleanUrl.endsWith('.pdf');
+                const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' ? rawBlob.type : mimeType) });
+                const blobUrl = URL.createObjectURL(pdfBlob);
+                window.open(blobUrl, '_blank');
+            } else {
+                window.open(fileUrl, '_blank');
             }
-
-            this.openDocViewer(fileUrl, title || 'Study Material', blob);
         } catch (err) {
             console.error('[PWA Cache] Error viewing file:', err);
-            this.openDocViewer(fileUrl, title || 'Study Material', null);
+            window.open(fileUrl, '_blank');
         }
     },
 
