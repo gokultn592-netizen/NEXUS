@@ -206,18 +206,8 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Handle view operation offline-first
-    async viewFile(fileUrl, id, version) {
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        // Pre-open tab synchronously to prevent browser popup blocker
-        let newTab = null;
-        if (!isMobile) {
-            newTab = window.open('about:blank', '_blank');
-            if (newTab) {
-                newTab.document.write('<html><head><title>Loading Material...</title></head><body style="background:#030005;color:#9d4edd;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;margin:0;"><h2>⚡ Loading document...</h2></body></html>');
-            }
-        }
-
+    // Handle view operation offline-first using in-app Document Viewer
+    async viewFile(fileUrl, id, version, title) {
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
             const cache = await caches.open('nexus-files-cache');
@@ -225,7 +215,6 @@ const pwaHelper = {
             
             if (!match) {
                 if (!navigator.onLine) {
-                    if (newTab) newTab.close();
                     alert('You are offline, and this file has not been cached yet.');
                     return;
                 }
@@ -236,31 +225,25 @@ const pwaHelper = {
                 console.log('[PWA Cache] Serving file from cache:', cleanUrl);
             }
             
-            let blob;
+            let blob = null;
             if (match) {
                 const rawBlob = await match.blob();
                 const mimeType = this.getMimeType(cleanUrl);
                 blob = new Blob([rawBlob], { type: rawBlob.type && rawBlob.type !== 'text/plain' ? rawBlob.type : mimeType });
-            } else {
-                // Fallback fetch
-                const signedUrl = await this.getSignedUrl(fileUrl);
-                const resp = await fetch(signedUrl);
-                const rawBlob = await resp.blob();
-                const mimeType = this.getMimeType(cleanUrl);
-                blob = new Blob([rawBlob], { type: mimeType });
             }
 
-            const blobUrl = URL.createObjectURL(blob);
-            
-            if (newTab && !newTab.closed) {
-                newTab.location.href = blobUrl;
+            if (window.openDocViewer) {
+                window.openDocViewer(fileUrl, title || 'Study Material', blob);
+            } else if (blob) {
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
             } else {
-                window.location.href = blobUrl;
+                window.open(fileUrl, '_blank');
             }
         } catch (err) {
             console.error('[PWA Cache] Error viewing file:', err);
-            if (newTab && !newTab.closed) {
-                newTab.location.href = fileUrl;
+            if (window.openDocViewer) {
+                window.openDocViewer(fileUrl, title || 'Study Material', null);
             } else {
                 window.open(fileUrl, '_blank');
             }
