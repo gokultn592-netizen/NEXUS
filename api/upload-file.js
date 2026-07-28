@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { fileName, fileBase64 } = req.body;
+        const { fileName, fileBase64, oldFileName } = req.body;
 
         if (!fileName || !fileBase64) {
             return res.status(400).json({ error: 'Missing fileName or fileBase64' });
@@ -21,6 +21,33 @@ module.exports = async function handler(req, res) {
 
         if (!token) {
             throw new Error('GITHUB_TOKEN environment variable is not configured');
+        }
+
+        // If oldFileName is provided and different, delete old file from GitHub storage
+        if (oldFileName && oldFileName !== fileName) {
+            try {
+                const oldPath = `materials/${oldFileName}`;
+                const checkOld = await fetch(`https://api.github.com/repos/${repo}/contents/${oldPath}`, {
+                    headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+                });
+                if (checkOld.ok) {
+                    const oldData = await checkOld.json();
+                    await fetch(`https://api.github.com/repos/${repo}/contents/${oldPath}`, {
+                        method: 'DELETE',
+                        headers: {
+                            Authorization: `token ${token}`,
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'NEXUS-App'
+                        },
+                        body: JSON.stringify({
+                            message: `Delete replaced material: ${oldFileName}`,
+                            sha: oldData.sha
+                        })
+                    });
+                }
+            } catch (delErr) {
+                console.warn('Failed to delete old file on GitHub:', delErr);
+            }
         }
 
         // Clean base64 string if data URI scheme header is present

@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=10"></script>
+    <script src="pwa-helper.js?v=11"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -449,6 +449,7 @@
             <h2>Update Material</h2>
             <form id="update-form">
                 <input type="hidden" id="update-id">
+                <input type="hidden" id="update-file-url">
                 <div class="input-group">
                     <label>Title</label>
                     <input type="text" id="update-title" required>
@@ -738,7 +739,7 @@
                             ${file.uploaderName}
                         </td>
                         <td>
-                            <button class="magnetic-btn" onclick="openUpdateModal('${doc.id}', '${file.title.replace(/'/g, "\\'")}', '${file.subject}')">Update</button>
+                            <button class="magnetic-btn" onclick="openUpdateModal('${doc.id}', '${file.title.replace(/'/g, "\\'")}', '${file.subject}', '${file.fileUrl || ''}')">Update</button>
                             <button class="magnetic-btn btn-danger" onclick="deleteFile('${doc.id}', '${file.fileUrl}')">Delete</button>
                         </td>
                     `;
@@ -754,8 +755,8 @@
                     // Delete from Firestore
                     await db.collection('materials').doc(id).delete();
                     
-                    // Attempt to delete from Backblaze B2 via backend API
-                    if (url.includes('backblazeb2.com')) {
+                    // Attempt to delete from GitHub or B2 storage via backend API
+                    if (url) {
                         try {
                             await fetch('https://nexus-omega-jet.vercel.app/api/delete-file', {
                                 method: 'POST',
@@ -763,7 +764,7 @@
                                 body: JSON.stringify({ fileUrl: url })
                             });
                         } catch(e) {
-                            console.warn('B2 storage deletion failed:', e);
+                            console.warn('Storage deletion warning:', e);
                         }
                     }
                 } catch(e) {
@@ -774,10 +775,11 @@
 
         // UPDATE MODAL
         const updateModal = document.getElementById('update-modal');
-        function openUpdateModal(id, title, subject) {
+        function openUpdateModal(id, title, subject, fileUrl) {
             document.getElementById('update-id').value = id;
             document.getElementById('update-title').value = title;
             document.getElementById('update-subject').value = subject;
+            document.getElementById('update-file-url').value = fileUrl || '';
             document.getElementById('update-file').value = '';
             updateModal.classList.add('active');
         }
@@ -787,7 +789,7 @@
                 updateModal.classList.remove('active');
             }
         });
-        function uploadFileToGitHub(file, onProgress) {
+        function uploadFileToGitHub(file, onProgress, existingFileUrl) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onprogress = (evt) => {
@@ -803,12 +805,19 @@
                         const base64Data = reader.result;
                         const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
                         
+                        let oldFileName = null;
+                        if (existingFileUrl && (existingFileUrl.includes('githubusercontent.com') || existingFileUrl.includes('github.com'))) {
+                            const match = existingFileUrl.match(/\/materials\/(.+)$/);
+                            oldFileName = match ? match[1] : existingFileUrl.split('/').pop();
+                        }
+
                         const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 fileName: fileName,
-                                fileBase64: base64Data
+                                fileBase64: base64Data,
+                                oldFileName: oldFileName
                             })
                         });
 
@@ -829,10 +838,11 @@
 
         document.getElementById('update-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const id = document.getElementById('update-file-id').value;
+            const id = document.getElementById('update-id').value;
             const title = document.getElementById('update-title').value;
             const subject = document.getElementById('update-subject').value;
             const fileInput = document.getElementById('update-file').files[0];
+            const existingFileUrl = document.getElementById('update-file-url').value;
             const progress = document.getElementById('update-progress');
 
             try {
@@ -840,11 +850,11 @@
                 
                 if (fileInput) {
                     progress.style.display = 'block';
-                    progress.textContent = 'Uploading to GitHub Storage...';
+                    progress.textContent = 'Replacing file on GitHub Storage...';
 
                     const publicUrl = await uploadFileToGitHub(fileInput, (msg) => {
                         progress.textContent = msg;
-                    });
+                    }, existingFileUrl);
 
                     updates.fileUrl = publicUrl;
                     updates.fileType = fileInput.name.split('.').pop().toLowerCase();
@@ -854,7 +864,7 @@
                 await db.collection('materials').doc(id).update(updates);
                 progress.style.display = 'none';
                 updateModal.classList.remove('active');
-                alert('Material updated successfully!');
+                alert('Material updated & old file replaced on GitHub!');
                 
             } catch (err) {
                 progress.style.display = 'none';
