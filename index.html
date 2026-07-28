@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=17"></script>
+    <script src="pwa-helper.js?v=18"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,14 +52,64 @@
         }
 
         [data-theme="light"] {
-            --bg-color: #f8f7f5;
-            --text-main: #18181b;
-            --text-muted: #71717a;
+            --bg-color: #f4f3f8;
+            --text-main: #0f0a1c;
+            --text-muted: #5c5270;
             --accent: #7b2cbf;
-            --accent-bright: #5a189a;
-            --panel-bg: rgba(0, 0, 0, 0.03);
-            --border: rgba(0, 0, 0, 0.08);
+            --accent-bright: #9d4edd;
+            --panel-bg: rgba(255, 255, 255, 0.82);
+            --border: rgba(157, 78, 221, 0.16);
             --cursor-color: #7b2cbf;
+        }
+
+        /* Light Theme Specific Enhancements */
+        [data-theme="light"] body {
+            background-color: #f4f3f8;
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(224, 170, 255, 0.25) 0%, transparent 40%),
+                radial-gradient(circle at 90% 88%, rgba(199, 125, 255, 0.20) 0%, transparent 45%);
+            background-attachment: fixed;
+        }
+
+        [data-theme="light"] .navbar,
+        [data-theme="light"] .file-card,
+        [data-theme="light"] .glass-panel,
+        [data-theme="light"] .stat-card,
+        [data-theme="light"] .modal-content,
+        [data-theme="light"] .subject-card,
+        [data-theme="light"] .announcement-item {
+            background: rgba(255, 255, 255, 0.82) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(157, 78, 221, 0.16) !important;
+            box-shadow: 0 10px 30px rgba(123, 44, 191, 0.06) !important;
+        }
+
+        [data-theme="light"] .file-card:hover,
+        [data-theme="light"] .subject-card:hover {
+            box-shadow: 0 15px 35px rgba(157, 78, 221, 0.18), 0 0 20px rgba(157, 78, 221, 0.12) !important;
+            border-color: rgba(157, 78, 221, 0.35) !important;
+        }
+
+        [data-theme="light"] input,
+        [data-theme="light"] select,
+        [data-theme="light"] textarea {
+            background: rgba(255, 255, 255, 0.9) !important;
+            color: #0f0a1c !important;
+            border: 1px solid rgba(157, 78, 221, 0.22) !important;
+        }
+
+        [data-theme="light"] input::placeholder,
+        [data-theme="light"] textarea::placeholder {
+            color: #786e88 !important;
+        }
+
+        [data-theme="light"] .tag,
+        [data-theme="light"] .badge,
+        [data-theme="light"] .file-badge {
+            background: rgba(123, 44, 191, 0.1) !important;
+            color: #7b2cbf !important;
+            border: 1px solid rgba(123, 44, 191, 0.2) !important;
         }
 
         * {
