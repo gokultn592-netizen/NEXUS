@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=21"></script>
+    <script src="pwa-helper.js?v=22"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -209,6 +209,7 @@
         /* ========================================
            CUSTOM CURSOR
            ======================================== */
+        /* Creative Glu Crystal-Clear Optical Lens Cursor */
         .custom-cursor {
             position: fixed;
             top: 0;
@@ -220,22 +221,41 @@
             pointer-events: none;
             z-index: 10000000 !important;
             transform: translate(-50%, -50%);
-            mix-blend-mode: difference;
-            transition: width 0.3s, height 0.3s, background-color 0.3s;
+            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
         }
 
-        #nexus-doc-viewer-modal,
-        #nexus-doc-viewer-modal *,
-        #doc-viewer-modal,
-        #doc-viewer-modal * {
-            cursor: auto !important;
+        .custom-cursor.active,
+        .custom-cursor.prism-hover {
+            width: 70px !important;
+            height: 70px !important;
+            background: transparent !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
+            box-shadow: 0 0 20px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.6) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            mix-blend-mode: normal !important;
         }
 
-        .custom-cursor.active {
-            width: 60px;
-            height: 60px;
-            background-color: transparent;
-            border: 1px solid var(--cursor-color);
+        [data-theme="light"] .custom-cursor.active,
+        [data-theme="light"] .custom-cursor.prism-hover {
+            border: 1.5px solid rgba(111, 117, 228, 0.8) !important;
+            box-shadow: 0 0 25px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.9) !important;
+        }
+
+        /* Prism Rainbow Spectrum Text Hover Effect - 100% Sharp & Legible Through Cursor */
+        [data-theme="light"] h1:hover,
+        [data-theme="light"] h2:hover,
+        [data-theme="light"] h3:hover,
+        [data-theme="light"] .file-name:hover,
+        [data-theme="light"] .subject-title:hover,
+        [data-theme="light"] .subject-item:hover,
+        [data-theme="light"] .nav-links a:hover,
+        .prism-text {
+            background: linear-gradient(270deg, #D586E1 0%, #A886E1 14%, #6F75E4 28%, #6FB1E4 42%, #6FE4B7 56%, #98E46F 70%, #DEE46F 79%, #E4A46F 93%, #E46F6F 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            text-shadow: 0 0 15px rgba(213, 134, 225, 0.3) !important;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         /* Background effects */

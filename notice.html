@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=21"></script>
+    <script src="pwa-helper.js?v=22"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -118,15 +118,37 @@
             backdrop-filter: blur(10px) !important;
         }
 
-        /* Prism Custom Cursor Lens */
+        /* Creative Glu Crystal-Clear Optical Lens Cursor */
+        .custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--cursor-color);
+            pointer-events: none;
+            z-index: 10000000 !important;
+            transform: translate(-50%, -50%);
+            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .custom-cursor.active,
         .custom-cursor.prism-hover {
-            width: 75px !important;
-            height: 75px !important;
-            background: radial-gradient(circle, rgba(213, 134, 225, 0.25) 0%, rgba(111, 117, 228, 0.25) 50%, rgba(111, 228, 183, 0.25) 100%) !important;
-            border: 2px solid rgba(213, 134, 225, 0.8) !important;
-            box-shadow: 0 0 25px rgba(213, 134, 225, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.8) !important;
-            backdrop-filter: blur(4px) saturate(250%) !important;
+            width: 70px !important;
+            height: 70px !important;
+            background: transparent !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
+            box-shadow: 0 0 20px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.6) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
             mix-blend-mode: normal !important;
+        }
+
+        [data-theme="light"] .custom-cursor.active,
+        [data-theme="light"] .custom-cursor.prism-hover {
+            border: 1.5px solid rgba(111, 117, 228, 0.8) !important;
+            box-shadow: 0 0 25px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.9) !important;
         }
 
         * {
