@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=19"></script>
+    <script src="pwa-helper.js?v=20"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -86,6 +86,26 @@
             background: rgba(255, 255, 255, 0.88) !important;
             color: #0c0814 !important;
             border: 1px solid rgba(111, 117, 228, 0.25) !important;
+        }
+
+        [data-theme="light"] header {
+            background: rgba(247, 246, 25b, 0.88) !important;
+            backdrop-filter: blur(25px) !important;
+            -webkit-backdrop-filter: blur(25px) !important;
+            border-bottom: 1px solid rgba(111, 117, 228, 0.18) !important;
+            mix-blend-mode: normal !important;
+            z-index: 9999 !important;
+            padding: 1.2rem 4vw !important;
+            box-shadow: 0 10px 30px rgba(111, 117, 228, 0.08) !important;
+        }
+
+        [data-theme="light"] .logo {
+            color: #0c0814 !important;
+        }
+
+        [data-theme="light"] .nav-links a {
+            color: #0c0814 !important;
+            font-weight: 600 !important;
         }
 
         * {
