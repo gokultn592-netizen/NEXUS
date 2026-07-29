@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=20"></script>
+    <script src="pwa-helper.js?v=21"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,28 +40,29 @@
             --error: #ef4444;
         }
 
-        /* Creative Glu Iridescent Chromatic Light Theme */
+        /* Creative Glu Crystal-Clear Glass & Prism Lens Light Theme */
         [data-theme="light"] {
             --bg-color: #f7f6fb;
             --text-main: #0c0814;
             --text-muted: #5e5473;
             --accent: #6f75e4;
             --accent-bright: #d586e1;
-            --panel-bg: rgba(255, 255, 255, 0.78);
-            --border: rgba(111, 117, 228, 0.2);
+            --panel-bg: rgba(255, 255, 255, 0.28);
+            --border: rgba(255, 255, 255, 0.75);
             --cursor-color: #6f75e4;
         }
 
-        /* Light Theme Specific Enhancements - Creative Glu Style */
+        /* Light Theme Crystal-Clear Ambient Glass Background */
         [data-theme="light"] body {
             background-color: #f7f6fb;
             background-image: 
-                radial-gradient(circle at 15% 15%, rgba(213, 134, 225, 0.22) 0%, transparent 40%),
-                radial-gradient(circle at 85% 30%, rgba(111, 177, 228, 0.20) 0%, transparent 45%),
-                radial-gradient(circle at 50% 85%, rgba(111, 228, 183, 0.18) 0%, transparent 50%);
+                radial-gradient(circle at 15% 15%, rgba(213, 134, 225, 0.28) 0%, transparent 45%),
+                radial-gradient(circle at 85% 30%, rgba(111, 177, 228, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 50% 85%, rgba(111, 228, 183, 0.22) 0%, transparent 55%);
             background-attachment: fixed;
         }
 
+        /* Crystal-Clear Specular Glass Panels */
         [data-theme="light"] .navbar,
         [data-theme="light"] .file-card,
         [data-theme="light"] .glass-panel,
@@ -69,35 +70,35 @@
         [data-theme="light"] .modal-content,
         [data-theme="light"] .table-container,
         [data-theme="light"] tr {
-            background: rgba(255, 255, 255, 0.78) !important;
-            backdrop-filter: blur(25px) !important;
-            -webkit-backdrop-filter: blur(25px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.9) !important;
-            box-shadow: 0 10px 40px rgba(111, 117, 228, 0.08), inset 0 0 15px rgba(255, 255, 255, 0.6) !important;
+            background: rgba(255, 255, 255, 0.28) !important;
+            backdrop-filter: blur(20px) saturate(200%) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(200%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.75) !important;
+            box-shadow: 0 8px 32px 0 rgba(111, 117, 228, 0.08), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
         }
 
-        [data-theme="light"] input,
-        [data-theme="light"] select,
-        [data-theme="light"] textarea {
-            background: rgba(255, 255, 255, 0.88) !important;
-            color: #0c0814 !important;
-            border: 1px solid rgba(111, 117, 228, 0.25) !important;
+        /* Prism Rainbow Spectrum Text Hover Effect */
+        [data-theme="light"] h1:hover,
+        [data-theme="light"] h2:hover,
+        [data-theme="light"] h3:hover,
+        [data-theme="light"] .nav-links a:hover,
+        [data-theme="light"] td:hover {
+            background: linear-gradient(270deg, #D586E1 0%, #A886E1 14%, #6F75E4 28%, #6FB1E4 42%, #6FE4B7 56%, #98E46F 70%, #DEE46F 79%, #E4A46F 93%, #E46F6F 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
-        [data-theme="light"] input::placeholder,
-        [data-theme="light"] textarea::placeholder {
-            color: #7d7294 !important;
-        }
-
+        /* Transparent Glass Header */
         [data-theme="light"] header {
-            background: rgba(247, 246, 25b, 0.88) !important;
-            backdrop-filter: blur(25px) !important;
-            -webkit-backdrop-filter: blur(25px) !important;
-            border-bottom: 1px solid rgba(111, 117, 228, 0.18) !important;
+            background: rgba(255, 255, 255, 0.35) !important;
+            backdrop-filter: blur(20px) saturate(200%) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(200%) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.75) !important;
             mix-blend-mode: normal !important;
             z-index: 9999 !important;
             padding: 1.2rem 4vw !important;
-            box-shadow: 0 10px 30px rgba(111, 117, 228, 0.08) !important;
+            box-shadow: 0 8px 32px 0 rgba(111, 117, 228, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
         }
 
         [data-theme="light"] .logo {
@@ -113,9 +114,35 @@
         [data-theme="light"] #admin-badge,
         [data-theme="light"] .user-badge,
         [data-theme="light"] .profile-pill {
-            background: rgba(111, 117, 228, 0.12) !important;
+            background: rgba(255, 255, 255, 0.4) !important;
             color: #0c0814 !important;
-            border: 1px solid rgba(111, 117, 228, 0.25) !important;
+            border: 1px solid rgba(255, 255, 255, 0.8) !important;
+            box-shadow: 0 4px 15px rgba(111, 117, 228, 0.1) !important;
+        }
+
+        [data-theme="light"] input,
+        [data-theme="light"] select,
+        [data-theme="light"] textarea {
+            background: rgba(255, 255, 255, 0.45) !important;
+            color: #0c0814 !important;
+            border: 1px solid rgba(255, 255, 255, 0.8) !important;
+            backdrop-filter: blur(10px) !important;
+        }
+
+        [data-theme="light"] input::placeholder,
+        [data-theme="light"] textarea::placeholder {
+            color: #6a5e82 !important;
+        }
+
+        /* Prism Custom Cursor Lens */
+        .custom-cursor.prism-hover {
+            width: 75px !important;
+            height: 75px !important;
+            background: radial-gradient(circle, rgba(213, 134, 225, 0.25) 0%, rgba(111, 117, 228, 0.25) 50%, rgba(111, 228, 183, 0.25) 100%) !important;
+            border: 2px solid rgba(213, 134, 225, 0.8) !important;
+            box-shadow: 0 0 25px rgba(213, 134, 225, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.8) !important;
+            backdrop-filter: blur(4px) saturate(250%) !important;
+            mix-blend-mode: normal !important;
         }
 
         * {
