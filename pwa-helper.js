@@ -98,15 +98,15 @@ const pwaHelper = {
         }
     },
 
-    // Background Smart Sync — pre-caches latest materials so they open INSTANTLY in class!
+    // Background Smart Sync — pre-caches materials in parallel so they open INSTANTLY in class!
     async checkAndSyncFiles(materials) {
         if (!navigator.onLine || !this.db || !materials || !materials.length) return;
         
-        console.log('[PWA Sync] Smart pre-caching materials for offline/low-internet access...');
-        // Pre-cache top 15 latest materials in background
+        console.log('[PWA Sync] Smart parallel pre-caching materials for offline access...');
+        // Pre-cache top 15 latest materials in background concurrently
         const targetMaterials = materials.slice(0, 15);
 
-        for (const file of targetMaterials) {
+        const syncPromises = targetMaterials.map(async (file) => {
             const id = file.id;
             const fileUrl = file.fileUrl;
             const version = file.version || 1;
@@ -115,38 +115,45 @@ const pwaHelper = {
                 const cachedRecord = await this.getCachedRecord(id);
                 const isCached = await this.isFileCached(fileUrl);
 
-                // If not cached AT ALL, or version updated, cache in background quietly
                 if (!cachedRecord || !isCached || cachedRecord.version !== version) {
-                    console.log(`[PWA Sync] Background caching material for instant offline use: "${file.title}"...`);
-                    await this.fetchAndCacheFile(id, fileUrl, version);
-                    console.log(`[PWA Sync] Ready for offline/classroom use: "${file.title}"`);
+                    console.log(`[PWA Sync] Background caching material: "${file.title}"...`);
+                    await this.fetchAndCacheFile(id, fileUrl, version, 20000); // 20s timeout per file
+                    console.log(`[PWA Sync] Ready offline: "${file.title}"`);
                 }
             } catch (err) {
-                console.warn(`[PWA Sync] Background cache skip for "${file.title}":`, err);
+                console.warn(`[PWA Sync] Background cache skip for "${file.title}":`, err.message);
             }
-        }
+        });
+
+        await Promise.allSettled(syncPromises);
     },
 
-    // Helper to fetch B2 file with signed URL and cache it under clean URL
-    async fetchAndCacheFile(id, fileUrl, version) {
+    // Helper to fetch file with signed URL, timeout, and cache it under clean URL
+    async fetchAndCacheFile(id, fileUrl, version, timeoutMs = 25000) {
         const cleanUrl = this.getCleanUrl(fileUrl);
         const cache = await caches.open('nexus-files-cache');
         
-        // 1. Get signed download URL from Vercel backend
         const signedUrl = await this.getSignedUrl(fileUrl);
         
-        // 2. Fetch file via CORS
-        const response = await fetch(signedUrl);
-        if (!response.ok) throw new Error(`HTTP error ${response.status} fetching file`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         
-        // 3. Put cloned response in Cache Storage under clean URL
-        const copy = response.clone();
-        await cache.put(cleanUrl, copy);
-        
-        // 4. Save metadata version to IndexedDB
-        await this.saveCachedRecord(id, cleanUrl, version);
-        
-        return response;
+        try {
+            const response = await fetch(signedUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error(`HTTP error ${response.status} fetching file`);
+            
+            const copy = response.clone();
+            await cache.put(cleanUrl, copy);
+            await this.saveCachedRecord(id, cleanUrl, version);
+            return response;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                throw new Error(`Fetch timed out after ${timeoutMs / 1000}s`);
+            }
+            throw err;
+        }
     },
 
     async getSignedUrl(fileUrl) {
@@ -158,15 +165,13 @@ const pwaHelper = {
         if (!match) return fileUrl;
         const fileName = match[1];
 
-        // 1. Check localStorage cache (valid for 50 minutes, persists across tab closes)
+        // 1. Check localStorage cache
         const cacheKey = `nexus_b2_url_${fileName}`;
         try {
             const cachedStr = localStorage.getItem(cacheKey);
             if (cachedStr) {
                 const cachedData = JSON.parse(cachedStr);
-                // 50 minutes in ms = 3,000,000 ms
                 if (Date.now() - cachedData.timestamp < 50 * 60 * 1000) {
-                    console.log('[PWA Helper] Serving signed URL from localStorage cache:', fileName);
                     return cachedData.signedUrl;
                 }
             }
@@ -175,28 +180,28 @@ const pwaHelper = {
         }
 
         // 2. Fetch new signed URL from Vercel backend
-        const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-download-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName })
-        });
+        try {
+            const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-download-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName })
+            });
 
-        if (!response.ok) return fileUrl;
-        const { signedUrl } = await response.json();
+            if (!response.ok) return fileUrl;
+            const { signedUrl } = await response.json();
 
-        // 3. Cache the signed URL in localStorage
-        if (signedUrl) {
-            try {
-                localStorage.setItem(cacheKey, JSON.stringify({
-                    signedUrl: signedUrl,
-                    timestamp: Date.now()
-                }));
-            } catch (e) {
-                console.warn('[PWA Helper] localStorage write error:', e);
+            if (signedUrl) {
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({
+                        signedUrl: signedUrl,
+                        timestamp: Date.now()
+                    }));
+                } catch (e) {}
             }
+            return signedUrl;
+        } catch (err) {
+            return fileUrl;
         }
-
-        return signedUrl;
     },
 
     // Helper to extract proper MIME type from filename or URL
@@ -210,45 +215,82 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Handle view operation offline-first using Native Browser Engine
-    async viewFile(fileUrl, id, version, title) {
+    // Handle view operation: Instant stream when online + background caching, instant local blob when offline
+    async viewFile(fileUrl, id, version, title, btn) {
+        let originalText = '';
+        if (btn) {
+            originalText = btn.textContent;
+            btn.textContent = 'Opening...';
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+        }
+
+        const restoreBtn = () => {
+            if (btn) {
+                btn.textContent = originalText;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        };
+
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
             const cache = await caches.open('nexus-files-cache');
-            let match = await cache.match(cleanUrl);
-            
-            if (!match) {
-                if (!navigator.onLine) {
-                    alert('You are offline, and this file has not been cached yet.');
-                    return;
-                }
-                console.log('[PWA Cache] File not in cache. Downloading and caching...');
-                await this.fetchAndCacheFile(id, fileUrl, version);
-                match = await cache.match(cleanUrl);
-            } else {
-                console.log('[PWA Cache] Serving file from cache:', cleanUrl);
-            }
+            const match = await cache.match(cleanUrl);
             
             if (match) {
+                console.log('[PWA Cache] Serving file from local cache:', cleanUrl);
                 const rawBlob = await match.blob();
                 const mimeType = this.getMimeType(cleanUrl, title);
                 const isPdf = (title || cleanUrl).toLowerCase().includes('.pdf');
                 const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) });
                 const blobUrl = URL.createObjectURL(pdfBlob);
                 window.open(blobUrl, '_blank');
-                // Cleanup Blob URL to free RAM after 60 seconds
                 setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                restoreBtn();
+                return;
+            }
+
+            // File not in cache: If online, open stream URL IMMEDIATELY so browser doesn't block!
+            if (navigator.onLine) {
+                console.log('[PWA Cache] File uncached. Opening stream directly and caching in background...');
+                const signedUrl = await this.getSignedUrl(fileUrl);
+                window.open(signedUrl, '_blank');
+                restoreBtn();
+                
+                // Cache in background quietly
+                this.fetchAndCacheFile(id, fileUrl, version, 25000).catch(err => {
+                    console.warn('[PWA Cache] Background cache error:', err.message);
+                });
             } else {
-                window.open(fileUrl, '_blank');
+                alert('You are offline, and this file has not been cached yet.');
+                restoreBtn();
             }
         } catch (err) {
             console.error('[PWA Cache] Error viewing file:', err);
             window.open(fileUrl, '_blank');
+            restoreBtn();
         }
     },
 
-    // Handle download operation offline-first
-    async downloadFile(fileUrl, filename, id, version) {
+    // Handle download operation offline-first with button state & timeout
+    async downloadFile(fileUrl, filename, id, version, btn) {
+        let originalText = '';
+        if (btn) {
+            originalText = btn.textContent;
+            btn.textContent = 'Downloading...';
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+        }
+
+        const restoreBtn = () => {
+            if (btn) {
+                btn.textContent = originalText;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        };
+
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
             const cache = await caches.open('nexus-files-cache');
@@ -256,26 +298,25 @@ const pwaHelper = {
             
             let rawBlob;
             if (match) {
-                console.log('[PWA Cache] Serving download from cache:', cleanUrl);
+                console.log('[PWA Cache] Serving download from local cache:', cleanUrl);
                 rawBlob = await match.blob();
             } else {
                 if (!navigator.onLine) {
                     alert('You are offline, and this file has not been cached yet.');
+                    restoreBtn();
                     return;
                 }
                 console.log('[PWA Cache] File not in cache. Downloading and caching...');
-                const response = await this.fetchAndCacheFile(id, fileUrl, version);
+                const response = await this.fetchAndCacheFile(id, fileUrl, version, 25000);
                 rawBlob = await response.blob();
             }
             
-            // Rebuild blob with proper MIME type for mobile browser download matching
             const mimeType = this.getMimeType(cleanUrl, filename);
             const isPdf = (filename || cleanUrl).toLowerCase().includes('.pdf');
             const correctedBlob = new Blob([rawBlob], { 
                 type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) 
             });
 
-            // Ensure filename has proper extension if omitted
             let downloadName = filename || 'download';
             if (isPdf && !downloadName.toLowerCase().endsWith('.pdf')) {
                 downloadName += '.pdf';
@@ -289,11 +330,12 @@ const pwaHelper = {
             a.click();
             document.body.removeChild(a);
             
-            // Revoke URL to prevent memory leaks
             setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+            restoreBtn();
         } catch (err) {
             console.error('[PWA Cache] Error downloading file:', err);
             alert('Download failed: ' + err.message);
+            restoreBtn();
         }
     }
 };

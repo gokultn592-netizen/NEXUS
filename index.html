@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=25"></script>
+    <script src="pwa-helper.js?v=26"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1882,8 +1882,8 @@
                     <h3 class="file-name">${escapeHtml(file.title)}</h3>
                     <p class="file-meta">${file.subject} • ${escapeHtml(file.uploaderName)} • ${date}</p>
                     <div class="file-actions">
-                        <button class="magnetic-btn" onclick="window.pwaHelper ? pwaHelper.viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}, \`${escapeHtml(file.title)}\`) : (window.openDocViewer ? openDocViewer('${file.fileUrl}', \`${escapeHtml(file.title)}\`) : window.open('${file.fileUrl}', '_blank'))">View</button>
-                        <button class="magnetic-btn btn-outline" onclick="window.pwaHelper ? pwaHelper.downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}) : downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`)">Download</button>
+                        <button class="magnetic-btn" onclick="window.pwaHelper ? pwaHelper.viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}, \`${escapeHtml(file.title)}\`, this) : (window.openDocViewer ? openDocViewer('${file.fileUrl}', \`${escapeHtml(file.title)}\`) : window.open('${file.fileUrl}', '_blank'))">View</button>
+                        <button class="magnetic-btn btn-outline" onclick="window.pwaHelper ? pwaHelper.downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}, this) : downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`)">Download</button>
                     </div>
                 `;
 
