@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=26"></script>
+    <script src="pwa-helper.js?v=27"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2124,22 +2124,9 @@
             return div.innerHTML;
         }
 
-        // Get signed download URL from Vercel backend
+        // Get download URL directly for GitHub storage
         async function getSignedUrl(fileUrl) {
-            // Extract file name from public URL
-            const match = fileUrl.match(/\/file\/[^/]+\/(.+)$/);
-            if (!match) return fileUrl;
-            const fileName = match[1];
-
-            const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-download-url', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName })
-            });
-
-            if (!response.ok) return fileUrl; // fallback to original
-            const { signedUrl } = await response.json();
-            return signedUrl;
+            return fileUrl || '';
         }
 
         // View file in new tab

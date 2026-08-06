@@ -1,21 +1,4 @@
-/*
-    CHANGELOG — api/delete-file.js
-    ================================
-    [2026-05-09] Changes made vs original GitHub version:
-
-    COMPLETE REWRITE — old version called a /api/delete-file backend route that
-    didn't exist, so deletions always failed silently.
-
-    New version uses B2's native HTTP API:
-      Step 1: b2_authorize_account      → gets auth token + API URL
-      Step 2: b2_list_file_versions     → finds the fileId for the given filename
-      Step 3: b2_delete_file_version    → permanently deletes the file from B2
-
-    No AWS SDK dependency needed — uses Node.js built-in fetch().
-*/
-// Vercel Serverless Function — B2 Native File Deletion
-// Uses B2's own delete API instead of S3-compatible DeleteObject.
-
+// Vercel Serverless Function — GitHub API Material File Deletion
 module.exports = async function handler(req, res) {
     // Handle CORS preflight
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -37,115 +20,47 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Missing fileUrl' });
         }
 
-        // Handle GitHub file deletion
-        if (fileUrl.includes('githubusercontent.com') || fileUrl.includes('github.com')) {
-            const token = process.env.GITHUB_TOKEN;
-            const repo = process.env.GITHUB_REPO || 'gokultn592-netizen/NEXUS';
-            const match = fileUrl.match(/\/materials\/(.+)$/);
-            const path = match ? `materials/${match[1]}` : fileUrl.split('/').slice(-2).join('/');
+        const token = process.env.GITHUB_TOKEN;
+        const repo = process.env.GITHUB_REPO || 'gokultn592-netizen/NEXUS';
+        const match = fileUrl.match(/\/materials\/(.+)$/);
+        const path = match ? `materials/${match[1]}` : fileUrl.split('/').slice(-2).join('/');
 
-            // Get SHA
-            const checkRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-                headers: {
-                    Authorization: `token ${token}`,
-                    'User-Agent': 'NEXUS-App'
-                }
-            });
-            if (!checkRes.ok) {
-                return res.status(200).json({ success: true, message: 'File already deleted from GitHub' });
-            }
-            const fileData = await checkRes.json();
-
-            // Delete
-            const deleteRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `token ${token}`,
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'NEXUS-App'
-                },
-                body: JSON.stringify({
-                    message: `Delete material: ${path}`,
-                    sha: fileData.sha
-                })
-            });
-
-            if (!deleteRes.ok) {
-                const errText = await deleteRes.text();
-                throw new Error(`GitHub delete failed: ${errText}`);
-            }
-
-            return res.status(200).json({ success: true });
-        }
-
-        const keyId  = process.env.B2_KEY_ID;
-        const appKey = process.env.B2_APP_KEY;
-        const bucket = process.env.B2_BUCKET;
-
-        // ─── Step 1: Authorize Account ────────────────────────────────────────
-        const authResponse = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
+        // 1. Get SHA of target file in GitHub repo
+        const checkRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
             headers: {
-                Authorization: 'Basic ' + Buffer.from(`${keyId}:${appKey}`).toString('base64'),
-            },
+                Authorization: `token ${token}`,
+                'User-Agent': 'NEXUS-App'
+            }
         });
 
-        if (!authResponse.ok) {
-            const err = await authResponse.json();
-            throw new Error(`B2 auth failed: ${err.message}`);
+        if (!checkRes.ok) {
+            return res.status(200).json({ success: true, message: 'File already deleted from GitHub' });
         }
 
-        const authData  = await authResponse.json();
-        const apiUrl    = authData.apiInfo.storageApi.apiUrl;
-        const authToken = authData.authorizationToken;
+        const fileData = await checkRes.json();
 
-        // ─── Step 2: Extract file name from URL ───────────────────────────────
-        // URL format: https://fXXX.backblazeb2.com/file/bucket-name/materials/xxx_file.pdf
-        const fileNameMatch = fileUrl.match(/\/file\/[^/]+\/(.+)$/);
-        if (!fileNameMatch) {
-            throw new Error('Could not extract file name from URL');
-        }
-        const fileName = fileNameMatch[1];
-
-        // ─── Step 3: List file versions to get the fileId ─────────────────────
-        const listResponse = await fetch(`${apiUrl}/b2api/v3/b2_list_file_versions?bucketName=${bucket}&startFileName=${encodeURIComponent(fileName)}&maxFileCount=1`, {
-            headers: { Authorization: authToken },
-        });
-
-        if (!listResponse.ok) {
-            const err = await listResponse.json();
-            throw new Error(`B2 list file versions failed: ${err.message}`);
-        }
-
-        const listData = await listResponse.json();
-        const file = listData.files?.[0];
-
-        if (!file || file.fileName !== fileName) {
-            // File already gone — treat as success
-            return res.status(200).json({ success: true, message: 'File not found (already deleted)' });
-        }
-
-        // ─── Step 4: Delete the file ──────────────────────────────────────────
-        const deleteResponse = await fetch(`${apiUrl}/b2api/v3/b2_delete_file_version`, {
-            method: 'POST',
+        // 2. Delete file via GitHub Contents API
+        const deleteRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+            method: 'DELETE',
             headers: {
-                Authorization: authToken,
+                Authorization: `token ${token}`,
                 'Content-Type': 'application/json',
+                'User-Agent': 'NEXUS-App'
             },
             body: JSON.stringify({
-                fileId:   file.fileId,
-                fileName: file.fileName,
-            }),
+                message: `Delete material: ${path}`,
+                sha: fileData.sha
+            })
         });
 
-        if (!deleteResponse.ok) {
-            const err = await deleteResponse.json();
-            throw new Error(`B2 delete failed: ${err.message}`);
+        if (!deleteRes.ok) {
+            const errText = await deleteRes.text();
+            throw new Error(`GitHub delete failed: ${errText}`);
         }
 
         return res.status(200).json({ success: true });
-
     } catch (error) {
-        console.error('Error in delete-file:', error);
+        console.error('Delete API error:', error);
         return res.status(500).json({ error: error.message });
     }
 };

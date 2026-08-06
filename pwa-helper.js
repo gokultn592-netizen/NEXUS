@@ -157,51 +157,7 @@ const pwaHelper = {
     },
 
     async getSignedUrl(fileUrl) {
-        if (fileUrl.includes('raw.githubusercontent.com') || fileUrl.includes('github.com')) {
-            return fileUrl;
-        }
-
-        const match = fileUrl.match(/\/file\/[^/]+\/(.+)$/);
-        if (!match) return fileUrl;
-        const fileName = match[1];
-
-        // 1. Check localStorage cache
-        const cacheKey = `nexus_b2_url_${fileName}`;
-        try {
-            const cachedStr = localStorage.getItem(cacheKey);
-            if (cachedStr) {
-                const cachedData = JSON.parse(cachedStr);
-                if (Date.now() - cachedData.timestamp < 50 * 60 * 1000) {
-                    return cachedData.signedUrl;
-                }
-            }
-        } catch (e) {
-            console.warn('[PWA Helper] localStorage read error:', e);
-        }
-
-        // 2. Fetch new signed URL from Vercel backend
-        try {
-            const response = await fetch('https://nexus-omega-jet.vercel.app/api/get-download-url', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName })
-            });
-
-            if (!response.ok) return fileUrl;
-            const { signedUrl } = await response.json();
-
-            if (signedUrl) {
-                try {
-                    localStorage.setItem(cacheKey, JSON.stringify({
-                        signedUrl: signedUrl,
-                        timestamp: Date.now()
-                    }));
-                } catch (e) {}
-            }
-            return signedUrl;
-        } catch (err) {
-            return fileUrl;
-        }
+        return fileUrl || '';
     },
 
     // Helper to extract proper MIME type from filename or URL
