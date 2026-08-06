@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=22"></script>
+    <script src="pwa-helper.js?v=23"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2121,17 +2121,40 @@
             }
         };
 
-        // Download file
+        // Download file fallback
         window.downloadFile = async function (url, filename) {
             if (!url) { alert('File URL not available'); return; }
             try {
                 const signedUrl = await getSignedUrl(url);
+                const res = await fetch(signedUrl);
+                const rawBlob = await res.blob();
+                
+                const clean = ((filename || '') + ' ' + (url || '')).toLowerCase();
+                const isPdf = clean.includes('.pdf');
+                let mimeType = 'application/octet-stream';
+                if (isPdf) mimeType = 'application/pdf';
+                else if (clean.includes('.png')) mimeType = 'image/png';
+                else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
+                else if (clean.includes('.pptx') || clean.includes('.ppt')) mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+                else if (clean.includes('.docx') || clean.includes('.doc')) mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+                const correctedBlob = new Blob([rawBlob], {
+                    type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType)
+                });
+
+                let downloadName = filename || 'download';
+                if (isPdf && !downloadName.toLowerCase().endsWith('.pdf')) {
+                    downloadName += '.pdf';
+                }
+
+                const blobUrl = URL.createObjectURL(correctedBlob);
                 const a = document.createElement('a');
-                a.href = signedUrl;
-                a.download = filename || 'download';
+                a.href = blobUrl;
+                a.download = downloadName;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
             } catch (e) {
                 alert('Download failed: ' + e.message);
             }

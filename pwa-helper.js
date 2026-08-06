@@ -196,8 +196,8 @@ const pwaHelper = {
     },
 
     // Helper to extract proper MIME type from filename or URL
-    getMimeType(url) {
-        const clean = (url || '').toLowerCase();
+    getMimeType(url, filename) {
+        const clean = ((filename || '') + ' ' + (url || '')).toLowerCase();
         if (clean.includes('.pdf')) return 'application/pdf';
         if (clean.includes('.png')) return 'image/png';
         if (clean.includes('.jpg') || clean.includes('.jpeg')) return 'image/jpeg';
@@ -227,9 +227,9 @@ const pwaHelper = {
             
             if (match) {
                 const rawBlob = await match.blob();
-                const mimeType = this.getMimeType(cleanUrl);
-                const isPdf = cleanUrl.endsWith('.pdf');
-                const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' ? rawBlob.type : mimeType) });
+                const mimeType = this.getMimeType(cleanUrl, title);
+                const isPdf = (title || cleanUrl).toLowerCase().includes('.pdf');
+                const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) });
                 const blobUrl = URL.createObjectURL(pdfBlob);
                 window.open(blobUrl, '_blank');
                 // Cleanup Blob URL to free RAM after 60 seconds
@@ -250,10 +250,10 @@ const pwaHelper = {
             const cache = await caches.open('nexus-files-cache');
             const match = await cache.match(cleanUrl);
             
-            let blob;
+            let rawBlob;
             if (match) {
                 console.log('[PWA Cache] Serving download from cache:', cleanUrl);
-                blob = await match.blob();
+                rawBlob = await match.blob();
             } else {
                 if (!navigator.onLine) {
                     alert('You are offline, and this file has not been cached yet.');
@@ -261,13 +261,26 @@ const pwaHelper = {
                 }
                 console.log('[PWA Cache] File not in cache. Downloading and caching...');
                 const response = await this.fetchAndCacheFile(id, fileUrl, version);
-                blob = await response.blob();
+                rawBlob = await response.blob();
             }
             
-            const blobUrl = URL.createObjectURL(blob);
+            // Rebuild blob with proper MIME type for mobile browser download matching
+            const mimeType = this.getMimeType(cleanUrl, filename);
+            const isPdf = (filename || cleanUrl).toLowerCase().includes('.pdf');
+            const correctedBlob = new Blob([rawBlob], { 
+                type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) 
+            });
+
+            // Ensure filename has proper extension if omitted
+            let downloadName = filename || 'download';
+            if (isPdf && !downloadName.toLowerCase().endsWith('.pdf')) {
+                downloadName += '.pdf';
+            }
+
+            const blobUrl = URL.createObjectURL(correctedBlob);
             const a = document.createElement('a');
             a.href = blobUrl;
-            a.download = filename || 'download';
+            a.download = downloadName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
