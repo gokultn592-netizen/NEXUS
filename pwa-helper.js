@@ -78,7 +78,7 @@ const pwaHelper = {
     },
 
     getCleanUrl(fileUrl) {
-        // Strip authorization query parameters from Backblaze B2 url to use as clean cache key
+        // Strip query parameters from url to use as clean cache key
         try {
             const url = new URL(fileUrl);
             return `${url.origin}${url.pathname}`;
@@ -130,12 +130,6 @@ const pwaHelper = {
 
     // Helper to fetch file with signed URL, timeout, and cache it under clean URL
     async fetchAndCacheFile(id, fileUrl, version, timeoutMs = 25000) {
-        // Legacy Backblaze B2 URLs require signed tokens and don't support direct CORS pre-caching
-        if (fileUrl.includes('backblazeb2.com') || fileUrl.includes('b2api')) {
-            console.warn(`[PWA Sync] Skipping legacy B2 file pre-cache: ${fileUrl}`);
-            return null;
-        }
-
         const cleanUrl = this.getCleanUrl(fileUrl);
         const cache = await caches.open('nexus-files-cache');
         
