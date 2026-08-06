@@ -20,5 +20,7 @@ Thumbs.db
 # Scratch / test files
 scratch/
 
-# Firebase cache
+# Firebase cache & debug logs
 .firebase/
+firebase-debug.log*
+*.log
