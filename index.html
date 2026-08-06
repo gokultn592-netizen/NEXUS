@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=23"></script>
+    <script src="pwa-helper.js?v=24"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -963,11 +963,35 @@
             }
 
             .custom-cursor {
-                display: none;
+                display: none !important;
             }
 
             .logo {
-                font-size: 4vw;
+                font-size: 1.4rem;
+            }
+
+            /* Mobile Performance Optimization - Lighten Backdrop Filter GPU Compositing */
+            header,
+            .navbar,
+            .file-card,
+            .glass-panel,
+            .stat-card,
+            .modal-content,
+            .subject-card,
+            .notice-card,
+            .chat-card,
+            input, select, textarea {
+                backdrop-filter: blur(6px) !important;
+                -webkit-backdrop-filter: blur(6px) !important;
+            }
+
+            [data-theme="light"] header,
+            [data-theme="light"] .navbar,
+            [data-theme="light"] .file-card,
+            [data-theme="light"] .glass-panel,
+            [data-theme="light"] .stat-card,
+            [data-theme="light"] .modal-content {
+                background: rgba(255, 255, 255, 0.65) !important;
             }
         }
 
@@ -1218,19 +1242,27 @@
         // ========================================
         // SECTION 2: SMOOTH SCROLLING (LENIS)
         // ========================================
-        // Lenis provides buttery smooth scrolling
+        // Only initialize Lenis on desktop non-touch devices for 60 FPS native mobile scrolling
 
-        const lenis = new Lenis({
-            duration: 1.2,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-            smooth: true
-        });
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 768;
+        let lenis = null;
+        if (!isTouchDevice && typeof Lenis !== 'undefined') {
+            lenis = new Lenis({
+                duration: 1.2,
+                easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                direction: 'vertical',
+                gestureDirection: 'vertical',
+                smooth: true,
+                mouseMultiplier: 1,
+                infinite: false,
+            });
 
-        function raf(time) {
-            lenis.raf(time);
+            function raf(time) {
+                if (lenis) lenis.raf(time);
+                requestAnimationFrame(raf);
+            }
             requestAnimationFrame(raf);
         }
-        requestAnimationFrame(raf);
 
         // ========================================
         // SECTION 3: CUSTOM CURSOR

@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=23"></script>
+    <script src="pwa-helper.js?v=24"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -630,8 +630,30 @@
         @media (max-width: 768px) {
             .hero h1 { font-size: 12vw; }
             .notice-header h2 { font-size: 1.4rem; }
-            .custom-cursor { display: none; }
-            .logo { font-size: 5vw; }
+            .custom-cursor { display: none !important; }
+            .logo { font-size: 1.4rem; }
+
+            /* Mobile Performance Optimization - Lighten Backdrop Filter GPU Compositing */
+            header,
+            .navbar,
+            .file-card,
+            .glass-panel,
+            .stat-card,
+            .modal-content,
+            .notice-card,
+            .chat-card,
+            input, select, textarea {
+                backdrop-filter: blur(6px) !important;
+                -webkit-backdrop-filter: blur(6px) !important;
+            }
+
+            [data-theme="light"] header,
+            [data-theme="light"] .navbar,
+            [data-theme="light"] .glass-panel,
+            [data-theme="light"] .modal-content,
+            [data-theme="light"] .notice-card {
+                background: rgba(255, 255, 255, 0.65) !important;
+            }
         }
     </style>
 </head>
@@ -764,10 +786,14 @@
             });
         }
 
-        // Smooth Scroll
-        const lenis = new Lenis();
-        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
-        requestAnimationFrame(raf);
+        // Smooth Scroll - Desktop Only
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 768;
+        let lenis = null;
+        if (!isTouchDevice && typeof Lenis !== 'undefined') {
+            lenis = new Lenis();
+            function raf(time) { if (lenis) lenis.raf(time); requestAnimationFrame(raf); }
+            requestAnimationFrame(raf);
+        }
 
         function initAuthListener() {
             auth.onAuthStateChanged(async (user) => {

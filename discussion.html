@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=23"></script>
+    <script src="pwa-helper.js?v=24"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -217,6 +217,32 @@
         .notification-item { padding: 1.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text-muted); }
         .notification-item b { color: var(--text-main); display: block; margin-bottom: 0.2rem; }
         .notification-time { font-size: 0.75rem; color: var(--accent); display: block; margin-top: 0.5rem; }
+
+        @media (max-width: 768px) {
+            .custom-cursor { display: none !important; }
+            .logo { font-size: 1.4rem; }
+
+            /* Mobile Performance Optimization - Lighten Backdrop Filter GPU Compositing */
+            header,
+            .navbar,
+            .file-card,
+            .glass-panel,
+            .stat-card,
+            .modal-content,
+            .chat-card,
+            input, select, textarea {
+                backdrop-filter: blur(6px) !important;
+                -webkit-backdrop-filter: blur(6px) !important;
+            }
+
+            [data-theme="light"] header,
+            [data-theme="light"] .navbar,
+            [data-theme="light"] .glass-panel,
+            [data-theme="light"] .modal-content,
+            [data-theme="light"] .chat-card {
+                background: rgba(255, 255, 255, 0.65) !important;
+            }
+        }
     </style>
 </head>
 
