@@ -98,27 +98,31 @@ const pwaHelper = {
         }
     },
 
-    // Background Smart Sync — triggered online on app open
+    // Background Smart Sync — pre-caches latest materials so they open INSTANTLY in class!
     async checkAndSyncFiles(materials) {
-        if (!navigator.onLine || !this.db) return;
+        if (!navigator.onLine || !this.db || !materials || !materials.length) return;
         
-        console.log('[PWA Sync] Checking for outdated cached files...');
-        for (const file of materials) {
+        console.log('[PWA Sync] Smart pre-caching materials for offline/low-internet access...');
+        // Pre-cache top 15 latest materials in background
+        const targetMaterials = materials.slice(0, 15);
+
+        for (const file of targetMaterials) {
             const id = file.id;
             const fileUrl = file.fileUrl;
             const version = file.version || 1;
             
             try {
                 const cachedRecord = await this.getCachedRecord(id);
-                if (cachedRecord) {
-                    if (cachedRecord.version !== version) {
-                        console.log(`[PWA Sync] Outdated version for "${file.title}" (Local: ${cachedRecord.version}, Remote: ${version}). Updating in background...`);
-                        await this.fetchAndCacheFile(id, fileUrl, version);
-                        console.log(`[PWA Sync] Updated cache for "${file.title}" to version ${version}`);
-                    }
+                const isCached = await this.isFileCached(fileUrl);
+
+                // If not cached AT ALL, or version updated, cache in background quietly
+                if (!cachedRecord || !isCached || cachedRecord.version !== version) {
+                    console.log(`[PWA Sync] Background caching material for instant offline use: "${file.title}"...`);
+                    await this.fetchAndCacheFile(id, fileUrl, version);
+                    console.log(`[PWA Sync] Ready for offline/classroom use: "${file.title}"`);
                 }
             } catch (err) {
-                console.error(`[PWA Sync] Error checking/syncing "${file.title}":`, err);
+                console.warn(`[PWA Sync] Background cache skip for "${file.title}":`, err);
             }
         }
     },
