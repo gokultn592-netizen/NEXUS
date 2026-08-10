@@ -1,5 +1,5 @@
-// Vercel Serverless Function — GitHub Release Storage Engine Backend Proxy
-// Proxies file uploads directly to GitHub Release Assets with ZERO CORS issues & support for up to 2GB per file!
+// Vercel Serverless Function — GitHub Release Storage Engine Authorization
+// Provides upload credentials for direct client-to-GitHub-release binary uploads (up to 2GB per file)
 
 async function getOrCreateRelease(token, repo) {
     const tag = 'materials-v1';
@@ -49,72 +49,53 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: 'GITHUB_TOKEN environment variable is not configured' });
     }
 
-    if (req.method === 'GET') {
-        return res.status(200).json({ token, repo });
-    }
-
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
     try {
-        const { fileName, fileBase64, oldFileName } = req.body || {};
-
-        if (!fileName || !fileBase64) {
-            return res.status(400).json({ error: 'Missing fileName or fileBase64' });
-        }
-
         const release = await getOrCreateRelease(token, repo);
 
-        // Delete old asset if replacing
-        if (oldFileName && oldFileName !== fileName) {
-            try {
-                const assetsRes = await fetch(`https://api.github.com/repos/${repo}/releases/${release.id}/assets`, {
-                    headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-                });
-                if (assetsRes.ok) {
-                    const assets = await assetsRes.json();
-                    const targetAsset = assets.find(a => a.name === oldFileName);
-                    if (targetAsset) {
-                        await fetch(`https://api.github.com/repos/${repo}/releases/assets/${targetAsset.id}`, {
-                            method: 'DELETE',
-                            headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-                        });
+        if (req.method === 'GET') {
+            return res.status(200).json({
+                token: token,
+                repo: repo,
+                releaseId: release.id,
+                tagName: release.tag_name,
+                uploadUrl: release.upload_url
+            });
+        }
+
+        if (req.method === 'POST') {
+            const { action, oldFileName } = req.body || {};
+
+            // Handle asset deletion if requested
+            if (action === 'delete' && oldFileName) {
+                try {
+                    const assetsRes = await fetch(`https://api.github.com/repos/${repo}/releases/${release.id}/assets`, {
+                        headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+                    });
+                    if (assetsRes.ok) {
+                        const assets = await assetsRes.json();
+                        const targetAsset = assets.find(a => a.name === oldFileName);
+                        if (targetAsset) {
+                            await fetch(`https://api.github.com/repos/${repo}/releases/assets/${targetAsset.id}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+                            });
+                        }
                     }
+                } catch (delErr) {
+                    console.warn('Failed to delete old release asset:', delErr);
                 }
-            } catch (delErr) {
-                console.warn('Failed to delete old release asset:', delErr);
+                return res.status(200).json({ success: true, message: 'Asset deleted' });
             }
+
+            return res.status(200).json({
+                token: token,
+                repo: repo,
+                releaseId: release.id,
+                tagName: release.tag_name
+            });
         }
 
-        // Clean Base64 string and convert to binary Buffer
-        const cleanBase64 = fileBase64.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
-        const fileBuffer = Buffer.from(cleanBase64, 'base64');
-
-        // Upload raw binary stream directly from Node backend to GitHub Release Assets
-        const uploadUrl = `https://uploads.github.com/repos/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(fileName)}`;
-
-        const uploadRes = await fetch(uploadUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `token ${token}`,
-                'Content-Type': 'application/octet-stream',
-                'User-Agent': 'NEXUS-App'
-            },
-            body: fileBuffer
-        });
-
-        if (!uploadRes.ok) {
-            const errText = await uploadRes.text();
-            throw new Error(`GitHub Release Asset upload failed (${uploadRes.status}): ${errText}`);
-        }
-
-        const assetData = await uploadRes.json();
-        const publicUrl = assetData.browser_download_url || `https://github.com/${repo}/releases/download/materials-v1/${fileName}`;
-
-        return res.status(200).json({
-            success: true,
-            publicUrl: publicUrl
-        });
-
+        return res.status(405).json({ error: 'Method not allowed' });
     } catch (error) {
         console.error('Error in upload-file backend:', error);
         return res.status(500).json({ error: error.message });
