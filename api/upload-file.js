@@ -62,8 +62,8 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // Clean base64 string if data URI scheme header is present
-        const cleanBase64 = fileBase64.replace(/^data:[^;]+;base64,/, '');
+        // Clean base64 string if data URI scheme header is present and strip newlines
+        const cleanBase64 = fileBase64.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
         const path = `materials/${fileName}`;
 
         // Step 1: Check if file exists to get existing SHA for updates
@@ -79,6 +79,12 @@ module.exports = async function handler(req, res) {
             sha = existingData.sha;
         }
 
+        const putBody = {
+            message: `Upload material: ${fileName}`,
+            content: cleanBase64
+        };
+        if (sha) putBody.sha = sha;
+
         // Step 2: Upload or update file via GitHub Contents API
         const uploadRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
             method: 'PUT',
@@ -87,11 +93,7 @@ module.exports = async function handler(req, res) {
                 'Content-Type': 'application/json',
                 'User-Agent': 'NEXUS-App'
             },
-            body: JSON.stringify({
-                message: `Upload material: ${fileName}`,
-                content: cleanBase64,
-                sha: sha || undefined
-            })
+            body: JSON.stringify(putBody)
         });
 
         if (!uploadRes.ok) {
