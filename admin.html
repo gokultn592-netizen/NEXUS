@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=39"></script>
+    <script src="pwa-helper.js?v=40"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -947,59 +947,70 @@
                 try {
                     const maxSizeBytes = 2000 * 1024 * 1024; // 2 GB limit for GitHub Release Assets
                     if (file.size > maxSizeBytes) {
-                        return reject(new Error(`File size (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB) exceeds 2 GB limit.`));
+                        return reject(new Error(`File size (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB) exceeds limit of 2 GB.`));
                     }
 
-                    if (onProgress) onProgress('Authorizing with GitHub Release Engine...');
-
-                    const configRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file');
-                    if (!configRes.ok) {
-                        throw new Error('Failed to authorize file upload');
-                    }
-                    const { token, repo, releaseId, tagName } = await configRes.json();
-
-                    const safeTag = tagName || 'materials-v1';
                     const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-
+                    let oldFileName = null;
                     if (existingFileUrl) {
-                        if (onProgress) onProgress('Cleaning up previous version on GitHub...');
-                        try {
-                            const match = existingFileUrl.match(/\/([^\/]+)$/);
-                            const oldFileName = match ? match[1] : null;
-                            if (oldFileName) {
-                                await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ action: 'delete', oldFileName })
-                                });
-                            }
-                        } catch (delErr) {
-                            console.warn('Failed to delete old asset:', delErr);
+                        const match = existingFileUrl.match(/\/([^\/]+)$/);
+                        oldFileName = match ? match[1] : null;
+                    }
+
+                    const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+                    const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB per chunk (well under Vercel's 4.5MB limit)
+                    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+                    if (onProgress) onProgress(`Preparing high-speed upload (${totalChunks} chunks)...`);
+
+                    let finalResultUrl = null;
+
+                    for (let i = 0; i < totalChunks; i++) {
+                        const start = i * CHUNK_SIZE;
+                        const end = Math.min(file.size, start + CHUNK_SIZE);
+                        const blobSlice = file.slice(start, end);
+
+                        const base64Chunk = await new Promise((resSlice, rejSlice) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resSlice(reader.result);
+                            reader.onerror = () => rejSlice(new Error('Failed to read file slice'));
+                            reader.readAsDataURL(blobSlice);
+                        });
+
+                        const progressPercent = Math.round(((i + 1) / totalChunks) * 95);
+                        if (onProgress) onProgress(`Uploading material: ${progressPercent}% (${i + 1}/${totalChunks})...`);
+
+                        const chunkRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                uploadId: uploadId,
+                                chunkIndex: i,
+                                totalChunks: totalChunks,
+                                fileName: fileName,
+                                chunkData: base64Chunk,
+                                oldFileName: (i === totalChunks - 1) ? oldFileName : null
+                            })
+                        });
+
+                        if (!chunkRes.ok) {
+                            const errJson = await chunkRes.json().catch(() => null);
+                            const errMsg = errJson ? (errJson.error || errJson.message || JSON.stringify(errJson)) : await chunkRes.text();
+                            throw new Error(`Upload failed on chunk ${i + 1}/${totalChunks}: ${errMsg}`);
+                        }
+
+                        const resData = await chunkRes.json();
+                        if (resData.publicUrl) {
+                            finalResultUrl = resData.publicUrl;
                         }
                     }
 
-                    if (onProgress) onProgress('Streaming file binary to GitHub Release Storage (up to 2GB)...');
-
-                    const uploadAssetEndpoint = `https://uploads.github.com/repos/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(fileName)}`;
-
-                    const putRes = await fetch(uploadAssetEndpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `token ${token}`,
-                            'Content-Type': file.type || 'application/octet-stream'
-                        },
-                        body: file
-                    });
-
-                    if (!putRes.ok) {
-                        const errJson = await putRes.json().catch(() => null);
-                        const errMsg = errJson ? (errJson.message || JSON.stringify(errJson)) : await putRes.text();
-                        throw new Error(`GitHub Release Asset upload failed (${putRes.status}): ${errMsg}`);
+                    if (!finalResultUrl) {
+                        throw new Error('Upload completed but no public URL was returned.');
                     }
 
-                    const assetData = await putRes.json();
-                    const publicUrl = assetData.browser_download_url || `https://github.com/${repo}/releases/download/${safeTag}/${fileName}`;
-                    resolve(publicUrl);
+                    if (onProgress) onProgress('Upload complete!');
+                    resolve(finalResultUrl);
                 } catch (err) {
                     reject(err);
                 }
