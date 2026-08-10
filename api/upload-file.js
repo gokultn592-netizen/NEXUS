@@ -1,5 +1,41 @@
-// Vercel Serverless Function — GitHub Storage Upload
-// Commits uploaded files directly to GitHub repository for 100% free unlimited CDN hosting
+// Vercel Serverless Function — GitHub Release Storage Engine
+// Uploads up to 2GB per file directly to GitHub Release Assets with 100% free unlimited CDN hosting
+
+async function getOrCreateRelease(token, repo) {
+    const tag = 'materials-v1';
+    const tagRes = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${tag}`, {
+        headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+    });
+
+    if (tagRes.ok) {
+        const releaseData = await tagRes.json();
+        return releaseData;
+    }
+
+    // Create release if it doesn't exist
+    const createRes = await fetch(`https://api.github.com/repos/${repo}/releases`, {
+        method: 'POST',
+        headers: {
+            Authorization: `token ${token}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'NEXUS-App'
+        },
+        body: JSON.stringify({
+            tag_name: tag,
+            name: 'NEXUS Course Materials',
+            body: 'Permanent high-speed storage for NEXUS course materials (supports up to 2GB per file).',
+            draft: false,
+            prerelease: false
+        })
+    });
+
+    if (!createRes.ok) {
+        const errText = await createRes.text();
+        throw new Error(`Failed to create GitHub release tag: ${errText}`);
+    }
+
+    return await createRes.json();
+}
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,103 +51,55 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: 'GITHUB_TOKEN environment variable is not configured' });
     }
 
-    if (req.method === 'GET') {
-        return res.status(200).json({ token, repo });
-    }
-
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
     try {
-        const { fileName, fileBase64, oldFileName } = req.body;
+        const release = await getOrCreateRelease(token, repo);
 
-        if (!fileName || !fileBase64) {
-            return res.status(400).json({ error: 'Missing fileName or fileBase64' });
+        if (req.method === 'GET') {
+            return res.status(200).json({
+                token: token,
+                repo: repo,
+                releaseId: release.id,
+                tagName: release.tag_name,
+                uploadUrl: release.upload_url
+            });
         }
 
-        const token = process.env.GITHUB_TOKEN;
-        const repo = process.env.GITHUB_REPO || 'gokultn592-netizen/NEXUS';
+        if (req.method === 'POST') {
+            const { action, oldFileName } = req.body || {};
 
-        if (!token) {
-            throw new Error('GITHUB_TOKEN environment variable is not configured');
-        }
-
-        // If oldFileName is provided and different, delete old file from GitHub storage
-        if (oldFileName && oldFileName !== fileName) {
-            try {
-                const oldPath = `materials/${oldFileName}`;
-                const checkOld = await fetch(`https://api.github.com/repos/${repo}/contents/${oldPath}`, {
-                    headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-                });
-                if (checkOld.ok) {
-                    const oldData = await checkOld.json();
-                    await fetch(`https://api.github.com/repos/${repo}/contents/${oldPath}`, {
-                        method: 'DELETE',
-                        headers: {
-                            Authorization: `token ${token}`,
-                            'Content-Type': 'application/json',
-                            'User-Agent': 'NEXUS-App'
-                        },
-                        body: JSON.stringify({
-                            message: `Delete replaced material: ${oldFileName}`,
-                            sha: oldData.sha
-                        })
+            // Handle asset deletion if requested
+            if (action === 'delete' && oldFileName) {
+                try {
+                    const assetsRes = await fetch(`https://api.github.com/repos/${repo}/releases/${release.id}/assets`, {
+                        headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
                     });
+                    if (assetsRes.ok) {
+                        const assets = await assetsRes.json();
+                        const targetAsset = assets.find(a => a.name === oldFileName);
+                        if (targetAsset) {
+                            await fetch(`https://api.github.com/repos/${repo}/releases/assets/${targetAsset.id}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+                            });
+                        }
+                    }
+                } catch (delErr) {
+                    console.warn('Failed to delete old release asset:', delErr);
                 }
-            } catch (delErr) {
-                console.warn('Failed to delete old file on GitHub:', delErr);
+                return res.status(200).json({ success: true, message: 'Asset deleted' });
             }
+
+            return res.status(200).json({
+                token: token,
+                repo: repo,
+                releaseId: release.id,
+                tagName: release.tag_name
+            });
         }
 
-        // Clean base64 string if data URI scheme header is present and strip newlines
-        const cleanBase64 = fileBase64.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
-        const path = `materials/${fileName}`;
-
-        // Step 1: Check if file exists to get existing SHA for updates
-        let sha = null;
-        const checkRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-            headers: {
-                Authorization: `token ${token}`,
-                'User-Agent': 'NEXUS-App'
-            }
-        });
-        if (checkRes.ok) {
-            const existingData = await checkRes.json();
-            sha = existingData.sha;
-        }
-
-        const putBody = {
-            message: `Upload material: ${fileName}`,
-            content: cleanBase64
-        };
-        if (sha) putBody.sha = sha;
-
-        // Step 2: Upload or update file via GitHub Contents API
-        const uploadRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-            method: 'PUT',
-            headers: {
-                Authorization: `token ${token}`,
-                'Content-Type': 'application/json',
-                'User-Agent': 'NEXUS-App'
-            },
-            body: JSON.stringify(putBody)
-        });
-
-        if (!uploadRes.ok) {
-            const errText = await uploadRes.text();
-            throw new Error(`GitHub upload failed (${uploadRes.status}): ${errText}`);
-        }
-
-        const data = await uploadRes.json();
-        const publicUrl = `https://raw.githubusercontent.com/${repo}/main/${path}`;
-
-        return res.status(200).json({
-            success: true,
-            publicUrl: publicUrl,
-            downloadUrl: data.content.download_url
-        });
-
+        return res.status(405).json({ error: 'Method not allowed' });
     } catch (error) {
-        console.error('Error in upload-file:', error);
+        console.error('Error in upload-file endpoint:', error);
         return res.status(500).json({ error: error.message });
     }
 };

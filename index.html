@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=34"></script>
+    <script src="pwa-helper.js?v=35"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2025,64 +2025,50 @@
         });
 
         function uploadFileToGitHub(file, onProgress) {
-            return new Promise((resolve, reject) => {
-                const maxSizeBytes = 25 * 1024 * 1024;
-                if (file.size > maxSizeBytes) {
-                    return reject(new Error(`File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds GitHub direct upload limit of 25 MB. Please upload a smaller file.`));
+            return new Promise(async (resolve, reject) => {
+                try {
+                    const maxSizeBytes = 2000 * 1024 * 1024; // 2 GB limit for GitHub Release Assets
+                    if (file.size > maxSizeBytes) {
+                        return reject(new Error(`File size (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB) exceeds GitHub Release Asset limit of 2 GB.`));
+                    }
+
+                    if (onProgress) onProgress('Connecting to GitHub Release Engine...');
+
+                    const configRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file');
+                    if (!configRes.ok) {
+                        throw new Error('Failed to authorize file upload');
+                    }
+                    const { token, repo, releaseId, tagName } = await configRes.json();
+
+                    const safeTag = tagName || 'materials-v1';
+                    const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+
+                    if (onProgress) onProgress('Streaming file binary to GitHub Release Storage (up to 2GB)...');
+
+                    const uploadAssetEndpoint = `https://uploads.github.com/repos/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(fileName)}`;
+
+                    const putRes = await fetch(uploadAssetEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Content-Type': file.type || 'application/octet-stream',
+                            'User-Agent': 'NEXUS-App'
+                        },
+                        body: file
+                    });
+
+                    if (!putRes.ok) {
+                        const errJson = await putRes.json().catch(() => null);
+                        const errMsg = errJson ? (errJson.message || JSON.stringify(errJson)) : await putRes.text();
+                        throw new Error(`GitHub Release asset upload failed (${putRes.status}): ${errMsg}`);
+                    }
+
+                    const assetData = await putRes.json();
+                    const publicUrl = assetData.browser_download_url || `https://github.com/${repo}/releases/download/${safeTag}/${fileName}`;
+                    resolve(publicUrl);
+                } catch (err) {
+                    reject(err);
                 }
-
-                const reader = new FileReader();
-                reader.onprogress = (evt) => {
-                    if (evt.lengthComputable && onProgress) {
-                        const percent = Math.round((evt.loaded / evt.total) * 40);
-                        onProgress(`Reading file: ${percent}%`);
-                    }
-                };
-                reader.onerror = () => reject(new Error('Failed to read file'));
-                reader.onload = async () => {
-                    try {
-                        if (onProgress) onProgress('Connecting to GitHub Storage...');
-
-                        const configRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file');
-                        if (!configRes.ok) {
-                            throw new Error('Failed to authorize file upload');
-                        }
-                        const { token, repo } = await configRes.json();
-
-                        const base64Data = reader.result.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
-                        const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-                        const path = `materials/${fileName}`;
-
-                        if (onProgress) onProgress('Uploading directly to GitHub Storage...');
-
-                        const bodyData = {
-                            message: `Upload material: ${fileName}`,
-                            content: base64Data
-                        };
-
-                        const putRes = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-                            method: 'PUT',
-                            headers: {
-                                Authorization: `token ${token}`,
-                                'Content-Type': 'application/json',
-                                'User-Agent': 'NEXUS-App'
-                            },
-                            body: JSON.stringify(bodyData)
-                        });
-
-                        if (!putRes.ok) {
-                            const errJson = await putRes.json().catch(() => null);
-                            const errMsg = errJson ? (errJson.message || JSON.stringify(errJson)) : await putRes.text();
-                            throw new Error(`GitHub API error (${putRes.status}): ${errMsg}`);
-                        }
-
-                        const publicUrl = `https://raw.githubusercontent.com/${repo}/main/${path}`;
-                        resolve(publicUrl);
-                    } catch (err) {
-                        reject(err);
-                    }
-                };
-                reader.readAsDataURL(file);
             });
         }
 
