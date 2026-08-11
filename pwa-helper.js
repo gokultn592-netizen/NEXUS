@@ -134,14 +134,13 @@ const pwaHelper = {
         const cache = await caches.open('nexus-files-cache');
         
         const signedUrl = await this.getSignedUrl(fileUrl);
-        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         
         try {
-            const response = await fetch(signedUrl, { signal: controller.signal });
+            const response = await fetch(signedUrl, { signal: controller.signal }).catch(() => null);
             clearTimeout(timeoutId);
-            if (!response.ok) throw new Error(`HTTP error ${response.status} fetching file`);
+            if (!response || !response.ok) return null;
             
             const copy = response.clone();
             await cache.put(cleanUrl, copy);
@@ -149,19 +148,12 @@ const pwaHelper = {
             return response;
         } catch (err) {
             clearTimeout(timeoutId);
-            if (err.name === 'AbortError') {
-                throw new Error(`Fetch timed out after ${timeoutMs / 1000}s`);
-            }
-            throw err;
+            return null;
         }
     },
 
     async getSignedUrl(fileUrl) {
-        if (!fileUrl) return '';
-        if (fileUrl.includes('github.com') || fileUrl.includes('githubusercontent.com')) {
-            return `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=true`;
-        }
-        return fileUrl;
+        return fileUrl || '';
     },
 
     // Helper to extract proper MIME type from filename or URL
@@ -175,7 +167,7 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Handle view operation: Instant stream when online + background caching, instant local blob when offline
+    // Handle view operation: Instant direct stream, zero lag, clean GitHub URL
     async viewFile(fileUrl, id, version, title, btn) {
         let originalText = '';
         if (btn) {
@@ -196,7 +188,7 @@ const pwaHelper = {
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
             const cache = await caches.open('nexus-files-cache');
-            const match = await cache.match(cleanUrl);
+            const match = await cache.match(cleanUrl).catch(() => null);
             
             if (match) {
                 console.log('[PWA Cache] Serving file from local cache:', cleanUrl);
@@ -211,23 +203,15 @@ const pwaHelper = {
                 return;
             }
 
-            // File not in cache: If online, open stream URL IMMEDIATELY so browser doesn't block!
+            // File not in cache: Open clean direct URL instantly with 0 lag!
+            window.open(fileUrl, '_blank');
+            restoreBtn();
+            
+            // Background caching silently
             if (navigator.onLine) {
-                console.log('[PWA Cache] File uncached. Opening stream directly and caching in background...');
-                const signedUrl = await this.getSignedUrl(fileUrl);
-                window.open(signedUrl, '_blank');
-                restoreBtn();
-                
-                // Cache in background quietly
-                this.fetchAndCacheFile(id, fileUrl, version, 25000).catch(err => {
-                    console.warn('[PWA Cache] Background cache error:', err.message);
-                });
-            } else {
-                alert('You are offline, and this file has not been cached yet.');
-                restoreBtn();
+                this.fetchAndCacheFile(id, fileUrl, version, 25000).catch(() => {});
             }
         } catch (err) {
-            console.error('[PWA Cache] Error viewing file:', err);
             window.open(fileUrl, '_blank');
             restoreBtn();
         }
