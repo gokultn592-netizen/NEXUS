@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v45';
+const CACHE_NAME = 'nexus-shell-v46';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -18,8 +18,7 @@ const EXTERNAL_ASSETS = [
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap',
-  'https://nexus-omega-jet.vercel.app/api/firebase-config'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap'
 ];
 
 const ALL_PRECACHE = [...STATIC_ASSETS, ...EXTERNAL_ASSETS];

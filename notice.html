@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=45"></script>
+    <script src="pwa-helper.js?v=46"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -754,14 +754,18 @@
     <script>
         let auth = null;
         let db = null;
+        const firebaseConfig = {
+            apiKey: "AIzaSyCSHxv74kZ2kSeJVHHDRzT9UUAwAebAdr4",
+            authDomain: "nexus-e7a36.firebaseapp.com",
+            projectId: "nexus-e7a36",
+            storageBucket: "nexus-e7a36.firebasestorage.app",
+            messagingSenderId: "516259533933",
+            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
+        };
 
         async function initializeAppFlow() {
             try {
-                const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
-                if (!res.ok) throw new Error('Failed to fetch firebase config: ' + res.statusText);
-                const config = await res.json();
-                
-                firebase.initializeApp(config);
+                firebase.initializeApp(firebaseConfig);
                 auth = firebase.auth();
                 db = firebase.firestore();
                 db.enablePersistence().catch(err => console.warn('Firestore persistence disabled:', err));

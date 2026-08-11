@@ -168,7 +168,7 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Handle view operation: Local blob:https://nexus-e7a36.web.app URLs with instant caching
+    // Handle view operation: Direct inline viewing (0 Vercel dependencies!)
     async viewFile(fileUrl, id, version, title, btn) {
         let originalText = '';
         if (btn) {
@@ -205,33 +205,22 @@ const pwaHelper = {
                 return;
             }
 
-            // 2. Fetch binary via streaming proxy and build local blob:https://nexus-e7a36.web.app/ URL!
-            const proxyUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error('Proxy fetch failed');
-
-            const rawBlob = await response.blob();
-            const mimeType = this.getMimeType(cleanUrl, title);
-            const isPdf = (title || cleanUrl).toLowerCase().includes('.pdf');
-            const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) });
-            const blobUrl = URL.createObjectURL(pdfBlob);
-
-            // Pre-cache blob in background so every future click is 0ms instant!
-            cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
-            this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
-
-            window.open(blobUrl, '_blank');
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
+            // 2. Open inline via Google Docs Viewer for PDFs or direct tab for images/other
+            const isPdf = (title || fileUrl).toLowerCase().includes('.pdf');
+            if (isPdf) {
+                const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+                window.open(viewerUrl, '_blank');
+            } else {
+                window.open(fileUrl, '_blank');
+            }
             restoreBtn();
         } catch (err) {
-            console.warn('[PWA View] Blob creation fallback:', err);
-            const proxyUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
-            window.open(proxyUrl, '_blank');
+            window.open(fileUrl, '_blank');
             restoreBtn();
         }
     },
 
-    // Handle download operation: Instant stream with download disposition
+    // Handle download operation: Direct browser download (0 Vercel dependencies!)
     async downloadFile(fileUrl, filename, id, version, btn) {
         let originalText = '';
         if (btn) {
@@ -254,35 +243,51 @@ const pwaHelper = {
             const cache = await caches.open('nexus-files-cache');
             const match = await cache.match(cleanUrl).catch(() => null);
             
+            let rawBlob;
             if (match) {
-                const rawBlob = await match.blob();
-                const mimeType = this.getMimeType(cleanUrl, filename);
-                const isPdf = (filename || cleanUrl).toLowerCase().includes('.pdf');
-                const correctedBlob = new Blob([rawBlob], { 
-                    type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) 
-                });
-
-                let downloadName = filename || 'download';
-                if (isPdf && !downloadName.toLowerCase().endsWith('.pdf')) {
-                    downloadName += '.pdf';
-                }
-
-                const blobUrl = URL.createObjectURL(correctedBlob);
-                const a = document.createElement('a');
-                a.href = blobUrl;
-                a.download = downloadName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+                console.log('[PWA Cache] Serving download from local cache:', cleanUrl);
+                rawBlob = await match.blob();
             } else {
-                const downloadProxyUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&filename=${encodeURIComponent(filename || 'material.pdf')}&view=download`;
-                window.open(downloadProxyUrl, '_blank');
+                if (!navigator.onLine) {
+                    alert('You are offline, and this file has not been cached yet.');
+                    restoreBtn();
+                    return;
+                }
+                console.log('[PWA Cache] File not in cache. Downloading and caching...');
+                const response = await this.fetchAndCacheFile(id, fileUrl, version, 25000);
+                rawBlob = await response.blob();
             }
+            
+            const mimeType = this.getMimeType(cleanUrl, filename);
+            const isPdf = (filename || cleanUrl).toLowerCase().includes('.pdf');
+            const correctedBlob = new Blob([rawBlob], { 
+                type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) 
+            });
+
+            let downloadName = filename || 'download';
+            if (isPdf && !downloadName.toLowerCase().endsWith('.pdf')) {
+                downloadName += '.pdf';
+            }
+
+            const blobUrl = URL.createObjectURL(correctedBlob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = downloadName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
             restoreBtn();
         } catch (err) {
-            console.error('[PWA Cache] Error downloading file:', err);
-            alert('Download failed: ' + err.message);
+            console.warn('[PWA Download] Direct download fallback:', err);
+            const a = document.createElement('a');
+            a.href = fileUrl;
+            a.download = filename || 'material';
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             restoreBtn();
         }
     }
