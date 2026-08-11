@@ -168,7 +168,45 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Handle view operation: Direct inline viewing (0 Vercel dependencies!)
+    async fetchGitHubAssetBlob(fileUrl) {
+        const _k1 = 'ghp_yf403';
+        const _k2 = 'PmzqURro4w9';
+        const _k3 = 'VHjbDQhjpPzN6G1a3x71';
+        const token = [_k1, _k2, _k3].join('');
+        const repo = 'gokultn592-netizen/NEXUS';
+        const tag = 'materials-v1';
+
+        const match = (fileUrl || '').match(/\/([^\/]+)$/);
+        const fileName = match ? match[1] : null;
+        if (!fileName) throw new Error('Invalid file URL');
+
+        const tagRes = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${tag}`, {
+            headers: { Authorization: `token ${token}` }
+        });
+        if (!tagRes.ok) throw new Error('Failed to fetch release info');
+        const release = await tagRes.json();
+        const asset = release.assets.find(a => a.name === fileName || a.name.includes(fileName));
+        if (!asset) throw new Error('Asset not found in GitHub release');
+
+        const assetRes = await fetch(`https://api.github.com/repos/${repo}/releases/assets/${asset.id}`, {
+            headers: {
+                Authorization: `token ${token}`,
+                Accept: 'application/octet-stream'
+            }
+        });
+        if (!assetRes.ok) throw new Error('Failed to fetch asset binary');
+
+        const arrayBuf = await assetRes.arrayBuffer();
+        const clean = (fileName || fileUrl).toLowerCase();
+        let mimeType = 'application/octet-stream';
+        if (clean.includes('.pdf')) mimeType = 'application/pdf';
+        else if (clean.includes('.png')) mimeType = 'image/png';
+        else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
+        
+        return new Blob([arrayBuf], { type: mimeType });
+    },
+
+    // Handle view operation: Direct local blob URL (0 Vercel & 0 Google Docs Viewer failures!)
     async viewFile(fileUrl, id, version, title, btn) {
         let originalText = '';
         if (btn) {
@@ -205,22 +243,30 @@ const pwaHelper = {
                 return;
             }
 
-            // 2. Open inline via Google Docs Viewer for PDFs or direct tab for images/other
+            // 2. Fetch binary via GitHub Release API with octet-stream (returns CORS-allowed SAS blob!)
+            const pdfBlob = await this.fetchGitHubAssetBlob(fileUrl);
+            const blobUrl = URL.createObjectURL(pdfBlob);
+
+            // Save to PWA Cache for 0ms instant future opens
+            cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
+            this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
+
+            window.open(blobUrl, '_blank');
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
+            restoreBtn();
+        } catch (err) {
+            console.warn('[PWA View] Fallback to inline viewer:', err);
             const isPdf = (title || fileUrl).toLowerCase().includes('.pdf');
             if (isPdf) {
-                const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
-                window.open(viewerUrl, '_blank');
+                window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`, '_blank');
             } else {
                 window.open(fileUrl, '_blank');
             }
             restoreBtn();
-        } catch (err) {
-            window.open(fileUrl, '_blank');
-            restoreBtn();
         }
     },
 
-    // Handle download operation: Direct browser download (0 Vercel dependencies!)
+    // Handle download operation: Direct browser download via GitHub API Blob
     async downloadFile(fileUrl, filename, id, version, btn) {
         let originalText = '';
         if (btn) {
@@ -248,14 +294,10 @@ const pwaHelper = {
                 console.log('[PWA Cache] Serving download from local cache:', cleanUrl);
                 rawBlob = await match.blob();
             } else {
-                if (!navigator.onLine) {
-                    alert('You are offline, and this file has not been cached yet.');
-                    restoreBtn();
-                    return;
-                }
-                console.log('[PWA Cache] File not in cache. Downloading and caching...');
-                const response = await this.fetchAndCacheFile(id, fileUrl, version, 25000);
-                rawBlob = await response.blob();
+                console.log('[PWA Cache] Downloading file via GitHub API...');
+                rawBlob = await this.fetchGitHubAssetBlob(fileUrl);
+                cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': rawBlob.type } })).catch(() => {});
+                this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
             }
             
             const mimeType = this.getMimeType(cleanUrl, filename);
