@@ -157,7 +157,11 @@ const pwaHelper = {
     },
 
     async getSignedUrl(fileUrl) {
-        return fileUrl || '';
+        if (!fileUrl) return '';
+        if (fileUrl.includes('github.com') || fileUrl.includes('githubusercontent.com')) {
+            return `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=true`;
+        }
+        return fileUrl;
     },
 
     // Helper to extract proper MIME type from filename or URL
