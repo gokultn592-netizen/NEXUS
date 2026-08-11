@@ -102,8 +102,6 @@ const pwaHelper = {
     async checkAndSyncFiles(materials) {
         if (!navigator.onLine || !this.db || !materials || !materials.length) return;
         
-        console.log('[PWA Sync] Smart parallel pre-caching materials for offline access...');
-        // Pre-cache top 15 latest materials in background concurrently
         const targetMaterials = materials.slice(0, 15);
 
         const syncPromises = targetMaterials.map(async (file) => {
@@ -111,17 +109,20 @@ const pwaHelper = {
             const fileUrl = file.fileUrl;
             const version = file.version || 1;
             
+            // Skip JS fetch pre-caching for GitHub Release Asset URLs to prevent browser CORS console errors
+            if (fileUrl && (fileUrl.includes('github.com/releases/download') || fileUrl.includes('uploads.github.com'))) {
+                return;
+            }
+
             try {
                 const cachedRecord = await this.getCachedRecord(id);
                 const isCached = await this.isFileCached(fileUrl);
 
                 if (!cachedRecord || !isCached || cachedRecord.version !== version) {
-                    console.log(`[PWA Sync] Background caching material: "${file.title}"...`);
-                    await this.fetchAndCacheFile(id, fileUrl, version, 20000); // 20s timeout per file
-                    console.log(`[PWA Sync] Ready offline: "${file.title}"`);
+                    await this.fetchAndCacheFile(id, fileUrl, version, 20000);
                 }
             } catch (err) {
-                console.warn(`[PWA Sync] Background cache skip for "${file.title}":`, err.message);
+                // Ignore sync errors quietly
             }
         });
 
@@ -167,7 +168,7 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Handle view operation: Instant direct stream, zero lag, clean GitHub URL
+    // Handle view operation: Inline PDF viewing via Google Docs Viewer (0 downloads forced!)
     async viewFile(fileUrl, id, version, title, btn) {
         let originalText = '';
         if (btn) {
@@ -203,14 +204,15 @@ const pwaHelper = {
                 return;
             }
 
-            // File not in cache: Open clean direct URL instantly with 0 lag!
-            window.open(fileUrl, '_blank');
-            restoreBtn();
-            
-            // Background caching silently
-            if (navigator.onLine) {
-                this.fetchAndCacheFile(id, fileUrl, version, 25000).catch(() => {});
+            // For PDFs, use Google Docs Viewer to view 100% INLINE without forcing downloads!
+            const isPdf = (title || fileUrl).toLowerCase().includes('.pdf');
+            if (isPdf) {
+                const inlineViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+                window.open(inlineViewerUrl, '_blank');
+            } else {
+                window.open(fileUrl, '_blank');
             }
+            restoreBtn();
         } catch (err) {
             window.open(fileUrl, '_blank');
             restoreBtn();
