@@ -168,7 +168,7 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Handle view operation: Streaming Proxy for 100% Inline PDF Viewing & 0 CORS errors (<1s latency!)
+    // Handle view operation: Local blob:https://nexus-e7a36.web.app URLs with instant caching
     async viewFile(fileUrl, id, version, title, btn) {
         let originalText = '';
         if (btn) {
@@ -191,25 +191,42 @@ const pwaHelper = {
             const cache = await caches.open('nexus-files-cache');
             const match = await cache.match(cleanUrl).catch(() => null);
             
+            // 1. If cached, open local blob URL immediately with 0ms latency!
             if (match) {
-                console.log('[PWA Cache] Serving file from local cache:', cleanUrl);
+                console.log('[PWA Cache] Serving instant blob from local cache:', cleanUrl);
                 const rawBlob = await match.blob();
                 const mimeType = this.getMimeType(cleanUrl, title);
                 const isPdf = (title || cleanUrl).toLowerCase().includes('.pdf');
                 const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) });
                 const blobUrl = URL.createObjectURL(pdfBlob);
                 window.open(blobUrl, '_blank');
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
                 restoreBtn();
                 return;
             }
 
-            // Stream through Vercel Streaming Proxy for instant inline PDF viewing (0 forced downloads!)
+            // 2. Fetch binary via streaming proxy and build local blob:https://nexus-e7a36.web.app/ URL!
             const proxyUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
-            window.open(proxyUrl, '_blank');
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error('Proxy fetch failed');
+
+            const rawBlob = await response.blob();
+            const mimeType = this.getMimeType(cleanUrl, title);
+            const isPdf = (title || cleanUrl).toLowerCase().includes('.pdf');
+            const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) });
+            const blobUrl = URL.createObjectURL(pdfBlob);
+
+            // Pre-cache blob in background so every future click is 0ms instant!
+            cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
+            this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
+
+            window.open(blobUrl, '_blank');
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
             restoreBtn();
         } catch (err) {
-            window.open(fileUrl, '_blank');
+            console.warn('[PWA View] Blob creation fallback:', err);
+            const proxyUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
+            window.open(proxyUrl, '_blank');
             restoreBtn();
         }
     },
