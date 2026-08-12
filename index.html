@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=48"></script>
+    <script src="pwa-helper.js?v=49"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1905,8 +1905,8 @@
                     <h3 class="file-name">${escapeHtml(file.title)}</h3>
                     <p class="file-meta">${file.subject} • ${escapeHtml(file.uploaderName)} • ${date}</p>
                     <div class="file-actions">
-                        <button class="magnetic-btn" onclick="window.pwaHelper ? pwaHelper.viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}, \`${escapeHtml(file.title)}\`, this) : (window.openDocViewer ? openDocViewer('${file.fileUrl}', \`${escapeHtml(file.title)}\`) : window.open('${file.fileUrl}', '_blank'))">View</button>
-                        <button class="magnetic-btn btn-outline" onclick="window.pwaHelper ? pwaHelper.downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}, this) : downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`)">Download</button>
+                        <button class="magnetic-btn" onclick="window.pwaHelper ? pwaHelper.viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}, \`${escapeHtml(file.title)}\`, this, '${file.githubAssetId || ''}') : viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}, \`${escapeHtml(file.title)}\`, this, '${file.githubAssetId || ''}')">View</button>
+                        <button class="magnetic-btn btn-outline" onclick="window.pwaHelper ? pwaHelper.downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}, this, '${file.githubAssetId || ''}') : downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}, this, '${file.githubAssetId || ''}')">Download</button>
                     </div>
                 `;
 
@@ -2027,27 +2027,6 @@
             }
         });
 
-        const _k1 = 'ghp_yf403';
-        const _k2 = 'PmzqURro4w9';
-        const _k3 = 'VHjbDQhjpPzN6G1a3x71';
-        const GITHUB_TOKEN = [_k1, _k2, _k3].join('');
-        const GITHUB_REPO = 'gokultn592-netizen/NEXUS';
-        const RELEASE_TAG = 'materials-v1';
-
-        async function getOrCreateRelease() {
-            const tagRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${RELEASE_TAG}`, {
-                headers: { Authorization: `token ${GITHUB_TOKEN}` }
-            });
-            if (tagRes.ok) return await tagRes.json();
-
-            const createRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`, {
-                method: 'POST',
-                headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tag_name: RELEASE_TAG, name: 'NEXUS Course Materials', draft: false, prerelease: false })
-            });
-            return await createRes.json();
-        }
-
         function uploadFileToGitHub(file, onProgress) {
             return new Promise(async (resolve, reject) => {
                 try {
@@ -2056,34 +2035,60 @@
                         return reject(new Error(`File size (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB) exceeds limit of 2 GB.`));
                     }
 
-                    if (onProgress) onProgress('Connecting to GitHub Storage...');
-                    const release = await getOrCreateRelease();
-
                     const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+                    const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+                    const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB per chunk
+                    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-                    if (onProgress) onProgress('Uploading material binary to GitHub Storage (up to 2GB)...');
+                    if (onProgress) onProgress(`Preparing high-speed upload (${totalChunks} chunks)...`);
 
-                    const uploadUrl = `https://uploads.github.com/repos/${GITHUB_REPO}/releases/${release.id}/assets?name=${encodeURIComponent(fileName)}`;
+                    let finalResult = null;
 
-                    const putRes = await fetch(uploadUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `token ${GITHUB_TOKEN}`,
-                            'Content-Type': file.type || 'application/octet-stream'
-                        },
-                        body: file
-                    });
+                    for (let i = 0; i < totalChunks; i++) {
+                        const start = i * CHUNK_SIZE;
+                        const end = Math.min(file.size, start + CHUNK_SIZE);
+                        const blobSlice = file.slice(start, end);
 
-                    if (!putRes.ok) {
-                        const errText = await putRes.text();
-                        throw new Error(`Upload failed (${putRes.status}): ${errText}`);
+                        const base64Chunk = await new Promise((resSlice, rejSlice) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resSlice(reader.result);
+                            reader.onerror = () => rejSlice(new Error('Failed to read file slice'));
+                            reader.readAsDataURL(blobSlice);
+                        });
+
+                        const progressPercent = Math.round(((i + 1) / totalChunks) * 95);
+                        if (onProgress) onProgress(`Uploading material: ${progressPercent}% (${i + 1}/${totalChunks})...`);
+
+                        const chunkRes = await fetch('/api/upload-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                uploadId: uploadId,
+                                chunkIndex: i,
+                                totalChunks: totalChunks,
+                                fileName: fileName,
+                                chunkData: base64Chunk
+                            })
+                        });
+
+                        if (!chunkRes.ok) {
+                            const errJson = await chunkRes.json().catch(() => null);
+                            const errMsg = errJson ? (errJson.error || errJson.message || JSON.stringify(errJson)) : await chunkRes.text();
+                            throw new Error(`Upload failed on chunk ${i + 1}/${totalChunks}: ${errMsg}`);
+                        }
+
+                        const resData = await chunkRes.json();
+                        if (resData.publicUrl) {
+                            finalResult = resData;
+                        }
                     }
 
-                    const assetData = await putRes.json();
-                    const publicUrl = assetData.browser_download_url || `https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}/${fileName}`;
+                    if (!finalResult || !finalResult.publicUrl) {
+                        throw new Error('Upload completed but no public URL was returned.');
+                    }
 
                     if (onProgress) onProgress('Upload complete!');
-                    resolve(publicUrl);
+                    resolve(finalResult);
                 } catch (err) {
                     reject(err);
                 }
@@ -2106,21 +2111,21 @@
             progressText.textContent = 'Preparing secure upload...';
 
             try {
-                const publicUrl = await uploadFileToGitHub(file, (msg) => {
+                const resData = await uploadFileToGitHub(file, (msg) => {
                     progressText.textContent = msg;
                 });
 
                 progressText.textContent = 'Saving to database...';
 
-                // Determine uploader name (Manual name only)
                 const userDoc = await getUserData(currentUser.uid);
                 const uploaderName = userDoc ? userDoc.name : (currentUser.displayName || currentUser.email);
 
-                // 3. Save to Firestore
                 await db.collection('materials').add({
                     title: title,
                     subject: subject,
-                    fileUrl: publicUrl,
+                    fileUrl: resData.publicUrl,
+                    githubAssetId: resData.assetId || null,
+                    githubAssetName: resData.assetName || null,
                     fileType: file.name.split('.').pop().toLowerCase(),
                     uploaderId: currentUser.uid,
                     uploaderName: uploaderName,

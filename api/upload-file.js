@@ -168,7 +168,9 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({
             success: true,
             status: 'completed',
-            publicUrl: publicUrl
+            publicUrl: publicUrl,
+            assetId: assetData.id,
+            assetName: assetData.name || fileName
         });
 
     } catch (error) {

@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=48"></script>
+    <script src="pwa-helper.js?v=49"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -900,30 +900,14 @@
         async function deleteFile(id, url) {
             if (confirm('Permanently delete this material?')) {
                 try {
-                    // Delete from Firestore
                     await db.collection('materials').doc(id).delete();
-                    
-                    // Attempt to delete from GitHub release assets
                     if (url) {
                         try {
-                            const match = url.match(/\/([^\/]+)$/);
-                            const fileName = match ? match[1] : null;
-                            if (fileName) {
-                                const release = await getOrCreateRelease();
-                                const assetsRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/${release.id}/assets`, {
-                                    headers: { Authorization: `token ${GITHUB_TOKEN}` }
-                                });
-                                if (assetsRes.ok) {
-                                    const assets = await assetsRes.json();
-                                    const target = assets.find(a => a.name === fileName);
-                                    if (target) {
-                                        await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/assets/${target.id}`, {
-                                            method: 'DELETE',
-                                            headers: { Authorization: `token ${GITHUB_TOKEN}` }
-                                        });
-                                    }
-                                }
-                            }
+                            await fetch('/api/delete-file', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ fileUrl: url })
+                            });
                         } catch(e) {
                             console.warn('Storage deletion warning:', e);
                         }
@@ -960,27 +944,6 @@
             });
         }
 
-        const _k1 = 'ghp_yf403';
-        const _k2 = 'PmzqURro4w9';
-        const _k3 = 'VHjbDQhjpPzN6G1a3x71';
-        const GITHUB_TOKEN = [_k1, _k2, _k3].join('');
-        const GITHUB_REPO = 'gokultn592-netizen/NEXUS';
-        const RELEASE_TAG = 'materials-v1';
-
-        async function getOrCreateRelease() {
-            const tagRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${RELEASE_TAG}`, {
-                headers: { Authorization: `token ${GITHUB_TOKEN}` }
-            });
-            if (tagRes.ok) return await tagRes.json();
-
-            const createRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`, {
-                method: 'POST',
-                headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tag_name: RELEASE_TAG, name: 'NEXUS Course Materials', draft: false, prerelease: false })
-            });
-            return await createRes.json();
-        }
-
         function uploadFileToGitHub(file, onProgress, existingFileUrl) {
             return new Promise(async (resolve, reject) => {
                 try {
@@ -989,58 +952,67 @@
                         return reject(new Error(`File size (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB) exceeds limit of 2 GB.`));
                     }
 
-                    if (onProgress) onProgress('Connecting to GitHub Storage...');
-                    const release = await getOrCreateRelease();
-
                     const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-
+                    let oldFileName = null;
                     if (existingFileUrl) {
-                        try {
-                            const match = existingFileUrl.match(/\/([^\/]+)$/);
-                            const oldFileName = match ? match[1] : null;
-                            if (oldFileName) {
-                                const assetsRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/${release.id}/assets`, {
-                                    headers: { Authorization: `token ${GITHUB_TOKEN}` }
-                                });
-                                if (assetsRes.ok) {
-                                    const assets = await assetsRes.json();
-                                    const target = assets.find(a => a.name === oldFileName);
-                                    if (target) {
-                                        await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/assets/${target.id}`, {
-                                            method: 'DELETE',
-                                            headers: { Authorization: `token ${GITHUB_TOKEN}` }
-                                        });
-                                    }
-                                }
-                            }
-                        } catch (delErr) {
-                            console.warn('Failed to delete old asset:', delErr);
+                        const match = existingFileUrl.match(/\/([^\/]+)$/);
+                        oldFileName = match ? match[1] : null;
+                    }
+
+                    const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+                    const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB per chunk
+                    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+                    if (onProgress) onProgress(`Preparing high-speed upload (${totalChunks} chunks)...`);
+
+                    let finalResult = null;
+
+                    for (let i = 0; i < totalChunks; i++) {
+                        const start = i * CHUNK_SIZE;
+                        const end = Math.min(file.size, start + CHUNK_SIZE);
+                        const blobSlice = file.slice(start, end);
+
+                        const base64Chunk = await new Promise((resSlice, rejSlice) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resSlice(reader.result);
+                            reader.onerror = () => rejSlice(new Error('Failed to read file slice'));
+                            reader.readAsDataURL(blobSlice);
+                        });
+
+                        const progressPercent = Math.round(((i + 1) / totalChunks) * 95);
+                        if (onProgress) onProgress(`Uploading material: ${progressPercent}% (${i + 1}/${totalChunks})...`);
+
+                        const chunkRes = await fetch('/api/upload-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                uploadId: uploadId,
+                                chunkIndex: i,
+                                totalChunks: totalChunks,
+                                fileName: fileName,
+                                chunkData: base64Chunk,
+                                oldFileName: (i === totalChunks - 1) ? oldFileName : null
+                            })
+                        });
+
+                        if (!chunkRes.ok) {
+                            const errJson = await chunkRes.json().catch(() => null);
+                            const errMsg = errJson ? (errJson.error || errJson.message || JSON.stringify(errJson)) : await chunkRes.text();
+                            throw new Error(`Upload failed on chunk ${i + 1}/${totalChunks}: ${errMsg}`);
+                        }
+
+                        const resData = await chunkRes.json();
+                        if (resData.publicUrl) {
+                            finalResult = resData;
                         }
                     }
 
-                    if (onProgress) onProgress('Uploading material binary to GitHub Storage (up to 2GB)...');
-
-                    const uploadUrl = `https://uploads.github.com/repos/${GITHUB_REPO}/releases/${release.id}/assets?name=${encodeURIComponent(fileName)}`;
-
-                    const putRes = await fetch(uploadUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `token ${GITHUB_TOKEN}`,
-                            'Content-Type': file.type || 'application/octet-stream'
-                        },
-                        body: file
-                    });
-
-                    if (!putRes.ok) {
-                        const errText = await putRes.text();
-                        throw new Error(`Upload failed (${putRes.status}): ${errText}`);
+                    if (!finalResult || !finalResult.publicUrl) {
+                        throw new Error('Upload completed but no public URL was returned.');
                     }
 
-                    const assetData = await putRes.json();
-                    const publicUrl = assetData.browser_download_url || `https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}/${fileName}`;
-
                     if (onProgress) onProgress('Upload complete!');
-                    resolve(publicUrl);
+                    resolve(finalResult);
                 } catch (err) {
                     reject(err);
                 }
@@ -1072,11 +1044,13 @@
                             progress.textContent = 'Replacing file on GitHub Storage...';
                         }
 
-                        const publicUrl = await uploadFileToGitHub(fileInput, (msg) => {
+                        const resData = await uploadFileToGitHub(fileInput, (msg) => {
                             if (progress) progress.textContent = msg;
                         }, existingFileUrl);
 
-                        updates.fileUrl = publicUrl;
+                        updates.fileUrl = resData.publicUrl;
+                        if (resData.assetId) updates.githubAssetId = resData.assetId;
+                        if (resData.assetName) updates.githubAssetName = resData.assetName;
                         updates.fileType = fileInput.name.split('.').pop().toLowerCase();
                         updates.version = firebase.firestore.FieldValue.increment(1);
                     }
@@ -1119,7 +1093,7 @@
                 progress.style.display = 'block';
                 progress.textContent = 'Uploading to GitHub Storage...';
 
-                const publicUrl = await uploadFileToGitHub(fileInput, (msg) => {
+                const resData = await uploadFileToGitHub(fileInput, (msg) => {
                     progress.textContent = msg;
                 });
                 
@@ -1128,7 +1102,9 @@
                 await db.collection('materials').add({
                     title: title,
                     subject: subject,
-                    fileUrl: publicUrl,
+                    fileUrl: resData.publicUrl,
+                    githubAssetId: resData.assetId || null,
+                    githubAssetName: resData.assetName || null,
                     fileType: fileInput.name.split('.').pop().toLowerCase(),
                     uploaderId: user ? user.uid : 'admin',
                     uploaderName: user ? (user.displayName || 'Admin') : 'Admin',

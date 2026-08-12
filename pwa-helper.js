@@ -168,36 +168,22 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    async fetchGitHubAssetBlob(fileUrl) {
-        const _k1 = 'ghp_yf403';
-        const _k2 = 'PmzqURro4w9';
-        const _k3 = 'VHjbDQhjpPzN6G1a3x71';
-        const token = [_k1, _k2, _k3].join('');
-        const repo = 'gokultn592-netizen/NEXUS';
-        const tag = 'materials-v1';
+    async fetchGitHubAssetBlob(fileUrl, githubAssetId) {
+        let apiUrl = '';
+        if (githubAssetId) {
+            apiUrl = `/api/download-file?assetId=${encodeURIComponent(githubAssetId)}&view=inline`;
+        } else {
+            apiUrl = `/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
+        }
 
-        const match = (fileUrl || '').match(/\/([^\/]+)$/);
-        const fileName = match ? match[1] : null;
-        if (!fileName) throw new Error('Invalid file URL');
+        const res = await fetch(apiUrl);
+        if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw new Error(`Failed to fetch material binary (${res.status}): ${errText}`);
+        }
 
-        const tagRes = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${tag}`, {
-            headers: { Authorization: `token ${token}` }
-        });
-        if (!tagRes.ok) throw new Error('Failed to fetch release info');
-        const release = await tagRes.json();
-        const asset = release.assets.find(a => a.name === fileName || a.name.includes(fileName));
-        if (!asset) throw new Error('Asset not found in GitHub release');
-
-        const assetRes = await fetch(`https://api.github.com/repos/${repo}/releases/assets/${asset.id}`, {
-            headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/octet-stream'
-            }
-        });
-        if (!assetRes.ok) throw new Error('Failed to fetch asset binary');
-
-        const arrayBuf = await assetRes.arrayBuffer();
-        const clean = (fileName || fileUrl).toLowerCase();
+        const arrayBuf = await res.arrayBuffer();
+        const clean = (fileUrl || '').toLowerCase();
         let mimeType = 'application/octet-stream';
         if (clean.includes('.pdf')) mimeType = 'application/pdf';
         else if (clean.includes('.png')) mimeType = 'image/png';
@@ -206,8 +192,8 @@ const pwaHelper = {
         return new Blob([arrayBuf], { type: mimeType });
     },
 
-    // Handle view operation: Direct local blob URL (0 Vercel & 0 Google Docs Viewer failures!)
-    async viewFile(fileUrl, id, version, title, btn) {
+    // Handle view operation: Direct local blob URL via backend proxy (0 client tokens & 0 forced downloads!)
+    async viewFile(fileUrl, id, version, title, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
             originalText = btn.textContent;
@@ -243,8 +229,8 @@ const pwaHelper = {
                 return;
             }
 
-            // 2. Fetch binary via GitHub Release API with octet-stream (returns CORS-allowed SAS blob!)
-            const pdfBlob = await this.fetchGitHubAssetBlob(fileUrl);
+            // 2. Fetch binary via serverless proxy by githubAssetId or url
+            const pdfBlob = await this.fetchGitHubAssetBlob(fileUrl, githubAssetId);
             const blobUrl = URL.createObjectURL(pdfBlob);
 
             // Save to PWA Cache for 0ms instant future opens
@@ -255,19 +241,14 @@ const pwaHelper = {
             setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
             restoreBtn();
         } catch (err) {
-            console.warn('[PWA View] Fallback to inline viewer:', err);
-            const isPdf = (title || fileUrl).toLowerCase().includes('.pdf');
-            if (isPdf) {
-                window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`, '_blank');
-            } else {
-                window.open(fileUrl, '_blank');
-            }
+            console.error('[PWA View Error]:', err);
+            alert('Unable to load document inline: ' + err.message);
             restoreBtn();
         }
     },
 
-    // Handle download operation: Direct browser download via GitHub API Blob
-    async downloadFile(fileUrl, filename, id, version, btn) {
+    // Handle download operation: Direct browser download via serverless proxy
+    async downloadFile(fileUrl, filename, id, version, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
             originalText = btn.textContent;
@@ -294,8 +275,8 @@ const pwaHelper = {
                 console.log('[PWA Cache] Serving download from local cache:', cleanUrl);
                 rawBlob = await match.blob();
             } else {
-                console.log('[PWA Cache] Downloading file via GitHub API...');
-                rawBlob = await this.fetchGitHubAssetBlob(fileUrl);
+                console.log('[PWA Cache] Downloading file via serverless proxy...');
+                rawBlob = await this.fetchGitHubAssetBlob(fileUrl, githubAssetId);
                 cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': rawBlob.type } })).catch(() => {});
                 this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
             }
@@ -322,14 +303,8 @@ const pwaHelper = {
             setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
             restoreBtn();
         } catch (err) {
-            console.warn('[PWA Download] Direct download fallback:', err);
-            const a = document.createElement('a');
-            a.href = fileUrl;
-            a.download = filename || 'material';
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            console.error('[PWA Download Error]:', err);
+            alert('Download failed: ' + err.message);
             restoreBtn();
         }
     }
