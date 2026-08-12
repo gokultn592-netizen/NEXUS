@@ -169,20 +169,34 @@ const pwaHelper = {
     },
 
     async fetchGitHubAssetBlob(fileUrl, githubAssetId) {
-        let apiUrl = '';
-        if (githubAssetId) {
-            apiUrl = `/api/download-file?assetId=${encodeURIComponent(githubAssetId)}&view=inline`;
-        } else {
-            apiUrl = `/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
+        const repo = 'gokultn592-netizen/NEXUS';
+        const tag = 'materials-v1';
+        let targetAssetId = githubAssetId;
+
+        // If githubAssetId was not passed directly, look it up by filename from tag materials-v1
+        if (!targetAssetId) {
+            const match = (fileUrl || '').match(/\/([^\/]+)$/);
+            const fileName = match ? match[1] : null;
+            if (!fileName) throw new Error('Invalid file URL');
+
+            const tagRes = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${tag}`);
+            if (!tagRes.ok) throw new Error('Failed to fetch GitHub release metadata');
+            const release = await tagRes.json();
+            const asset = (release.assets || []).find(a => a.name === fileName || a.name.includes(fileName) || fileName.includes(a.name));
+            if (!asset) throw new Error(`Asset "${fileName}" not found in GitHub release`);
+            targetAssetId = asset.id;
         }
 
-        const res = await fetch(apiUrl);
-        if (!res.ok) {
-            const errText = await res.text().catch(() => '');
-            throw new Error(`Failed to fetch material binary (${res.status}): ${errText}`);
+        const assetRes = await fetch(`https://api.github.com/repos/${repo}/releases/assets/${targetAssetId}`, {
+            headers: { Accept: 'application/octet-stream' }
+        });
+
+        if (!assetRes.ok) {
+            const errText = await assetRes.text().catch(() => '');
+            throw new Error(`Failed to fetch asset binary (${assetRes.status}): ${errText}`);
         }
 
-        const arrayBuf = await res.arrayBuffer();
+        const arrayBuf = await assetRes.arrayBuffer();
         const clean = (fileUrl || '').toLowerCase();
         let mimeType = 'application/octet-stream';
         if (clean.includes('.pdf')) mimeType = 'application/pdf';
