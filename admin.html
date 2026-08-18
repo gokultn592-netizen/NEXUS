@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9d4edd">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=51"></script>
+    <script src="pwa-helper.js?v=52"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -903,7 +903,7 @@
                     await db.collection('materials').doc(id).delete();
                     if (url) {
                         try {
-                            await fetch('/api/delete-file', {
+                            await fetch('https://nexus-omega-jet.vercel.app/api/delete-file', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ fileUrl: url })
@@ -982,7 +982,7 @@
                         const progressPercent = Math.round(((i + 1) / totalChunks) * 95);
                         if (onProgress) onProgress(`Uploading material: ${progressPercent}% (${i + 1}/${totalChunks})...`);
 
-                        const chunkRes = await fetch('/api/upload-file', {
+                        const chunkRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
