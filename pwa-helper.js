@@ -35,6 +35,30 @@ const pwaHelper = {
                     .catch(err => console.error('❌ ServiceWorker registration failed:', err));
             });
         }
+
+        // 4. Capture beforeinstallprompt event for WebAPK App Installation
+        window.deferredPwaPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredPwaPrompt = e;
+            console.log('⚡ PWA beforeinstallprompt event captured!');
+            const installBtns = document.querySelectorAll('.pwa-install-btn');
+            installBtns.forEach(btn => { btn.style.display = 'inline-flex'; });
+        });
+
+        window.triggerPwaInstall = function() {
+            if (window.deferredPwaPrompt) {
+                window.deferredPwaPrompt.prompt();
+                window.deferredPwaPrompt.userChoice.then((choice) => {
+                    if (choice.outcome === 'accepted') {
+                        console.log('User accepted PWA WebAPK installation');
+                    }
+                    window.deferredPwaPrompt = null;
+                });
+            } else {
+                alert('To install NEXUS as a standalone app:\n\n1. Open Chrome menu (3 dots at top right)\n2. Tap "Install app" or "Add to Home screen"\n3. Confirm App Installation!');
+            }
+        };
     },
     
     openDb() {
@@ -114,19 +138,24 @@ const pwaHelper = {
         const syncPromises = targetMaterials.map(async (file) => {
             const id = file.id;
             const fileUrl = file.fileUrl;
+            const githubAssetId = file.githubAssetId || file.assetId;
             const version = file.version || 1;
             
-            // Skip JS fetch pre-caching for GitHub Release Asset URLs to prevent browser CORS console errors
-            if (fileUrl && (fileUrl.includes('github.com/releases/download') || fileUrl.includes('uploads.github.com'))) {
-                return;
-            }
+            if (!fileUrl && !githubAssetId) return;
 
             try {
+                const cleanUrl = this.getCleanUrl(fileUrl || (`https://nexus.app/materials/${id}`));
                 const cachedRecord = await this.getCachedRecord(id);
-                const isCached = await this.isFileCached(fileUrl);
+                const isCached = await this.isFileCached(cleanUrl);
 
                 if (!cachedRecord || !isCached || cachedRecord.version !== version) {
-                    await this.fetchAndCacheFile(id, fileUrl, version, 20000);
+                    const cache = await caches.open('nexus-files-cache');
+                    const pdfBlob = await this.fetchGitHubAssetBlob(fileUrl, githubAssetId);
+                    if (pdfBlob) {
+                        await cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } }));
+                        await this.saveCachedRecord(id, cleanUrl, version);
+                        console.log('✅ Auto pre-cached PDF in background:', file.title || cleanUrl);
+                    }
                 }
             } catch (err) {
                 // Ignore sync errors quietly

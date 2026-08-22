@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v53';
+const CACHE_NAME = 'nexus-shell-v64';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -14,12 +14,15 @@ const STATIC_ASSETS = [
 ];
 
 const EXTERNAL_ASSETS = [
+  'https://cdn.tailwindcss.com',
+  'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js',
   'https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js',
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap'
+  'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@500;600;700;800&display=swap'
 ];
 
 const ALL_PRECACHE = [...STATIC_ASSETS, ...EXTERNAL_ASSETS];
@@ -61,8 +64,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Skip non-GET requests (Firebase / Auth API writes, etc.)
+  // 1. Skip non-GET requests and non-http/https schemes (chrome-extension://, etc.)
   if (event.request.method !== 'GET') return;
+  if (!url.protocol.startsWith('http')) return;
 
   // 2. Firebase Config Endpoint — Network First, fallback to Cache
   if (url.href.includes('/api/firebase-config')) {
@@ -99,41 +103,47 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Local static shell assets (HTML, manifest) — Stale-While-Revalidate
+  // 4. Local static shell assets & HTML pages — Network-First strategy to ensure 100% instant UI updates on 1st load!
   const isStatic = STATIC_ASSETS.some(asset => {
     if (asset === '/') return url.pathname === '/';
     const cleanAsset = asset.endsWith('.html') ? asset.slice(0, -5) : asset;
     return url.pathname === asset || url.pathname === cleanAsset || url.pathname.endsWith(asset) || url.pathname.endsWith(cleanAsset);
   });
 
-  if (isStatic) {
+  const isNavigationOrHtml = event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/';
+
+  if (isNavigationOrHtml || isStatic) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) return cachedResponse;
-        
-        // Clean URL fallback: e.g. /notice -> /notice.html
-        if (!url.pathname.endsWith('.html') && url.pathname !== '/') {
-          return caches.match(url.pathname + '.html');
-        }
-      }).then((response) => {
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
+      fetch(event.request)
+        .then((networkResponse) => {
           if (networkResponse.ok) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
-        }).catch(() => {/* ignore network fail */});
-
-        return response || fetchPromise;
-      })
+        })
+        .catch(() => {
+          console.log('[Service Worker] Serving cached HTML for offline access:', url.pathname);
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            if (!url.pathname.endsWith('.html') && url.pathname !== '/') {
+              return caches.match(url.pathname + '.html') || caches.match('/index.html');
+            }
+            return caches.match('/index.html');
+          });
+        })
     );
     return;
   }
 
-  // 4. External CDN assets (Google Fonts, GSAP, Firebase Compat CDNs) — Cache First
+  // 5. External CDN assets (Google Fonts, GSAP, Tailwind, Three.js, Firebase) — Cache-First with Network Fallback
   const isExternal = EXTERNAL_ASSETS.some(asset => url.href.startsWith(asset)) || 
                      url.host.includes('gstatic.com') || 
-                     url.host.includes('googleapis.com');
+                     url.host.includes('googleapis.com') ||
+                     url.host.includes('tailwindcss.com') ||
+                     url.host.includes('cloudflare.com') ||
+                     url.host.includes('jsdelivr.net') ||
+                     url.host.includes('unpkg.com');
 
   if (isExternal) {
     event.respondWith(
@@ -146,6 +156,8 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
+        }).catch(() => {
+          console.warn('[Service Worker] External CDN asset unavailable offline:', event.request.url);
         });
       })
     );
