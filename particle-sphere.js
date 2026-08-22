@@ -17,7 +17,7 @@
     // 1. Scene, Camera, Renderer
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-    camera.position.z = 6.2;
+    camera.position.z = 5.8;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -226,13 +226,9 @@
         camera.updateProjectionMatrix();
         renderer.setSize(width, height, false);
 
-        if (width < 480) {
-            particleMaterial.size = 0.040;
-            camera.position.z = 7.0;
-        } else {
-            particleMaterial.size = 0.052;
-            camera.position.z = 6.2;
-        }
+        // Keep 3D model scale, camera position, and particle sizes 100% identical on mobile and desktop
+        camera.position.z = 5.8;
+        particleMaterial.size = (width < 480) ? 0.055 : 0.054;
     }
 
     const resizeObserver = new ResizeObserver(() => handleResize());
