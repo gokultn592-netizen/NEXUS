@@ -35,6 +35,30 @@ const pwaHelper = {
                     .catch(err => console.error('❌ ServiceWorker registration failed:', err));
             });
         }
+
+        // 4. Capture beforeinstallprompt event for WebAPK App Installation
+        window.deferredPwaPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredPwaPrompt = e;
+            console.log('⚡ PWA beforeinstallprompt event captured!');
+            const installBtns = document.querySelectorAll('.pwa-install-btn');
+            installBtns.forEach(btn => { btn.style.display = 'inline-flex'; });
+        });
+
+        window.triggerPwaInstall = function() {
+            if (window.deferredPwaPrompt) {
+                window.deferredPwaPrompt.prompt();
+                window.deferredPwaPrompt.userChoice.then((choice) => {
+                    if (choice.outcome === 'accepted') {
+                        console.log('User accepted PWA WebAPK installation');
+                    }
+                    window.deferredPwaPrompt = null;
+                });
+            } else {
+                alert('To install NEXUS as a standalone app:\n\n1. Open Chrome menu (3 dots at top right)\n2. Tap "Install app" or "Add to Home screen"\n3. Confirm App Installation!');
+            }
+        };
     },
     
     openDb() {
