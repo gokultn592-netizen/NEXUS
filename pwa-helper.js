@@ -20,8 +20,15 @@ const pwaHelper = {
             console.error('❌ Failed to open IndexedDB:', e);
         }
         
-        // 3. Register Service Worker
+        // 3. Register Service Worker with Auto-Reload on Update
         if ('serviceWorker' in navigator) {
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                }
+            });
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
                     .then(reg => console.log('✅ ServiceWorker registered on scope:', reg.scope))
