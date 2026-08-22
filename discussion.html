@@ -440,7 +440,7 @@ document.querySelectorAll("[data-reveal]").forEach(el=>{
         io.observe(el);
     } else el.classList.add("in-view");
 });
-function escapeHtml(s){ if(!s) return ""; const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+function escapeHtml(s){ if(s === null || s === undefined) return ""; const d=document.createElement("div"); d.textContent=String(s); return d.innerHTML; }
 function initAuthListener(){
     auth.onAuthStateChanged(async user=>{
         if(user){
