@@ -20,8 +20,15 @@ const pwaHelper = {
             console.error('❌ Failed to open IndexedDB:', e);
         }
         
-        // 3. Register Service Worker
+        // 3. Register Service Worker with Auto-Reload on Update
         if ('serviceWorker' in navigator) {
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                }
+            });
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
                     .then(reg => console.log('✅ ServiceWorker registered on scope:', reg.scope))
@@ -169,12 +176,33 @@ const pwaHelper = {
     },
 
     async fetchGitHubAssetBlob(fileUrl, githubAssetId) {
+        const clean = ((fileUrl || '') + ' ' + (githubAssetId || '')).toLowerCase();
+        let mimeType = 'application/octet-stream';
+        if (clean.includes('.pdf')) mimeType = 'application/pdf';
+        else if (clean.includes('.png')) mimeType = 'image/png';
+        else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
+
+        // Try direct fetch first if fileUrl is a public URL
+        if (fileUrl) {
+            try {
+                const directRes = await fetch(fileUrl);
+                if (directRes.ok) {
+                    const arrayBuf = await directRes.arrayBuffer();
+                    return new Blob([arrayBuf], { type: mimeType });
+                }
+            } catch (e) {
+                // Direct fetch blocked by CORS or network, proceed to proxy fallback
+            }
+        }
+
         let apiUrl = '';
         if (githubAssetId) {
             apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?assetId=${encodeURIComponent(githubAssetId)}&view=inline`;
-        } else {
+        } else if (fileUrl) {
             apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
         }
+
+        if (!apiUrl) throw new Error('No valid file URL or Asset ID provided');
 
         const res = await fetch(apiUrl);
         if (!res.ok) {
@@ -183,12 +211,6 @@ const pwaHelper = {
         }
 
         const arrayBuf = await res.arrayBuffer();
-        const clean = (fileUrl || '').toLowerCase();
-        let mimeType = 'application/octet-stream';
-        if (clean.includes('.pdf')) mimeType = 'application/pdf';
-        else if (clean.includes('.png')) mimeType = 'image/png';
-        else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
-        
         return new Blob([arrayBuf], { type: mimeType });
     },
 

@@ -4,13 +4,21 @@
     "ignore": [
       "firebase.json",
       "**/.*",
+      "**/.git/**",
       "**/node_modules/**",
       "api/**",
       "set-cors.ps1",
-      "*.pdf",
-      "*.zip",
-      "*.txt",
-      "*.md",
+      "**/*.pdf",
+      "**/*.zip",
+      "**/*.txt",
+      "**/*.md",
+      "**/*.png",
+      "**/*.jpg",
+      "**/*.jpeg",
+      "**/*.webp",
+      "**/*.docx",
+      "**/*.pptx",
+      "**/*.xlsx",
       "brain/**",
       "scratch/**",
       ".tempmediaStorage/**"
@@ -18,6 +26,15 @@
     "headers": [
       {
         "source": "/**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/**/*.js",
         "headers": [
           {
             "key": "Cache-Control",
