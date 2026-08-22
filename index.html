@@ -44,6 +44,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="pwa-helper.js?v=52"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -1136,8 +1137,8 @@
                 '<h3 class="mt-4 line-clamp-2 min-h-[2.95em] font-display text-[16.5px] font-[700] leading-[1.28] tracking-[-0.02em] text-white">'+escapeHtml(file.title||'Untitled')+'</h3>'+
                 '<p class="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-[11px] tracking-wide text-zinc-500"><span class="truncate">'+escapeHtml(file.uploaderName||'Unknown')+'</span><span class="h-1 w-1 rounded-full bg-white/15"></span><span>'+escapeHtml(date)+'</span><span class="h-1 w-1 rounded-full bg-white/15"></span><span class="tracking-[0.08em]">'+escapeHtml((file.fileType||'').toUpperCase())+'</span></p>'+
                 '<div class="card-actions mt-5 flex gap-2">'+
-                    '<button class="btn-white flex-1" data-view="'+escapeAttr(file.fileUrl)+'" aria-label="View '+escapeAttr(file.title||'file')+'"><i data-lucide="eye" class="h-3.5 w-3.5"></i> View</button>'+
-                    '<button class="btn-glass flex-1" data-download="'+escapeAttr(file.fileUrl)+'" data-filename="'+escapeAttr(file.title||'download')+'" aria-label="Download '+escapeAttr(file.title||'file')+'"><i data-lucide="download" class="h-3.5 w-3.5"></i> Download</button>'+
+                    '<button class="btn-white flex-1" data-view="'+escapeAttr(file.fileUrl)+'" data-id="'+escapeAttr(file.id)+'" data-title="'+escapeAttr(file.title||'Untitled')+'" data-version="'+(file.version||1)+'" data-asset-id="'+escapeAttr(file.githubAssetId||'')+'" aria-label="View '+escapeAttr(file.title||'file')+'"><i data-lucide="eye" class="h-3.5 w-3.5"></i> View</button>'+
+                    '<button class="btn-glass flex-1" data-download="'+escapeAttr(file.fileUrl)+'" data-filename="'+escapeAttr(file.title||'download')+'" data-id="'+escapeAttr(file.id)+'" data-version="'+(file.version||1)+'" data-asset-id="'+escapeAttr(file.githubAssetId||'')+'" aria-label="Download '+escapeAttr(file.title||'file')+'"><i data-lucide="download" class="h-3.5 w-3.5"></i> Download</button>'+
                 '</div>';
             filesGrid.appendChild(card);
         });
@@ -1152,9 +1153,25 @@
     // delegated view/download
     filesGrid.addEventListener('click', async (e)=>{
         const v=e.target.closest('[data-view]');
-        if(v){ e.preventDefault(); const url=v.getAttribute('data-view'); if(url) viewFile(url); }
+        if(v){
+            e.preventDefault();
+            const url=v.getAttribute('data-view');
+            const id=v.getAttribute('data-id');
+            const title=v.getAttribute('data-title');
+            const version=v.getAttribute('data-version')||1;
+            const assetId=v.getAttribute('data-asset-id');
+            if(url) viewFile(url, id, version, title, v, assetId);
+        }
         const d=e.target.closest('[data-download]');
-        if(d){ e.preventDefault(); const url=d.getAttribute('data-download'); const name=d.getAttribute('data-filename'); if(url) downloadFile(url,name); }
+        if(d){
+            e.preventDefault();
+            const url=d.getAttribute('data-download');
+            const name=d.getAttribute('data-filename');
+            const id=d.getAttribute('data-id');
+            const version=d.getAttribute('data-version')||1;
+            const assetId=d.getAttribute('data-asset-id');
+            if(url) downloadFile(url, name, id, version, d, assetId);
+        }
     });
 
     // ---------- Subjects ----------
@@ -1280,17 +1297,32 @@
         if(!r.ok) return fileUrl;
         const {signedUrl}=await r.json(); return signedUrl;
     }
-    window.viewFile=async function(url){
-        if(!url){alert('File URL not available');return;}
-        try{ const s=await getSignedUrl(url); window.open(s,'_blank','noopener'); }catch(e){ window.open(url,'_blank','noopener'); }
+    window.viewFile = async function(url, id, version, title, btn, githubAssetId){
+        if(!url){ alert('File URL not available'); return; }
+        if(window.pwaHelper && typeof window.pwaHelper.viewFile === 'function'){
+            await window.pwaHelper.viewFile(url, id || 'file', version || 1, title || 'Document', btn, githubAssetId);
+        } else {
+            try {
+                const res = await fetch(url);
+                if (res.ok) {
+                    const buf = await res.arrayBuffer();
+                    const blob = new Blob([buf], { type: 'application/pdf' });
+                    const blobUrl = URL.createObjectURL(blob);
+                    window.open(blobUrl, '_blank');
+                    return;
+                }
+            } catch(e){}
+            window.open(url, '_blank', 'noopener');
+        }
     };
-    window.downloadFile=async function(url,filename){
-        if(!url){alert('File URL not available');return;}
-        try{
-            const s=await getSignedUrl(url);
-            const a=document.createElement('a'); a.href=s; a.download=filename||'download'; a.rel='noopener';
+    window.downloadFile = async function(url, filename, id, version, btn, githubAssetId){
+        if(!url){ alert('File URL not available'); return; }
+        if(window.pwaHelper && typeof window.pwaHelper.downloadFile === 'function'){
+            await window.pwaHelper.downloadFile(url, filename || 'download', id || 'file', version || 1, btn, githubAssetId);
+        } else {
+            const a = document.createElement('a'); a.href = url; a.download = filename || 'download'; a.rel = 'noopener';
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        }catch(e){ alert('Download failed: '+e.message); }
+        }
     };
 
     // ---------- Notifications ----------

@@ -44,6 +44,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="pwa-helper.js?v=52"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -584,7 +585,7 @@ function loadFiles(){
         snap.forEach(doc=>{
             const f=doc.data();
             const tr=document.createElement("tr"); tr.className="hover:bg-white/[0.02]";
-            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${f.title}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${f.subject}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${f.uploaderName}</td><td class="px-4 py-3 flex gap-2"><button onclick="openUpdateModal('${doc.id}', '${f.title.replace(/'/g, "\\'")}', '${f.subject}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black">Update</button><button onclick="deleteFile('${doc.id}', '${f.fileUrl}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300">Delete</button></td>`;
+            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${f.title}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${f.subject}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${f.uploaderName}</td><td class="px-4 py-3 flex gap-2"><button onclick="if(window.pwaHelper) window.pwaHelper.viewFile('${f.fileUrl}', '${doc.id}', ${f.version||1}, '${f.title.replace(/'/g, "\\'")}', this, '${f.githubAssetId||''}'); else window.open('${f.fileUrl}', '_blank')" class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white hover:bg-white/10">View</button><button onclick="openUpdateModal('${doc.id}', '${f.title.replace(/'/g, "\\'")}', '${f.subject}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black hover:bg-zinc-200">Update</button><button onclick="deleteFile('${doc.id}', '${f.fileUrl}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
             tbody.appendChild(tr);
         });
         refreshIcons();
