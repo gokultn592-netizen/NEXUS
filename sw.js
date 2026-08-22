@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v53';
+const CACHE_NAME = 'nexus-shell-v56';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -99,33 +99,35 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Local static shell assets (HTML, manifest) — Stale-While-Revalidate
+  // 4. Local static shell assets & HTML pages — Network-First strategy to ensure 100% instant UI updates on 1st load!
   const isStatic = STATIC_ASSETS.some(asset => {
     if (asset === '/') return url.pathname === '/';
     const cleanAsset = asset.endsWith('.html') ? asset.slice(0, -5) : asset;
     return url.pathname === asset || url.pathname === cleanAsset || url.pathname.endsWith(asset) || url.pathname.endsWith(cleanAsset);
   });
 
-  if (isStatic) {
+  const isNavigationOrHtml = event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/';
+
+  if (isNavigationOrHtml || isStatic) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) return cachedResponse;
-        
-        // Clean URL fallback: e.g. /notice -> /notice.html
-        if (!url.pathname.endsWith('.html') && url.pathname !== '/') {
-          return caches.match(url.pathname + '.html');
-        }
-      }).then((response) => {
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
+      fetch(event.request)
+        .then((networkResponse) => {
           if (networkResponse.ok) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
-        }).catch(() => {/* ignore network fail */});
-
-        return response || fetchPromise;
-      })
+        })
+        .catch(() => {
+          console.log('[Service Worker] Serving cached HTML for offline access:', url.pathname);
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            if (!url.pathname.endsWith('.html') && url.pathname !== '/') {
+              return caches.match(url.pathname + '.html') || caches.match('/index.html');
+            }
+            return caches.match('/index.html');
+          });
+        })
     );
     return;
   }
