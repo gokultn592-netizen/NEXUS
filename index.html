@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=52"></script>
+    <script src="pwa-helper.js?v=53"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -835,8 +835,8 @@
             initAuthListener();
             initNotifications();
             buildMarqueeFallback();
-            loadSubjects();
-            loadFiles();
+            // Note: loadSubjects() and loadFiles() are called inside initAuthListener
+            // only after role is confirmed — to prevent duplicate Firestore listeners.
         } catch(err) {
             console.error('Init error', err);
         }
@@ -927,14 +927,14 @@
     function openMobileMenu(){
         mobileMenu.classList.add('is-open'); mobileMenu.setAttribute('aria-hidden','false');
         hamburger.setAttribute('aria-expanded','true');
-        document.body.style.overflow='hidden'; try{ lenis && lenis.stop(); }catch(e){}; try{ lenis && lenis.stop(); }catch(e){};
+        document.body.style.overflow='hidden'; try{ lenis && lenis.stop(); }catch(e){};
         refreshIcons();
         menuClose?.focus();
     }
     window.closeMobileMenu = function(){
         mobileMenu.classList.remove('is-open'); mobileMenu.setAttribute('aria-hidden','true');
         hamburger.setAttribute('aria-expanded','false');
-        document.body.style.overflow=""; try{ lenis && lenis.start(); }catch(e){}; try{ lenis && lenis.start(); }catch(e){};
+        document.body.style.overflow=""; try{ lenis && lenis.start(); }catch(e){};
         hamburger?.focus();
     }
     hamburger?.addEventListener('click',()=>{
@@ -1178,8 +1178,8 @@
     async function updateDisplayName(uid,newName){
         try{
             await db.collection('users').doc(uid).update({name:newName});
-            const updated=await getUserData(uid);
-            renderUser(auth.currentUser, updated.role, updated);
+            const res=await getUserData(uid);
+            renderUser(auth.currentUser, res.data?.role || 'friend', res.data);
             refreshIcons();
         }catch(e){ alert('Failed to update name: '+e.message); }
     }
@@ -1337,8 +1337,15 @@
             });
         }
         files.sort((a,b)=>{
-            if(sort==='newest'){ const at=a.createdAt?.toMillis?.()||0, bt=b.createdAt?.toMillis?.()||0; return bt-at; }
-            else if(sort==='oldest'){ const at=a.createdAt?.toMillis?.()||0, bt=b.createdAt?.toMillis?.()||0; return at-bt; }
+            // Support both live Firestore Timestamps (.toMillis()) and plain objects from localStorage ({seconds, nanoseconds})
+            function toMs(ts){
+                if(!ts) return 0;
+                if(typeof ts.toMillis === 'function') return ts.toMillis();
+                if(ts.seconds !== undefined) return ts.seconds * 1000 + Math.floor((ts.nanoseconds||0)/1e6);
+                return 0;
+            }
+            if(sort==='newest'){ return toMs(b.createdAt) - toMs(a.createdAt); }
+            else if(sort==='oldest'){ return toMs(a.createdAt) - toMs(b.createdAt); }
             else if(sort==='name-asc'){ return (a.title||'').localeCompare(b.title||''); }
             else if(sort==='name-desc'){ return (b.title||'').localeCompare(a.title||''); }
             return 0;
@@ -1505,6 +1512,8 @@
         uploadModal.classList.add('active'); refreshIcons();
         gsap.fromTo(uploadModal.querySelector('.modal-card'),{y:12,opacity:0},{y:0,opacity:1,duration:.36,ease:"power3.out"});
     });
+
+    const CHUNK_SIZE_BYTES = 2 * 1024 * 1024; // 2MB chunks (stays within Vercel 4.5MB body limit)
     document.getElementById('upload-form').addEventListener('submit', async (e)=>{
         e.preventDefault();
         const title=document.getElementById('upload-title').value.trim();
@@ -1515,45 +1524,55 @@
         if(!subject){ alert('Please select a subject'); return; }
         const progress=document.getElementById('upload-progress');
         const progressText=progress.querySelector('span')||progress;
-        progress.classList.remove('hidden'); progressText.textContent='Requesting secure upload URL…';
+        progress.classList.remove('hidden'); progressText.textContent='Preparing upload…';
         const submitBtn=e.target.querySelector('button[type="submit"]');
         submitBtn.disabled=true; submitBtn.style.opacity='.6';
         try{
-            const response=await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url',{
-                method:'POST',headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({fileName: file.name.replace(/[^a-zA-Z0-9.]/g,'_'), fileType: file.type||'application/octet-stream'})
-            });
-            if(!response.ok){ const err=await response.json().catch(()=>({error:response.statusText})); throw new Error(err.error||'Failed to get upload URL'); }
-            const {uploadUrl, authToken, fileName:b2FileName, publicUrl}=await response.json();
-            await new Promise((resolve,reject)=>{
-                const xhr=new XMLHttpRequest(); xhr.open('POST',uploadUrl,true);
-                xhr.setRequestHeader('Authorization',authToken);
-                xhr.setRequestHeader('X-Bz-File-Name',encodeURIComponent(b2FileName));
-                xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');
-                xhr.setRequestHeader('X-Bz-Content-Sha1','do_not_verify');
-                xhr.upload.onprogress=(evt)=>{
-                    if(evt.lengthComputable){
-                        const p=Math.round((evt.loaded/evt.total)*100);
-                        progressText.textContent='Uploading: '+p+'%';
-                    }
-                };
-                xhr.onload=()=>{ if(xhr.status>=200&&xhr.status<300) resolve(); else reject(new Error('Upload failed (HTTP '+xhr.status+'): '+xhr.responseText)); };
-                xhr.onerror=()=> reject(new Error('Network error during upload'));
-                xhr.send(file);
-            });
+            const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+            const fileName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE_BYTES);
+            let publicUrl = null, assetId = null;
+            for(let i=0; i<totalChunks; i++){
+                const chunkBlob = file.slice(i * CHUNK_SIZE_BYTES, (i+1) * CHUNK_SIZE_BYTES);
+                // Convert chunk to base64
+                const base64 = await new Promise((resolve, reject)=>{
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(chunkBlob);
+                });
+                progressText.textContent = `Uploading… ${Math.round(((i+1)/totalChunks)*100)}%`;
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file',{
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        uploadId, chunkIndex: i, totalChunks,
+                        fileName, chunkData: base64
+                    })
+                });
+                if(!res.ok){ const err=await res.json().catch(()=>({error:res.statusText})); throw new Error(err.error||'Upload chunk failed'); }
+                const data = await res.json();
+                if(data.status === 'completed'){
+                    publicUrl = data.publicUrl;
+                    assetId = data.assetId;
+                }
+            }
+            if(!publicUrl) throw new Error('Upload did not complete — no publicUrl returned');
             progressText.textContent='Saving to database…';
             const userDoc=await getUserData(currentUser.uid);
-            const uploaderName=userDoc? userDoc.name : (currentUser.displayName||currentUser.email);
+            const uploaderName=userDoc && userDoc.data ? userDoc.data.name : (currentUser.displayName||currentUser.email);
             await db.collection('materials').add({
                 title, subject, fileUrl: publicUrl,
+                githubAssetId: assetId || null,
                 fileType: file.name.split('.').pop().toLowerCase(),
-                uploaderId: currentUser.uid, uploaderName, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                uploaderId: currentUser.uid, uploaderName,
+                version: 1,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            try{ await db.collection('notifications').add({title:'New Material', message: uploaderName+' uploaded “'+title+'” to '+subject+'.', createdAt: firebase.firestore.FieldValue.serverTimestamp()}); }catch(_){}
+            try{ await db.collection('notifications').add({title:'New Material', message: uploaderName+' uploaded "'+title+'" to '+subject+'.', createdAt: firebase.firestore.FieldValue.serverTimestamp()}); }catch(_){}
             e.target.reset(); progress.classList.add('hidden'); uploadModal.classList.remove('active');
             submitBtn.disabled=false; submitBtn.style.opacity='';
         }catch(err){
-            console.error(err); alert('Error: '+err.message); progress.classList.add('hidden');
+            console.error(err); alert('Upload error: '+err.message); progress.classList.add('hidden');
             submitBtn.disabled=false; submitBtn.style.opacity='';
         }
     });
@@ -1567,16 +1586,7 @@
         if(text === null || text === undefined) return '';
         return String(text).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
-    async function getSignedUrl(fileUrl){
-        const m=fileUrl.match(/\/file\/[^/]+\/(.+)$/);
-        if(!m) return fileUrl;
-        const fileName=m[1];
-        const r=await fetch('https://nexus-omega-jet.vercel.app/api/get-download-url',{
-            method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fileName})
-        });
-        if(!r.ok) return fileUrl;
-        const {signedUrl}=await r.json(); return signedUrl;
-    }
+    // Note: getSignedUrl (Backblaze B2) removed — app now uses GitHub Release Assets via pwaHelper
     window.viewFile = async function(url, id, version, title, btn, githubAssetId){
         if(!url){ alert('File URL not available'); return; }
         if(window.pwaHelper && typeof window.pwaHelper.viewFile === 'function'){
@@ -1669,9 +1679,9 @@
         }
     };
 
-    // ---------- Card glow ----------
+    // Card glow is handled via event delegation on filesGrid (see mousemove listener below)
     function bindCardGlow(){
-        // use delegation on grid for performance
+        // delegation on grid — see filesGrid.addEventListener('mousemove',...) below
     }
     filesGrid.addEventListener('mousemove',(e)=>{
         const card=e.target.closest('.file-card');

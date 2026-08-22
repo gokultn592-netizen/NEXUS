@@ -657,8 +657,11 @@ function initAuthListener(){
                 document.getElementById("post-notice-btn")?.classList.remove("hidden");
                 loadNotices();
             } else if (snapExists && role === "pending") {
-                alert("Your account is PENDING. An admin must approve.");
-                await auth.signOut(); currentUser=null; renderLoggedOut(); loadNotices();
+                // Show pending state without signing out (consistent with index.html behaviour)
+                renderUser(user, 'Pending Approval');
+                const grid = document.getElementById('notice-grid');
+                if(grid) grid.innerHTML = '<div class="col-span-full rounded-[20px] border border-dashed border-amber-500/20 bg-amber-500/[0.04] p-10 text-center"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-amber-500/10 text-amber-300"><i data-lucide="clock" class="h-5 w-5"></i></div><h3 class="mt-4 font-display text-[18px] font-[700]">Waiting for approval</h3><p class="mx-auto mt-2 max-w-[44ch] text-sm text-zinc-500">Your account is pending admin approval. Check back soon.</p></div>';
+                refreshIcons();
             } else {
                 renderUser(user, role || 'friend');
                 loadNotices();
@@ -694,6 +697,7 @@ document.getElementById("login-link").addEventListener("click",e=>{ e.preventDef
 document.getElementById("google-signin-btn").addEventListener("click",()=>{ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); document.getElementById("auth-modal").classList.remove("active"); });
 document.getElementById("auth-modal").addEventListener("click",e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove("active"); });
 function loadNotices(){
+    if(!db) return; // Guard: db may be null if Firebase config failed
     db.collection("notices").orderBy("createdAt","desc").onSnapshot(snap=>{
         const grid=document.getElementById("notice-grid"); grid.innerHTML="";
         if(snap.empty){ grid.innerHTML='<div class="col-span-full rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5"><i data-lucide="inbox" class="h-5 w-5 text-zinc-500"></i></div><h3 class="mt-4 font-display text-[18px] font-[700]">No notices yet</h3><p class="mx-auto mt-2 max-w-[40ch] text-sm text-zinc-500">When admins publish announcements, they will appear here.</p></div>'; refreshIcons(); return; }
@@ -727,6 +731,7 @@ document.getElementById("notice-form")?.addEventListener("submit", async e=>{
 window.editNotice=function(id,title,content){ document.getElementById("modal-title").textContent="Edit notice"; document.getElementById("notice-id").value=id; document.getElementById("notice-form-title").value=title; document.getElementById("notice-form-content").value=content; noticeModal.classList.add("active"); refreshIcons(); };
 window.deleteNotice=async function(id){ if(confirm("Delete this announcement permanently?")) await db.collection("notices").doc(id).delete(); };
 function initNotifications(){
+    if(!db) return;
     const badge=document.getElementById("notif-badge"), list=document.getElementById("notif-list"), panel=document.getElementById("notification-panel"), backdrop=document.getElementById("notif-backdrop"), trigger=document.getElementById("notifications-link"), closeBtn=document.getElementById("close-notifs"), menuDot=document.getElementById("menu-notif-dot");
     function openPanel(){ panel.classList.add("active"); backdrop.classList.add("active"); if(badge){badge.style.display="none"; badge.classList.add("hidden");} if(menuDot) menuDot.classList.add("hidden"); localStorage.setItem("nexus_last_notif_check", Date.now()); }
     function closePanel(){ panel.classList.remove("active"); backdrop.classList.remove("active"); }

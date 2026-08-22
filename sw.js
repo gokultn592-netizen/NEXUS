@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v67';
+const CACHE_NAME = 'nexus-shell-v68';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -86,8 +86,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Local JS scripts — Network-First strategy to guarantee instant code updates for all users
-  if (url.pathname.endsWith('.js')) {
+  // 3. CDN JS scripts only — Network-First strategy to guarantee fresh CDN libraries
+  // (local .js files like pwa-helper.js fall through to stale-while-revalidate below)
+  const isLocalStatic = STATIC_ASSETS.some(asset => url.pathname === asset || url.pathname.endsWith(asset));
+  if (url.pathname.endsWith('.js') && !isLocalStatic) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {

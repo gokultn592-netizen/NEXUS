@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=52"></script>
+    <script src="pwa-helper.js?v=53"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -735,6 +735,7 @@ function renderUser(user, role){
     }
 }
 function loadMembers(){
+    if(!db) return;
     db.collection("users").onSnapshot(snap=>{
         const tbody=document.getElementById("members-tbody"); tbody.innerHTML="";
         snap.forEach(doc=>{
@@ -760,6 +761,7 @@ async function updateRole(uid, newRole){ try{ await db.collection("users").doc(u
 async function deleteMember(uid){ if(confirm("Are you sure you want to remove this user?")){ try{ await db.collection("users").doc(uid).delete(); }catch(e){ alert("Error: "+e.message); } } }
 let allSubjects=[];
 function loadSubjects(){
+    if(!db) return;
     db.collection("subjects").onSnapshot(snap=>{
         const tbody=document.getElementById("subjects-tbody");
         const upd=document.getElementById("update-subject"), up=document.getElementById("upload-subject");
@@ -780,6 +782,7 @@ async function addSubject(){ const input=document.getElementById("new-subject-na
 async function renameSubject(id, newName){ if(newName.trim()) await db.collection("subjects").doc(id).update({name:newName.trim()}); }
 async function deleteSubject(id){ if(confirm("Delete this subject?")) await db.collection("subjects").doc(id).delete(); }
 function loadFiles(){
+    if(!db) return;
     db.collection("materials").orderBy("createdAt","desc").onSnapshot(snap=>{
         const tbody=document.getElementById("files-tbody"); tbody.innerHTML="";
         snap.forEach(doc=>{
@@ -803,24 +806,39 @@ async function deleteFile(id, url){
 const updateModal=document.getElementById("update-modal");
 window.openUpdateModal=function(id,title,subject){ document.getElementById("update-id").value=id; document.getElementById("update-title").value=title; document.getElementById("update-subject").value=subject; document.getElementById("update-file").value=""; updateModal.classList.add("active"); refreshIcons(); };
 updateModal?.addEventListener("click",e=>{ if(e.target===updateModal) updateModal.classList.remove("active"); });
+const CHUNK_SIZE_BYTES = 2 * 1024 * 1024;
 document.getElementById("update-form")?.addEventListener("submit", async e=>{
     e.preventDefault();
     const id=document.getElementById("update-id").value, title=document.getElementById("update-title").value, subject=document.getElementById("update-subject").value, fileInput=document.getElementById("update-file").files[0], prog=document.getElementById("update-progress");
     try{
         let updates={title, subject};
         if(fileInput){
-            prog.classList.remove("hidden"); prog.textContent="Requesting upload URL…";
-            const res=await fetch("https://nexus-omega-jet.vercel.app/api/get-upload-url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileName:fileInput.name.replace(/[^a-zA-Z0-9.]/g,"_"),fileType:fileInput.type||"application/octet-stream"})});
-            if(!res.ok){ const er=await res.json(); throw new Error(er.error||"Failed"); }
-            const {uploadUrl, authToken, fileName:b2FileName, publicUrl}=await res.json();
-            await new Promise((resolve,reject)=>{
-                const xhr=new XMLHttpRequest(); xhr.open("POST",uploadUrl,true);
-                xhr.setRequestHeader("Authorization",authToken); xhr.setRequestHeader("X-Bz-File-Name",encodeURIComponent(b2FileName)); xhr.setRequestHeader("Content-Type",fileInput.type||"application/octet-stream"); xhr.setRequestHeader("X-Bz-Content-Sha1","do_not_verify");
-                xhr.upload.onprogress=evt=>{ if(evt.lengthComputable) prog.textContent=`Uploading: ${Math.round(evt.loaded/evt.total*100)}%`; };
-                xhr.onload=()=>{ if(xhr.status>=200&&xhr.status<300) resolve(); else reject(new Error("Upload failed "+xhr.status)); };
-                xhr.onerror=()=> reject(new Error("Network error")); xhr.send(fileInput);
-            });
-            updates.fileUrl=publicUrl; updates.fileType=fileInput.name.split(".").pop().toLowerCase();
+            prog.classList.remove("hidden"); prog.textContent="Preparing chunked upload…";
+            const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+            const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+            const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
+            let publicUrl = null, assetId = null;
+            for(let i=0; i<totalChunks; i++){
+                const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i+1) * CHUNK_SIZE_BYTES);
+                const base64 = await new Promise((resolve, reject)=>{
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(chunkBlob);
+                });
+                prog.textContent = `Uploading… ${Math.round(((i+1)/totalChunks)*100)}%`;
+                const res = await fetch("https://nexus-omega-jet.vercel.app/api/upload-file",{
+                    method:"POST", headers:{"Content-Type":"application/json"},
+                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64 })
+                });
+                if(!res.ok){ const er=await res.json().catch(()=>({error:res.statusText})); throw new Error(er.error||"Upload chunk failed"); }
+                const data = await res.json();
+                if(data.status === 'completed'){ publicUrl = data.publicUrl; assetId = data.assetId; }
+            }
+            if(!publicUrl) throw new Error("Upload did not complete");
+            updates.fileUrl = publicUrl;
+            updates.githubAssetId = assetId || null;
+            updates.fileType = fileInput.name.split(".").pop().toLowerCase();
         }
         await db.collection("materials").doc(id).update(updates);
         prog.classList.add("hidden"); updateModal.classList.remove("active");
@@ -834,23 +852,42 @@ document.getElementById("upload-form")?.addEventListener("submit", async e=>{
     const title=document.getElementById("upload-title").value, subject=document.getElementById("upload-subject").value, fileInput=document.getElementById("upload-file").files[0], prog=document.getElementById("upload-progress");
     if(!fileInput) return;
     try{
-        prog.classList.remove("hidden"); prog.textContent="Requesting upload URL…";
-        const res=await fetch("https://nexus-omega-jet.vercel.app/api/get-upload-url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileName:fileInput.name.replace(/[^a-zA-Z0-9.]/g,"_"),fileType:fileInput.type||"application/octet-stream"})});
-        if(!res.ok){ const er=await res.json(); throw new Error(er.error||"Failed"); }
-        const {uploadUrl, authToken, fileName:b2FileName, publicUrl}=await res.json();
-        await new Promise((resolve,reject)=>{
-            const xhr=new XMLHttpRequest(); xhr.open("POST",uploadUrl,true);
-            xhr.setRequestHeader("Authorization",authToken); xhr.setRequestHeader("X-Bz-File-Name",encodeURIComponent(b2FileName)); xhr.setRequestHeader("Content-Type",fileInput.type||"application/octet-stream"); xhr.setRequestHeader("X-Bz-Content-Sha1","do_not_verify");
-            xhr.upload.onprogress=evt=>{ if(evt.lengthComputable) prog.textContent=`Uploading: ${Math.round(evt.loaded/evt.total*100)}%`; };
-            xhr.onload=()=>{ if(xhr.status>=200&&xhr.status<300) resolve(); else reject(new Error("Upload failed")); };
-            xhr.onerror=()=> reject(new Error("Network error")); xhr.send(fileInput);
-        });
+        prog.classList.remove("hidden"); prog.textContent="Preparing chunked upload…";
+        const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+        const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+        const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
+        let publicUrl = null, assetId = null;
+        for(let i=0; i<totalChunks; i++){
+            const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i+1) * CHUNK_SIZE_BYTES);
+            const base64 = await new Promise((resolve, reject)=>{
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(chunkBlob);
+            });
+            prog.textContent = `Uploading… ${Math.round(((i+1)/totalChunks)*100)}%`;
+            const res = await fetch("https://nexus-omega-jet.vercel.app/api/upload-file",{
+                method:"POST", headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64 })
+            });
+            if(!res.ok){ const er=await res.json().catch(()=>({error:res.statusText})); throw new Error(er.error||"Upload chunk failed"); }
+            const data = await res.json();
+            if(data.status === 'completed'){ publicUrl = data.publicUrl; assetId = data.assetId; }
+        }
+        if(!publicUrl) throw new Error("Upload did not complete");
         const user=auth.currentUser;
-        await db.collection("materials").add({title, subject, fileUrl:publicUrl, fileType:fileInput.name.split(".").pop().toLowerCase(), uploaderId:user?user.uid:"admin", uploaderName:user? (user.displayName||"Admin"):"Admin", createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+        await db.collection("materials").add({
+            title, subject, fileUrl: publicUrl, githubAssetId: assetId || null,
+            fileType: fileInput.name.split(".").pop().toLowerCase(),
+            uploaderId: user?user.uid:"admin", uploaderName: user? (user.displayName||"Admin"):"Admin",
+            version: 1,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         prog.classList.add("hidden"); uploadModal.classList.remove("active");
     }catch(err){ prog.classList.add("hidden"); alert("Upload failed: "+err.message); }
 });
 function initNotifications(){
+    if(!db) return;
     const badge=document.getElementById("notif-badge"), list=document.getElementById("notif-list"), panel=document.getElementById("notification-panel"), backdrop=document.getElementById("notif-backdrop"), trigger=document.getElementById("notifications-link"), closeBtn=document.getElementById("close-notifs"), menuDot=document.getElementById("menu-notif-dot");
     function openPanel(){ panel.classList.add("active"); backdrop.classList.add("active"); if(badge){badge.style.display="none"; badge.classList.add("hidden");} if(menuDot) menuDot.classList.add("hidden"); localStorage.setItem("nexus_last_notif_check", Date.now()); }
     function closePanel(){ panel.classList.remove("active"); backdrop.classList.remove("active"); }

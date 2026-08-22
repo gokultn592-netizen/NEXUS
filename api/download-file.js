@@ -13,11 +13,12 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     const { assetId, url, filename, view } = req.query || {};
-    const _t1 = 'ghp_yf403';
-    const _t2 = 'PmzqURro4w9';
-    const _t3 = 'VHjbDQhjpPzN6G1a3x71';
-    const token = process.env.GITHUB_TOKEN || [_t1, _t2, _t3].join('');
+    const token = process.env.GITHUB_TOKEN;
     const repo = process.env.GITHUB_REPO || 'gokultn592-netizen/NEXUS';
+
+    if (!token) {
+        return res.status(500).json({ error: 'GITHUB_TOKEN environment variable is not configured' });
+    }
 
     if (!assetId && !url) {
         return res.status(400).json({ error: 'Missing assetId or url parameter' });

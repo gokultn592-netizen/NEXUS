@@ -166,34 +166,6 @@ const pwaHelper = {
         await Promise.allSettled(syncPromises);
     },
 
-    // Helper to fetch file with signed URL, timeout, and cache it under clean URL
-    async fetchAndCacheFile(id, fileUrl, version, timeoutMs = 25000) {
-        const cleanUrl = this.getCleanUrl(fileUrl);
-        const cache = await caches.open('nexus-files-cache');
-        
-        const signedUrl = await this.getSignedUrl(fileUrl);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        
-        try {
-            const response = await fetch(signedUrl, { signal: controller.signal }).catch(() => null);
-            clearTimeout(timeoutId);
-            if (!response || !response.ok) return null;
-            
-            const copy = response.clone();
-            await cache.put(cleanUrl, copy);
-            await this.saveCachedRecord(id, cleanUrl, version);
-            return response;
-        } catch (err) {
-            clearTimeout(timeoutId);
-            return null;
-        }
-    },
-
-    async getSignedUrl(fileUrl) {
-        return fileUrl || '';
-    },
-
     // Helper to extract proper MIME type from filename or URL
     getMimeType(url, filename) {
         const clean = ((filename || '') + ' ' + (url || '')).toLowerCase();
