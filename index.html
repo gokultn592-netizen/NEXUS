@@ -1,2310 +1,1417 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEXUS - Elite Group</title>
-
-    <!-- PWA Basics -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#9d4edd">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=52"></script>
-
+    <title>NEXUS — Learn faster. Share knowledge, not just files.</title>
+    <meta name="color-scheme" content="dark">
+    <meta name="description" content="NEXUS — the minimal, editorial academic repository. Curated notes, shared by top scorers. Zero friction.">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0a0a'/><rect x='10' y='10' width='44' height='44' rx='10' fill='none' stroke='white' stroke-opacity='0.08'/><text x='32' y='40' font-family='Syne,sans-serif' font-size='22' font-weight='800' fill='white' text-anchor='middle' letter-spacing='-0.04em'>NX</text></svg>">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap"
-        rel="stylesheet">
-
-    <!-- GSAP for animations -->
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne','sans-serif'],
+                        body: ['Inter','sans-serif'],
+                        mono: ['JetBrains Mono','monospace'],
+                        serif: ['Instrument Serif','serif'],
+                    },
+                    colors: {
+                        obsidian: '#0a0a0a',
+                        charcoal: '#0f0f11',
+                        surface: '#141416',
+                        lilac: '#c4b5fd',
+                        butter: '#fef08a',
+                        violet: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <!-- GSAP / Lenis / Firebase -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <!-- Lenis for smooth scrolling -->
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js"></script>
-
-    <!-- ========================================
-         FIREBASE COMPAT SDK
-         ========================================
-         "Compat" = compatibility mode, uses older Firebase v8 syntax
-         but with v9+ features. Easier for beginners.
-         We load these as regular scripts (not modules).
-    -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
 
-
     <style>
-        :root {
-            --bg-color: #030005;
-            --text-main: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --accent: #9d4edd;
-            --accent-bright: #c77dff;
-            --panel-bg: rgba(255, 255, 255, 0.03);
-            --border: rgba(255, 255, 255, 0.08);
-            --cursor-color: #c77dff;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-        }
-
-        /* 28k.studio Specular Glassmorphic Light Theme System */
-        [data-theme="light"] {
-            --bg-color: #f8fafc;
-            --text-main: #0f172a;
-            --text-muted: #475569;
-            --accent: #6366f1;
-            --accent-bright: #a855f7;
-            --panel-bg: rgba(255, 255, 255, 0.65);
-            --border: rgba(255, 255, 255, 0.85);
-            --cursor-color: #6366f1;
-        }
-
-        /* 28k.studio Ambient Pastel Aurora Canvas Background */
-        [data-theme="light"] body {
-            background-color: #f8fafc;
-            background-image: 
-                radial-gradient(circle at 12% 18%, rgba(224, 231, 255, 0.65) 0%, transparent 40%),
-                radial-gradient(circle at 88% 25%, rgba(209, 250, 229, 0.55) 0%, transparent 45%),
-                radial-gradient(circle at 50% 80%, rgba(254, 226, 226, 0.5) 0%, transparent 50%);
-            background-attachment: fixed;
-        }
-
-        /* 28k.studio Specular Crystal Glass Panels */
-        [data-theme="light"] .navbar,
-        [data-theme="light"] .file-card,
-        [data-theme="light"] .glass-panel,
-        [data-theme="light"] .stat-card,
-        [data-theme="light"] .modal-content,
-        [data-theme="light"] .subject-card,
-        [data-theme="light"] .announcement-item {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.45) 100%) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border: 1px solid rgba(255, 255, 255, 0.85) !important;
-            box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.95), 0 10px 30px -10px rgba(15, 23, 42, 0.06) !important;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        }
-
-        [data-theme="light"] .file-card:hover,
-        [data-theme="light"] .subject-card:hover {
-            transform: translateY(-4px) !important;
-            box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 1), 0 20px 40px -15px rgba(99, 102, 241, 0.18) !important;
-            border-color: rgba(99, 102, 241, 0.45) !important;
-        }
-
-        /* Prism Rainbow Spectrum Text Hover Effect */
-        [data-theme="light"] h1:hover,
-        [data-theme="light"] h2:hover,
-        [data-theme="light"] h3:hover,
-        [data-theme="light"] .file-name:hover,
-        [data-theme="light"] .subject-title:hover,
-        [data-theme="light"] .subject-item:hover,
-        [data-theme="light"] .nav-links a:hover,
-        .prism-text {
-            background: linear-gradient(270deg, #D586E1 0%, #A886E1 14%, #6F75E4 28%, #6FB1E4 42%, #6FE4B7 56%, #98E46F 70%, #DEE46F 79%, #E4A46F 93%, #E46F6F 100%) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        }
-
-        /* 28k.studio Floating Glass Header */
-        [data-theme="light"] header {
-            background: rgba(255, 255, 255, 0.65) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.85) !important;
-            mix-blend-mode: normal !important;
-            z-index: 9999 !important;
-            padding: 1.2rem 4vw !important;
-            box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
-        }
-
-        [data-theme="light"] .logo {
-            color: #0f172a !important;
-        }
-
-        [data-theme="light"] .nav-links a {
-            color: #0f172a !important;
-            font-weight: 600 !important;
-        }
-
-        [data-theme="light"] .nav-links a::after {
-            background-color: #6366f1 !important;
-        }
-
-        [data-theme="light"] .admin-pill,
-        [data-theme="light"] #admin-badge,
-        [data-theme="light"] .user-badge,
-        [data-theme="light"] .profile-pill {
-            background: rgba(255, 255, 255, 0.6) !important;
-            color: #0f172a !important;
-            border: 1px solid rgba(255, 255, 255, 0.9) !important;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.08) !important;
-        }
-
-        [data-theme="light"] .marquee-container {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.9) 0%, rgba(168, 85, 247, 0.9) 100%) !important;
-            color: #ffffff !important;
-            backdrop-filter: blur(10px) !important;
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2) !important;
-        }
-
-        [data-theme="light"] input,
-        [data-theme="light"] select,
-        [data-theme="light"] textarea {
-            background: rgba(255, 255, 255, 0.6) !important;
-            color: #0f172a !important;
-            border: 1px solid rgba(255, 255, 255, 0.9) !important;
-            backdrop-filter: blur(10px) !important;
-        }
-
-        [data-theme="light"] input::placeholder,
-        [data-theme="light"] textarea::placeholder {
-            color: #64748b !important;
-        }
-
-        [data-theme="light"] .tag,
-        [data-theme="light"] .badge,
-        [data-theme="light"] .file-badge {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%) !important;
-            color: #4f46e5 !important;
-            border: 1px solid rgba(99, 102, 241, 0.25) !important;
-            font-weight: 600 !important;
-        }
-
-        /* 28k.studio Tactile Buttons */
-        [data-theme="light"] .magnetic-btn {
-            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
-            color: #ffffff !important;
-            border: none !important;
-            box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.3) !important;
-            border-radius: 9999px !important;
-            font-weight: 600 !important;
-        }
-
-        [data-theme="light"] .magnetic-btn.btn-outline {
-            background: rgba(255, 255, 255, 0.75) !important;
-            color: #0f172a !important;
-            border: 1px solid rgba(15, 23, 42, 0.12) !important;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
-        }
-
-        /* Prism Custom Cursor Lens */
-        .custom-cursor.prism-hover {
-            width: 75px !important;
-            height: 75px !important;
-            background: radial-gradient(circle, rgba(213, 134, 225, 0.25) 0%, rgba(111, 117, 228, 0.25) 50%, rgba(111, 228, 183, 0.25) 100%) !important;
-            border: 2px solid rgba(213, 134, 225, 0.8) !important;
-            box-shadow: 0 0 25px rgba(213, 134, 225, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.8) !important;
-            backdrop-filter: blur(4px) saturate(250%) !important;
-            mix-blend-mode: normal !important;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            cursor: none !important;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Inter', sans-serif;
-            overflow-x: hidden;
-            transition: background-color 0.5s ease;
-        }
-
-        h1,
-        h2,
-        h3,
-        .logo {
-            font-family: 'Syne', sans-serif;
-        }
-
-        /* ========================================
-           CUSTOM CURSOR
-           ======================================== */
-        /* Creative Glu Crystal-Clear Optical Lens Cursor */
-        .custom-cursor {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: var(--cursor-color);
-            pointer-events: none;
-            z-index: 10000000 !important;
-            transform: translate(-50%, -50%);
-            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .custom-cursor.active,
-        .custom-cursor.prism-hover {
-            width: 70px !important;
-            height: 70px !important;
-            background: transparent !important;
-            border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
-            box-shadow: 0 0 20px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.6) !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            mix-blend-mode: normal !important;
-        }
-
-        [data-theme="light"] .custom-cursor.active,
-        [data-theme="light"] .custom-cursor.prism-hover {
-            border: 1.5px solid rgba(111, 117, 228, 0.8) !important;
-            box-shadow: 0 0 25px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.9) !important;
-        }
-
-        /* Prism Rainbow Spectrum Text Hover Effect - 100% Sharp & Legible Through Cursor */
-        [data-theme="light"] h1:hover,
-        [data-theme="light"] h2:hover,
-        [data-theme="light"] h3:hover,
-        [data-theme="light"] .file-name:hover,
-        [data-theme="light"] .subject-title:hover,
-        [data-theme="light"] .subject-item:hover,
-        [data-theme="light"] .nav-links a:hover,
-        .prism-text {
-            background: linear-gradient(270deg, #D586E1 0%, #A886E1 14%, #6F75E4 28%, #6FB1E4 42%, #6FE4B7 56%, #98E46F 70%, #DEE46F 79%, #E4A46F 93%, #E46F6F 100%) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            text-shadow: 0 0 15px rgba(213, 134, 225, 0.3) !important;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        }
-
-        /* Background effects */
-        .noise {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E');
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .blob {
-            position: fixed;
-            width: 80vw;
-            height: 80vw;
-            background: radial-gradient(circle, rgba(157, 78, 221, 0.15) 0%, transparent 60%);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 0;
-            top: -40%;
-            left: -20%;
-            filter: blur(80px);
-        }
-
-        /* Header */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 2rem 4vw;
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 100;
-            mix-blend-mode: difference;
-        }
-
-        .logo {
-            font-size: 2vw;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2.5vw;
-            align-items: center;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: white;
-            font-size: 0.95rem;
-            font-weight: 500;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            height: 100%;
-            line-height: 1;
-        }
-
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 1px;
-            background-color: white;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-        }
-
-        .nav-links a:hover::after {
-            transform: translateX(0);
-        }
-
-        /* Theme toggle switch */
-        .switch {
-            font-size: 14px;
-            position: relative;
-            display: inline-block;
-            width: 3.5em;
-            height: 2em;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: var(--border);
-            transition: .4s;
-            border-radius: 30px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "☾";
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1em;
-            color: var(--bg-color);
-            height: 1.6em;
-            width: 1.6em;
-            border-radius: 20px;
-            left: 0.2em;
-            bottom: 0.2em;
-            background-color: var(--text-main);
-            transition: .4s;
-        }
-
-        input:checked+.slider {
-            background-color: var(--accent);
-        }
-
-        input:checked+.slider:before {
-            transform: translateX(1.5em);
-            content: "☀";
-        }
-
-        /* Hero section */
-        .hero {
-            height: 80vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 0 4vw;
-            position: relative;
-            z-index: 1;
-        }
-
-        .hero h1 {
-            font-size: 8vw;
-            line-height: 1.1;
-            font-weight: 800;
-            letter-spacing: -0.04em;
-            margin-bottom: 2rem;
-            text-transform: uppercase;
-        }
-
-        .hero .accent-text {
-            color: transparent;
-            -webkit-text-stroke: 1px var(--text-main);
-        }
-
-        /* Marquee notice board */
-        .marquee-container {
-            width: 100%;
-            overflow: hidden;
-            background: var(--accent);
-            color: #000;
-            padding: 1rem 0;
-            transform: rotate(-2deg) scale(1.05);
-            position: relative;
-            z-index: 2;
-        }
-
-        .marquee {
-            white-space: nowrap;
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 1.5rem;
-            text-transform: uppercase;
-            display: inline-block;
-        }
-
-        .marquee span {
-            padding: 0 2rem;
-        }
-
-        /* Main content layout */
-        .content-wrapper {
-            display: flex;
-            padding: 8vw 4vw;
-            gap: 6vw;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 20vw;
-            position: sticky;
-            top: 20vh;
-            height: max-content;
-        }
-
-        .sidebar h2 {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-muted);
-        }
-
-        .subject-item {
-            font-family: 'Syne', sans-serif;
-            font-size: 2.5vw;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            transition: color 0.3s, transform 0.3s;
-            display: block;
-            text-transform: uppercase;
-            letter-spacing: -0.02em;
-            cursor: none;
-        }
-
-        .subject-item.active,
-        .subject-item:hover {
-            color: var(--text-main);
-            transform: translateX(20px);
-        }
-
-        /* Files grid */
-        .main-panel {
-            flex: 1;
-        }
-
-        .files-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 3rem;
-        }
-
-        .file-card {
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 2.5rem 2rem;
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
-            transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
-            z-index: 1;
-        }
-
-        .file-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 1rem;
-            padding: 1px;
-            /* Border thickness */
-            background: linear-gradient(135deg, var(--accent), transparent, var(--accent-bright));
-            -webkit-mask:
-                linear-gradient(#fff 0 0) content-box,
-                linear-gradient(#fff 0 0);
-            mask:
-                linear-gradient(#fff 0 0) content-box,
-                linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            opacity: 0;
-            transition: opacity 0.4s ease;
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        .file-card:hover {
-            transform: scale(1.03) translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(157, 78, 221, 0.2);
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .file-card:hover::before {
-            opacity: 1;
-        }
-
-        .file-icon {
-            font-size: 4rem;
-            margin-bottom: 1.5rem;
-            display: inline-block;
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
-            z-index: 3;
-        }
-
-        .file-card:hover .file-icon {
-            transform: scale(1.2) rotate(10deg);
-        }
-
-        .file-name {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            position: relative;
-            z-index: 3;
-        }
-
-        .file-meta {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 2rem;
-            position: relative;
-            z-index: 3;
-        }
-
-        /* Buttons */
-        .magnetic-btn {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem 2rem;
-            border-radius: 2rem;
-            background: transparent;
-            color: var(--text-main);
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            text-transform: uppercase;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            transition: transform 0.2s, box-shadow 0.3s, border-color 0.3s;
-            z-index: 1;
-        }
-
-        .magnetic-btn::after {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: -100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease-in-out;
-            z-index: -1;
-        }
-
-        .magnetic-btn:hover::after {
-            left: 100%;
-        }
-
-        .magnetic-btn:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 15px rgba(157, 78, 221, 0.4);
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--text-main);
-            border: 1px solid var(--border);
-            box-shadow: inset 0 0 0 0 var(--accent);
-            transition: color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-        }
-
-        .btn-outline:hover {
-            box-shadow: inset 200px 0 0 0 var(--accent);
-            color: #fff;
-            border-color: var(--accent);
-        }
-
-        .file-actions {
-            display: flex;
-            gap: 1rem;
-            position: relative;
-            z-index: 3;
-        }
-
-        .file-actions .magnetic-btn {
-            padding: 0.8rem 1.5rem;
-            font-size: 0.8rem;
-            flex: 1;
-        }
-
-        /* Upload FAB */
-        .upload-fab {
-            position: fixed;
-            bottom: 3rem;
-            right: 3rem;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: transparent;
-            color: #fff;
-            border: none;
-            font-size: 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 90;
-            transition: transform 0.3s, box-shadow 0.3s;
-            box-shadow: 0 0 20px rgba(157, 78, 221, 0.5);
-            overflow: hidden;
-        }
-
-        .upload-fab::before {
-            content: "";
-            position: absolute;
-            width: 150%;
-            height: 150%;
-            background: conic-gradient(transparent, transparent, transparent, var(--accent-bright));
-            animation: rotate 2s linear infinite;
-            z-index: -1;
-        }
-
-        .upload-fab::after {
-            content: "+";
-            position: absolute;
-            inset: 3px;
-            background: var(--bg-color);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1;
-        }
-
-        @keyframes rotate {
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .upload-fab:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 30px var(--accent-bright);
-        }
-
-        /* ========================================
-           AUTH MODAL — GOOGLE ONLY
-           ======================================== */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(15px);
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        .modal {
-            background: var(--bg-color);
-            padding: 4rem;
-            border-radius: 2rem;
-            border: 1px solid var(--border);
-            width: 90%;
-            max-width: 500px;
-            position: relative;
-            transform: translateY(50px);
-            transition: transform 0.3s ease;
-        }
-
-        .modal-overlay.active .modal {
-            transform: translateY(0);
-        }
-
-        .modal h2 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-
-        .modal-subtitle {
-            text-align: center;
-            color: var(--text-muted);
-            margin-bottom: 2rem;
-            font-size: 1rem;
-        }
-
-        /* Google Sign-In Button (Prominent) */
-        .google-btn {
-            width: 100%;
-            padding: 1.2rem;
-            background: white;
-            color: #444;
-            border: none;
-            border-radius: 1rem;
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 1.1rem;
-            cursor: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            transition: transform 0.3s, box-shadow 0.3s;
-            margin-bottom: 1.5rem;
-        }
-
-        .google-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .google-btn img {
-            width: 24px;
-            height: 24px;
-        }
-
-        /* Status messages */
-        .auth-status {
-            text-align: center;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-            display: none;
-        }
-
-        .auth-status.pending {
-            background: rgba(245, 158, 11, 0.1);
-            color: var(--warning);
-            border: 1px solid var(--warning);
-            display: block;
-        }
-
-        .auth-status.error {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--error);
-            border: 1px solid var(--error);
-            display: block;
-        }
-
-        .auth-status.success {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--success);
-            border: 1px solid var(--success);
-            display: block;
-        }
-
-        .auth-info {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-top: 1.5rem;
-            line-height: 1.5;
-        }
-
-        /* Upload modal */
-        #upload-modal .modal {
-            padding: 3rem;
-        }
-
-        #upload-modal h2 {
-            font-size: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .input-group {
-            margin-bottom: 1.5rem;
-            position: relative;
-        }
-
-        .input-group input,
-        .input-group select {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 1.2rem 1rem;
-            font-size: 1.2rem;
-            color: var(--text-main);
-            outline: none;
-            transition: border-color 0.3s, box-shadow 0.3s;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .input-group input:focus,
-        .input-group select:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 10px rgba(157, 78, 221, 0.5);
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        select option {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-        }
-
-        .input-group label {
-            position: absolute;
-            left: 1rem;
-            top: 1.2rem;
-            color: var(--text-muted);
-            font-family: 'Syne', sans-serif;
-            font-weight: 600;
-            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            pointer-events: none;
-            background: var(--bg-color);
-            padding: 0 0.4rem;
-            border-radius: 0.2rem;
-        }
-
-        .input-group input:focus~label,
-        .input-group input:valid~label,
-        .input-group select:focus~label,
-        .input-group select:valid~label {
-            top: -0.6rem;
-            left: 0.8rem;
-            font-size: 0.8rem;
-            color: var(--accent);
-        }
-
-        .submit-btn {
-            width: 100%;
-            margin-top: 2rem;
-            padding: 1.2rem;
-            font-size: 1.2rem;
-        }
-
-        /* User badge in header */
-        #user-section {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .user-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            padding: 0.5rem 1rem;
-            border-radius: 2rem;
-            font-size: 0.9rem;
-        }
-
-        .user-badge img {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .user-badge .user-name {
-            color: var(--text-main);
-            font-weight: 500;
-        }
-
-        .user-badge .user-role {
-            color: var(--accent);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        /* Mouse glow effect on cards */
-        .file-card::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(400px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.08), transparent 60%);
-            z-index: 1;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .file-card:hover::after {
-            opacity: 1;
-        }
-
-        @media (max-width: 768px) {
-            .content-wrapper {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-                position: static;
-                margin-bottom: 3rem;
-            }
-
-            .hero h1 {
-                font-size: 12vw;
-            }
-
-            .subject-item {
-                font-size: 8vw;
-            }
-
-            .custom-cursor {
-                display: none !important;
-            }
-
-            .logo {
-                font-size: 1.4rem;
-            }
-
-            /* Mobile Performance Optimization - Lighten Backdrop Filter GPU Compositing */
-            header,
-            .navbar,
-            .file-card,
-            .glass-panel,
-            .stat-card,
-            .modal-content,
-            .subject-card,
-            .notice-card,
-            .chat-card,
-            input, select, textarea {
-                backdrop-filter: blur(6px) !important;
-                -webkit-backdrop-filter: blur(6px) !important;
-            }
-
-            [data-theme="light"] header,
-            [data-theme="light"] .navbar,
-            [data-theme="light"] .file-card,
-            [data-theme="light"] .glass-panel,
-            [data-theme="light"] .stat-card,
-            [data-theme="light"] .modal-content {
-                background: rgba(255, 255, 255, 0.65) !important;
-            }
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Notifications */
-        .notification-badge {
-            position: absolute;
-            top: -5px;
-            right: -10px;
-            width: 8px;
-            height: 8px;
-            background: #ef4444;
-            border-radius: 50%;
-            display: none;
-        }
-
-        .notification-panel {
-            position: fixed;
-            top: 0;
-            right: -400px;
-            width: 400px;
-            height: 100vh;
-            background: var(--bg-color);
-            border-left: 1px solid var(--border);
-            z-index: 1001;
-            padding: 3rem 2rem;
-            transition: right 0.5s cubic-bezier(0.77, 0, 0.175, 1);
-            backdrop-filter: blur(20px);
-        }
-
-        .notification-panel.active {
-            right: 0;
-        }
-
-        .notification-item {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            transition: background 0.3s;
-        }
-
-        .notification-item:hover {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .notification-item b {
-            color: var(--text-main);
-            display: block;
-            margin-bottom: 0.2rem;
-        }
-
-        .notification-time {
-            font-size: 0.75rem;
-            color: var(--accent);
-            display: block;
-            margin-top: 0.5rem;
+        *,*::before,*::after{box-sizing:border-box}
+        /* Lenis - smooth scroll fix */
+        html.lenis, html.lenis body { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto !important; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
+        html { scroll-behavior: auto; overflow-y: auto; overflow-x: clip; }
+        body { min-height: 100vh; overflow-y: auto; overflow-x: clip; }
+        html, body { height: auto; }
+
+        html{scrollbar-gutter:stable}
+        body{
+            background:#0a0a0a;
+            color:#f4f4f5;
+            font-family:'Inter',sans-serif;
+            -webkit-font-smoothing:antialiased;
+            text-rendering:optimizeLegibility;
+            overflow-x:clip;
+        }
+        ::selection{background:#8b5cf6;color:white}
+        :where(a,button,input,select,textarea,[tabindex]):focus{outline:none}
+        :where(a,button,input,select,textarea,[tabindex]):focus-visible{
+            outline:2px solid #8b5cf6;outline-offset:3px;
+            box-shadow:0 0 0 6px rgba(139,92,246,0.18);
+            border-radius:8px;
+        }
+        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+        .skip-link{position:absolute;top:-100%;left:12px;z-index:9999;background:white;color:#0a0a0a;padding:10px 16px;border-radius:999px;font-weight:600;text-decoration:none;font-size:.9rem;transition:top .2s}
+        .skip-link:focus{top:12px}
+        /* noise + glow */
+        .noise{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:1;opacity:.42;background-image:url("data:image/svg+xml;utf8,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")}
+        .glow-a{position:fixed;width:72vw;height:72vw;left:-14%;top:-32%;pointer-events:none;z-index:0;background:radial-gradient(circle, rgba(139,92,246,0.09) 0%, transparent 64%);filter:blur(48px)}
+        .glow-b{position:fixed;width:60vw;height:60vw;right:-18%;bottom:-18%;pointer-events:none;z-index:0;background:radial-gradient(circle, rgba(196,181,253,0.06) 0%, transparent 66%);filter:blur(56px)}
+        /* custom cursor */
+        .custom-cursor{position:fixed;top:0;left:0;width:18px;height:18px;border-radius:50%;background:#c4b5fd;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:width .22s,height .22s,background-color .22s,opacity .22s,border-color .22s;opacity:0}
+        .custom-cursor.active{width:54px;height:54px;background:transparent;border:1px solid #c4b5fd}
+        @media (pointer:coarse),(max-width:768px){.custom-cursor{display:none !important}}
+        @media (pointer:fine){html.custom-cursor-active *{cursor:none !important}}
+        /* nav link underline */
+        .nav-link{position:relative;color:#9ca3af;transition:color .2s}
+        .nav-link::after{content:"";position:absolute;left:14px;right:14px;bottom:7px;height:1px;background:white;transform:scaleX(0);transform-origin:left;transition:transform .3s cubic-bezier(.16,1,.3,1);opacity:.9}
+        .nav-link:hover{color:white}
+        .nav-link:hover::after{transform:scaleX(1)}
+        .nav-link[aria-current="page"]{color:white}
+        /* hamburger */
+        .hamburger span{transition:transform .3s,opacity .3s}
+        .hamburger[aria-expanded="true"] span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+        .hamburger[aria-expanded="true"] span:nth-child(2){opacity:0}
+        .hamburger[aria-expanded="true"] span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+        /* mobile menu */
+        .mobile-menu{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:rgba(10,10,10,0.78);backdrop-filter:blur(18px) saturate(1.1);-webkit-backdrop-filter:blur(18px) saturate(1.1);opacity:0;pointer-events:none;transition:opacity .36s ease}
+        .mobile-menu.is-open{opacity:1;pointer-events:auto}
+        .mobile-menu-panel{flex:1;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 18px) 20px 28px;max-width:520px;width:100%;margin:0 auto}
+        .mm-link{opacity:0;transform:translateY(14px);transition:opacity .5s cubic-bezier(.16,1,.3,1),transform .5s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--i)*70ms + 60ms)}
+        .mobile-menu.is-open .mm-link{opacity:1;transform:none}
+        /* marquee */
+        .marquee{position:relative;overflow:hidden;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.016)}
+        .marquee-track{display:flex;width:max-content;animation:marquee var(--marquee-dur,32s) linear infinite;will-change:transform}
+        .marquee:hover .marquee-track{animation-play-state:paused}
+        .marquee-group{display:flex;align-items:center;flex-shrink:0}
+        .marquee-item{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:#9ca3af;white-space:nowrap}
+        .marquee-dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;margin:0 1.6rem}
+        @keyframes marquee{to{transform:translateX(-50%)}}
+        /* glitch accent word */
+        .accent-word{position:relative;display:inline-block;isolation:isolate}
+        .accent-word .serif{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;letter-spacing:-0.02em;color:#f4f4f5;position:relative;z-index:1}
+        .accent-word::before,.accent-word::after{
+            content:attr(data-text);position:absolute;inset:0;
+            font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;letter-spacing:-0.02em;
+            opacity:0;pointer-events:none;
+        }
+        .accent-word::before{color:#c4b5fd;transform:translate(0,0);mix-blend-mode:screen}
+        .accent-word::after{color:#8b5cf6;transform:translate(0,0);mix-blend-mode:screen}
+        .accent-word:hover::before{opacity:.95;animation:glitch-a .9s steps(8) infinite}
+        .accent-word:hover::after{opacity:.9;animation:glitch-b .9s steps(8) infinite}
+        .accent-word:hover .serif{color:transparent;background:linear-gradient(100deg,#c4b5fd 0%,#fef08a 52%,#c4b5fd 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;animation:sheen 1.2s ease}
+        @keyframes glitch-a{
+            0%{clip-path:inset(12% 0 68% 0);transform:translate(-2px,-1px)}
+            20%{clip-path:inset(68% 0 8% 0);transform:translate(2px,1px)}
+            40%{clip-path:inset(28% 0 42% 0);transform:translate(-1px,0)}
+            60%{clip-path:inset(78% 0 2% 0);transform:translate(1px,-1px)}
+            80%{clip-path:inset(38% 0 52% 0);transform:translate(-2px,1px)}
+            100%{clip-path:inset(12% 0 68% 0);transform:translate(2px,0)}
+        }
+        @keyframes glitch-b{
+            0%{clip-path:inset(68% 0 12% 0);transform:translate(2px,1px)}
+            20%{clip-path:inset(8% 0 72% 0);transform:translate(-2px,-1px)}
+            40%{clip-path:inset(42% 0 28% 0);transform:translate(1px,1px)}
+            60%{clip-path:inset(2% 0 78% 0);transform:translate(-1px,0)}
+            80%{clip-path:inset(52% 0 18% 0);transform:translate(2px,-1px)}
+            100%{clip-path:inset(68% 0 12% 0);transform:translate(-2px,0)}
+        }
+        @keyframes sheen{from{background-position:0% 50%}to{background-position:100% 50%}}
+        /* pills */
+        .chip{
+            display:inline-flex;align-items:center;gap:.5rem;
+            height:36px;padding:0 14px 0 14px;
+            border-radius:999px;border:1px solid rgba(255,255,255,0.10);
+            background:rgba(255,255,255,0.03);color:#a1a1aa;
+            font-size:.86rem;font-weight:500;white-space:nowrap;flex-shrink:0;
+            transition:all .22s cubic-bezier(.16,1,.3,1);cursor:pointer;
+            min-height:36px;
+        }
+        .chip:hover{color:white;border-color:rgba(255,255,255,0.22);background:rgba(255,255,255,0.06);transform:translateY(-1px)}
+        .chip.active{background:white;color:#0a0a0a;border-color:white;box-shadow:0 4px 18px rgba(255,255,255,0.08)}
+        .chip .count{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.02em;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,0.09);line-height:1}
+        .chip.active .count{background:rgba(0,0,0,0.08);color:#0a0a0a}
+        .chip:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
+        /* file card */
+        .file-card{
+            position:relative;overflow:hidden;
+            background:#141416;border:1px solid rgba(255,255,255,0.08);
+            border-radius:1.25rem;
+            display:flex;flex-direction:column;
+            transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s,box-shadow .28s,background .28s;
+            transform:translateZ(0);
+        }
+        .file-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.14);box-shadow:0 18px 40px rgba(0,0,0,0.42),0 2px 10px rgba(0,0,0,0.3);background:#17171a}
+        .file-card::after{
+            content:"";position:absolute;inset:0;
+            background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%), rgba(139,92,246,0.07), transparent 62%);
+            opacity:0;transition:opacity .3s;pointer-events:none;
+        }
+        .file-card:hover::after{opacity:1}
+        .file-card::before{
+            content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+            background:linear-gradient(135deg, rgba(139,92,246,0.28), transparent 55%, rgba(196,181,253,0.18));
+            -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+            mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+            -webkit-mask-composite:xor;mask-composite:exclude;
+            opacity:0;transition:opacity .3s;pointer-events:none;
+        }
+        .file-card:hover::before{opacity:1}
+        @keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .file-card{animation:cardIn .5s ease both}
+        .badge{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.10em;text-transform:uppercase;padding:5px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;font-weight:500;line-height:1}
+        .badge-pdf{background:rgba(248,113,113,0.10);color:#fca5a5;border-color:rgba(248,113,113,0.18)}
+        .badge-ppt{background:rgba(251,146,60,0.10);color:#fed7aa;border-color:rgba(251,146,60,0.18)}
+        .badge-doc{background:rgba(56,189,248,0.10);color:#7dd3fc;border-color:rgba(56,189,248,0.18)}
+        .badge-img{background:rgba(167,139,250,0.11);color:#c4b5fd;border-color:rgba(167,139,250,0.18)}
+        .badge-other{background:rgba(255,255,255,0.06);color:#a1a1aa;border-color:rgba(255,255,255,0.09)}
+        .subject-tag{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.10em;text-transform:uppercase;color:#a78bfa;background:rgba(139,92,246,0.10);border:1px solid rgba(139,92,246,0.16);padding:5px 9px;border-radius:999px;white-space:nowrap}
+        .btn-white{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;height:40px;padding:0 16px;border-radius:999px;background:white;color:#0a0a0a;font-weight:600;font-size:.84rem;letter-spacing:-.01em;border:none;transition:transform .18s,background .18s,box-shadow .18s;cursor:pointer;text-decoration:none;white-space:nowrap}
+        .btn-white:hover{background:#e4e4e7;transform:translateY(-1px);box-shadow:0 8px 22px rgba(255,255,255,0.09)}
+        .btn-white:active{transform:none}
+        .btn-glass{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:40px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,0.06);color:white;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-weight:600;font-size:.84rem;transition:all .18s;cursor:pointer;white-space:nowrap}
+        .btn-glass:hover{background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.22);transform:translateY(-1px)}
+        .btn-ghost-dark{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:999px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.14);font-weight:600;font-size:.84rem;transition:all .18s;cursor:pointer;white-space:nowrap}
+        .btn-ghost-dark:hover{border-color:rgba(255,255,255,0.28);background:rgba(255,255,255,0.04);transform:translateY(-1px)}
+        /* card actions: hidden until hover on fine pointer, always visible on touch */
+        .card-actions{transition:opacity .28s,transform .28s}
+        @media (hover:hover) and (pointer:fine){
+            .file-card{padding-bottom:0}
+            .card-actions{opacity:0;transform:translateY(8px);pointer-events:none}
+            .file-card:hover .card-actions,.file-card:focus-within .card-actions{opacity:1;transform:none;pointer-events:auto}
+            /* reserve space visually via absolute? keep in flow but fade; to avoid layout shift we keep flow. So above is fine — still reserves space but fades. */
+        }
+        @media (hover:none),(pointer:coarse){
+            .card-actions{opacity:1;transform:none}
+        }
+        /* accordion */
+        .acc-item{border-bottom:1px solid rgba(255,255,255,0.08)}
+        .acc-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s cubic-bezier(.16,1,.3,1)}
+        .acc-item.open .acc-panel{grid-template-rows:1fr}
+        .acc-item.open .acc-icon{transform:rotate(45deg)}
+        .acc-icon{transition:transform .35s cubic-bezier(.16,1,.3,1)}
+        /* modals */
+        .modal-overlay{position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.64);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:80;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .28s ease;padding:16px}
+        .modal-overlay.active{opacity:1;pointer-events:auto}
+        .modal-card{width:100%;max-width:480px;max-height:92vh;overflow:auto;background:#121214;border:1px solid rgba(255,255,255,0.09);border-radius:24px;padding:28px;transform:translateY(14px) scale(.98);transition:transform .36s cubic-bezier(.16,1,.3,1);box-shadow:0 24px 48px rgba(0,0,0,0.55),0 0 0 1px rgba(255,255,255,0.04)}
+        .modal-overlay.active .modal-card{transform:none}
+        .field{width:100%;height:46px;padding:0 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:12px;color:white;font-size:.94rem;outline:none;transition:border-color .18s,background .18s,box-shadow .18s}
+        .field::placeholder{color:#52525b}
+        .field:focus{border-color:rgba(139,92,246,0.5);background:rgba(255,255,255,0.06);box-shadow:0 0 0 4px rgba(139,92,246,0.12)}
+        .field-area{height:auto;min-height:92px;padding:12px 14px;resize:vertical}
+        select.field{appearance:none}
+        select option{background:#141416;color:white}
+        .icon-btn{width:40px;height:40px;display:grid;place-items:center;border-radius:999px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.04);color:#e4e4e7;transition:all .18s}
+        .icon-btn:hover{border-color:rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:white}
+        .fab{position:fixed;right:max(16px,2vw);bottom:calc(max(16px,2vw) + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:white;color:#0a0a0a;border:none;display:grid;place-items:center;box-shadow:0 10px 28px rgba(0,0,0,0.35),0 0 0 1px rgba(255,255,255,0.06);z-index:30;transition:transform .18s,box-shadow .18s}
+        .fab:hover{transform:scale(1.06) translateY(-2px);box-shadow:0 16px 32px rgba(0,0,0,0.42)}
+        .fab.hidden{display:none !important}
+        /* notification panel */
+        .notif-panel{position:fixed;inset:0 0 0 auto;width:min(380px,92vw);height:100dvh;background:#0f0f11;border-left:1px solid rgba(255,255,255,0.08);z-index:70;transform:translateX(100%);transition:transform .42s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column}
+        .notif-panel.active{transform:none}
+        .notif-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.32);backdrop-filter:blur(4px);z-index:69;opacity:0;pointer-events:none;transition:opacity .28s}
+        .notif-backdrop.active{opacity:1;pointer-events:auto}
+        .scrollbar-hide{scrollbar-width:none;-ms-overflow-style:none}
+        .scrollbar-hide::-webkit-scrollbar{display:none}
+        [data-reveal]{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+        [data-reveal].in-view{opacity:1;transform:none}
+        .empty-state{grid-column:1/-1;text-align:center;padding:3rem 1.25rem;background:#141416;border:1px dashed rgba(255,255,255,0.10);border-radius:20px;color:#a1a1aa}
+        @media (prefers-reduced-motion:reduce){
+            *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+            .marquee-track{animation:none !important;transform:none !important}
+            .file-card{animation:none !important}
         }
     </style>
 </head>
+<body class="selection:bg-violet selection:text-white">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="noise" aria-hidden="true"></div>
+    <div class="glow-a" aria-hidden="true"></div>
+    <div class="glow-b" aria-hidden="true"></div>
+    <div class="custom-cursor" aria-hidden="true"></div>
 
-<body>
-
-    <!-- Background effects -->
-    <div class="noise"></div>
-    <div class="blob"></div>
-    <div class="custom-cursor"></div>
-
-    <!-- Header -->
-    <header>
-        <div class="logo">
-            <a href="index.html" style="color: inherit; text-decoration: none;" class="magnetic">
-                NEXUS
+    <!-- NAV: floating glass pill -->
+    <div class="fixed inset-x-0 top-0 z-40 flex justify-center px-4 pt-[14px] pointer-events-none">
+        <nav id="nav-pill" class="pointer-events-auto flex w-full max-w-[1120px] items-center justify-between gap-3 rounded-full border border-white/10 bg-[#121214]/80 px-3 py-[9px] shadow-[0_8px_32px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-[14px] md:px-5 md:py-3">
+            <!-- left -->
+            <a href="index.html" class="flex items-center gap-2.5 shrink-0 group" aria-label="NEXUS home">
+                <span class="grid h-8 w-8 place-items-center rounded-full bg-white text-[11px] font-black tracking-tighter text-black md:h-9 md:w-9 md:text-xs">NX</span>
+                <span class="hidden font-display text-[15px] font-[800] tracking-[-0.03em] text-white md:inline">NEXUS</span>
             </a>
-        </div>
-        <nav class="nav-links">
-            <a href="notice.html" class="magnetic">Notice</a>
-            <a href="discussion.html" class="magnetic">Discussion</a>
-            <a href="#" class="magnetic" id="notifications-link" style="position: relative;">
-                Notifications
-                <span id="notif-badge" class="notification-badge"></span>
-            </a>
-            <!-- User info shows here when logged in -->
-            <div id="user-section" class="hidden">
-                <!-- Populated by JavaScript -->
+            <!-- center -->
+            <div class="hidden items-center gap-1 rounded-full bg-white/[0.03] p-1 ring-1 ring-white/5 md:flex">
+                <a href="#materials" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight">Materials</a>
+                <a href="#materials" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight" onclick="document.getElementById('subject-pills')?.scrollIntoView({behavior:'smooth',block:'center'})">Subjects</a>
+                <a href="discussion.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight">Discussions</a>
+                <a href="notice.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight">Notice</a>
             </div>
-            <!-- Login button shows when logged out -->
-            <a href="#" id="login-link" class="magnetic">Login</a>
-            <!-- Theme toggle -->
-            <label class="switch magnetic">
-                <input type="checkbox" id="theme-toggle">
-                <span class="slider"></span>
-            </label>
+            <!-- right -->
+            <div class="flex items-center gap-2">
+                <button id="notifications-link" class="icon-btn relative hidden md:grid" aria-label="Notifications">
+                    <i data-lucide="bell" class="h-[16px] w-[16px]"></i>
+                    <span id="notif-badge" class="absolute -right-0.5 -top-0.5 hidden h-[8px] w-[8px] rounded-full bg-[#ef4444] shadow-[0_0_0_3px_#121214]"></span>
+                </button>
+                <div id="user-section" class="hidden items-center gap-2"></div>
+                <a href="#" id="login-link" class="btn-white h-8 px-4 text-[13px] md:h-9 md:px-5 md:text-[13.5px]">Sign in</a>
+                <button id="hamburger" class="hamburger icon-btn md:hidden" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                </button>
+            </div>
         </nav>
-    </header>
+    </div>
 
-    <div id="notification-panel" class="notification-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem;">
-            <h2 style="font-family: 'Syne';">Updates</h2>
-            <button id="close-notifs"
-                style="background: none; border: none; color: white; cursor: pointer; font-size: 1.5rem;">×</button>
-        </div>
-        <div id="notif-list">
-            <p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>
+    <!-- Mobile full-screen blur menu -->
+    <div id="mobile-menu" class="mobile-menu" aria-hidden="true">
+        <div class="mobile-menu-panel">
+            <div class="flex items-center justify-between">
+                <a href="index.html" class="flex items-center gap-2.5">
+                    <span class="grid h-9 w-9 place-items-center rounded-full bg-white text-xs font-black tracking-tighter text-black">NX</span>
+                    <span class="font-display text-[15px] font-[800] tracking-[-0.03em]">NEXUS</span>
+                </a>
+                <button id="menu-close" class="icon-btn" aria-label="Close menu"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <nav class="mt-10 flex flex-col gap-1" aria-label="Mobile navigation">
+                <a href="#materials" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:0" onclick="closeMobileMenu()">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Materials</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500 group-hover:text-white transition-colors">01 — ARCHIVE</span>
+                </a>
+                <a href="#community" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:1" onclick="closeMobileMenu()">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Community</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500 group-hover:text-white transition-colors">02 — DISCUSS</span>
+                </a>
+                <a href="discussion.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:2">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Discussions</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500 group-hover:text-white transition-colors">03 — FORUM</span>
+                </a>
+                <a href="notice.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:3">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Notice</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500 group-hover:text-white transition-colors">04 — BOARD</span>
+                </a>
+                <button id="menu-notif-link" class="mm-link flex items-center justify-between border-b border-white/10 py-6 text-left" style="--i:4">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Updates</span>
+                    <span class="flex items-center gap-2 font-mono text-xs tracking-[0.18em] text-zinc-500"><span id="menu-notif-dot" class="hidden h-2 w-2 rounded-full bg-[#ef4444]"></span> NOTIFICATIONS</span>
+                </button>
+            </nav>
+            <div class="mt-auto pt-8">
+                <div id="menu-user-section" class="mb-4"></div>
+                <a href="#" id="menu-login" class="btn-white w-full justify-center" onclick="closeMobileMenu()">Sign in with Google</a>
+                <p class="mt-4 text-center font-mono text-[10px] tracking-[0.18em] text-zinc-600">PRODUCTIVITY — ACADEMIC REPOSITORY &amp; NOTES</p>
+            </div>
         </div>
     </div>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <h1>Discover.<br><span class="accent-text">Learn.</span><br>Grow.</h1>
-        <p style="font-size: 1.2rem; max-width: 500px; color: var(--text-muted);">
-            A premium, immersive experience to browse, study, and share class materials without the friction.
+    <!-- Notification slide-over -->
+    <div id="notif-backdrop" class="notif-backdrop"></div>
+    <aside id="notification-panel" class="notif-panel" role="complementary" aria-label="Notifications">
+        <div class="flex items-center justify-between border-b border-white/10 px-6 py-5">
+            <h2 class="font-display text-[13px] font-[700] tracking-[0.14em] text-zinc-400">UPDATES</h2>
+            <button id="close-notifs" class="icon-btn h-9 w-9" aria-label="Close notifications"><i data-lucide="x" class="h-4 w-4"></i></button>
+        </div>
+        <div id="notif-list" class="flex-1 overflow-auto px-6 py-6">
+            <p class="py-12 text-center font-mono text-sm text-zinc-500">No new notifications</p>
+        </div>
+    </aside>
+
+    <!-- HERO -->
+    <section class="relative z-10 mx-auto flex min-h-[78vh] max-w-[1120px] flex-col justify-center px-5 pb-10 pt-[112px] md:px-6 md:pt-[132px]">
+        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-md" data-reveal>
+            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-violet"></span>
+            <span class="font-mono text-[10px] leading-none tracking-[0.18em] text-zinc-400">PRODUCTIVITY &nbsp;|&nbsp; ACADEMIC REPOSITORY &amp; NOTES</span>
+        </div>
+        <h1 class="mt-6 font-display text-[clamp(2.5rem,7.2vw,5.55rem)] font-[800] leading-[0.9] tracking-[-0.045em] md:mt-7" data-reveal style="transition-delay:80ms">
+            <span class="block">Learn faster.</span>
+            <span class="block">Share <span class="accent-word group/word cursor-pointer" data-text="knowledge,"><span class="serif">knowledge,</span></span></span>
+            <span class="block font-[500] tracking-[-0.04em] text-zinc-500">not just files.</span>
+        </h1>
+        <p class="mt-5 max-w-[520px] text-[15px] leading-6 text-zinc-400 md:mt-6 md:text-[16px] md:leading-7" data-reveal style="transition-delay:160ms">
+            The minimal academic repository for our class — curated notes, decks &amp; papers from top scorers. No clutter, no ads, just the good stuff.
         </p>
+        <div class="mt-7 flex flex-wrap items-center gap-3" data-reveal style="transition-delay:220ms">
+            <a href="#materials" class="btn-white h-11 px-6 text-[14px]">Browse materials <i data-lucide="arrow-down" class="h-4 w-4"></i></a>
+            <a href="discussion.html" class="btn-ghost-dark h-11 px-6 text-[14px]">Join discussions</a>
+        </div>
+        <div class="mt-10 flex flex-wrap items-center gap-5 border-t border-white/10 pt-6 font-mono text-[11px] tracking-wide text-zinc-500 md:gap-8" data-reveal style="transition-delay:280ms">
+            <span><b id="hero-stat-materials" class="font-mono text-white">—</b> <span class="tracking-[0.14em]">MATERIALS</span></span>
+            <span class="h-3 w-px bg-white/10"></span>
+            <span><b id="hero-stat-subjects" class="font-mono text-white">—</b> <span class="tracking-[0.14em]">SUBJECTS</span></span>
+            <span class="h-3 w-px bg-white/10 hidden sm:block"></span>
+            <span class="hidden items-center gap-2 tracking-[0.14em] sm:inline-flex"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> LIVE &amp; CURATED</span>
+        </div>
     </section>
 
-    <!-- Marquee Notice Board -->
-    <a href="notice.html" style="text-decoration: none; color: inherit; cursor: none;">
-        <div class="marquee-container">
-            <div class="marquee" id="marquee">
-                <span>📢 Loading latest community updates...</span>
-            </div>
+    <!-- MARQUEE -->
+    <div class="marquee relative z-10" aria-hidden="true">
+        <div class="marquee-track" id="marquee-track" style="--marquee-dur:34s">
+            <div class="marquee-group" id="marquee-a"></div>
+            <div class="marquee-group" id="marquee-b" aria-hidden="true"></div>
         </div>
-    </a>
-
-    <!-- Main Content -->
-    <div class="content-wrapper">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <h2>Subjects</h2>
-            <div class="subject-list" id="subject-list">
-                <a class="subject-item active magnetic" data-subject="all">All Materials</a>
-                <!-- Subjects loaded dynamically -->
-                <div id="dynamic-subjects-container"></div>
-            </div>
-        </aside>
-
-        <!-- Main Panel -->
-        <main class="main-panel">
-            <div class="files-grid" id="files-grid">
-                <!-- Files loaded dynamically from Firestore -->
-            </div>
-        </main>
     </div>
 
-    <!-- Upload FAB -->
-    <button class="upload-fab magnetic hidden" id="upload-fab">
-        +
+    <!-- PASTEL BENTO BLOCKS -->
+    <section id="community" class="relative z-10 mx-auto max-w-[1120px] px-5 py-10 md:px-6 md:py-14">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5" data-reveal>
+            <!-- lilac -->
+            <div class="group relative overflow-hidden rounded-[28px] bg-[#c4b5fd] p-7 text-zinc-900 md:p-8">
+                <div class="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-[1px] md:h-48 md:w-48"></div>
+                <div class="pointer-events-none absolute -bottom-6 -right-6 select-none font-display text-[92px] font-[800] leading-none tracking-tighter text-zinc-900/[0.06]">01</div>
+                <div class="relative">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1 text-[10px] font-[700] tracking-[0.14em] text-white">COMMUNITY — DISCUSSIONS</div>
+                    <h3 class="mt-4 font-display text-[26px] font-[800] leading-[0.95] tracking-[-0.03em] md:text-[28px]">Ask. Answer.<br>Ace it together.</h3>
+                    <p class="mt-3 max-w-[32ch] text-[13.5px] leading-5 text-zinc-700">Peer Q&amp;A, doubts &amp; explainers — searchable by subject. Zero noise, just signal from your batch.</p>
+                    <a href="discussion.html" class="mt-6 inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-[600] text-white transition-all hover:translate-y-[-1px] hover:bg-black">Open Discussions <i data-lucide="arrow-up-right" class="h-4 w-4"></i></a>
+                    <div class="mt-6 flex items-center gap-2 font-mono text-[10px] tracking-[0.14em] text-zinc-700/70"><span class="h-1 w-1 rounded-full bg-zinc-900/60"></span> 24H RESPONSE WINDOW</div>
+                </div>
+            </div>
+            <!-- butter -->
+            <div class="group relative overflow-hidden rounded-[28px] bg-[#fef08a] p-7 text-zinc-900 md:p-8">
+                <div class="pointer-events-none absolute -right-8 -top-12 h-36 w-36 rounded-full bg-zinc-900/[0.06]"></div>
+                <div class="pointer-events-none absolute -bottom-4 -right-2 select-none font-display text-[92px] font-[800] leading-none tracking-tighter text-zinc-900/[0.06]">02</div>
+                <div class="relative">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1 text-[10px] font-[700] tracking-[0.14em] text-white">ADMIN — SYLLABUS TRACKER</div>
+                    <h3 class="mt-4 font-display text-[26px] font-[800] leading-[0.95] tracking-[-0.03em] md:text-[28px]">Never miss a<br>deadline again.</h3>
+                    <p class="mt-3 max-w-[32ch] text-[13.5px] leading-5 text-zinc-700">Syllabus coverage, exam dates &amp; official notices — pinned, dated, and verified by admins.</p>
+                    <a href="notice.html" class="mt-6 inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-[600] text-white transition-all hover:translate-y-[-1px] hover:bg-black">View Notices <i data-lucide="arrow-up-right" class="h-4 w-4"></i></a>
+                    <div class="mt-6 flex items-center gap-2 font-mono text-[10px] tracking-[0.14em] text-zinc-700/70"><span class="h-1 w-1 rounded-full bg-zinc-900/60"></span> ADMIN-VERIFIED ONLY</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MATERIALS / BENTO GRID -->
+    <section id="materials" class="relative z-10 mx-auto max-w-[1120px] px-5 pb-8 md:px-6">
+        <div class="flex flex-col gap-6 border-t border-white/10 pt-10 md:pt-12" data-reveal>
+            <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                    <div class="font-mono text-[11px] tracking-[0.18em] text-zinc-500">THE ARCHIVE — 01</div>
+                    <h2 class="mt-2 font-display text-[28px] font-[800] leading-none tracking-[-0.03em] md:text-[34px]">Study materials <span class="font-serif text-[1.05em] font-[400] italic tracking-[-0.02em] text-zinc-500">&amp; notes.</span></h2>
+                    <p class="mt-2 max-w-[48ch] text-[13.5px] leading-5 text-zinc-500">Filter by subject, search by title or uploader. Every file is signed and one-click ready.</p>
+                </div>
+                <div class="hidden items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-zinc-600 md:flex">
+                    <span id="archive-count" class="text-white">—</span> FILES
+                    <span class="h-3 w-px bg-white/10"></span>
+                    <span class="inline-flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full bg-violet"></span> UPDATED LIVE</span>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="flex flex-col gap-3 rounded-[20px] border border-white/10 bg-white/[0.02] p-3 backdrop-blur-[8px] md:flex-row md:items-center md:justify-between md:rounded-full md:px-3 md:py-2.5">
+                <div class="relative flex-1 md:max-w-[420px]">
+                    <i data-lucide="search" class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"></i>
+                    <input id="search-input" type="search" placeholder="Search by title, subject or uploader…" autocomplete="off"
+                        class="field !h-10 !rounded-full !pl-10 !text-[13.5px] placeholder:text-zinc-500">
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="relative">
+                        <select id="sort-select" class="field !h-10 !w-full !rounded-full !pr-9 text-[13.5px] md:!w-[168px]">
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="name-asc">Name A → Z</option>
+                            <option value="name-desc">Name Z → A</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"></i>
+                    </div>
+                    <button id="clear-filters" class="btn-ghost-dark !h-10 shrink-0 px-4 text-[13px]" style="display:none">Clear</button>
+                </div>
+            </div>
+
+            <!-- Pills -->
+            <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1" id="subject-pills" role="tablist" aria-label="Filter by subject">
+                <button class="chip active" data-subject="all" role="tab" aria-selected="true">
+                    All <span class="count" data-count="all">—</span>
+                </button>
+                <div id="dynamic-subjects-container" class="contents"></div>
+            </div>
+
+            <div id="results-meta" class="font-mono text-[11px] tracking-wide text-zinc-500" aria-live="polite"></div>
+
+            <!-- Grid -->
+            <div id="files-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite" aria-busy="false"></div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS — numbered accordion -->
+    <section id="how" class="relative z-10 mx-auto max-w-[1120px] px-5 py-12 md:px-6 md:py-16">
+        <div class="rounded-[28px] border border-white/10 bg-white/[0.02] p-6 backdrop-blur-[8px] md:p-8 lg:p-10" data-reveal>
+            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                    <div class="font-mono text-[11px] tracking-[0.18em] text-zinc-500">HOW NEXUS WORKS — 02</div>
+                    <h2 class="mt-2 font-display text-[26px] font-[800] leading-none tracking-[-0.03em] md:text-[30px]">Built for speed. <span class="font-serif text-[1.05em] font-[400] italic tracking-[-0.02em] text-zinc-500">Designed for focus.</span></h2>
+                </div>
+                <p class="max-w-[36ch] text-[13.5px] leading-5 text-zinc-500">Three steps between you and the file you need.</p>
+            </div>
+
+            <div class="mt-8 divide-y divide-white/10 border-y border-white/10">
+                <!-- 01 -->
+                <div class="acc-item open" data-acc>
+                    <button class="acc-btn flex w-full items-center gap-4 py-6 text-left md:gap-8 md:py-7" aria-expanded="true">
+                        <span class="font-display text-[42px] font-[300] leading-none tracking-[-0.06em] text-white/20 md:text-[56px]">01</span>
+                        <span class="flex-1">
+                            <span class="font-display text-[18px] font-[700] tracking-[-0.02em] md:text-[20px]">Curated by Top Scorers</span>
+                            <span class="mt-1 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">VETTED · TAGGED · SEARCHABLE</span>
+                        </span>
+                        <span class="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-400"><i data-lucide="plus" class="acc-icon h-4 w-4"></i></span>
+                    </button>
+                    <div class="acc-panel">
+                        <div class="overflow-hidden">
+                            <p class="pb-6 pl-[58px] pr-4 text-[13.5px] leading-6 text-zinc-400 md:pl-[88px] md:text-[14px]">Notes are uploaded by batch toppers and verified by admins. Every file is tagged by subject, searchable in one keystroke, and timestamped so you always get the latest version.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- 02 -->
+                <div class="acc-item" data-acc>
+                    <button class="acc-btn flex w-full items-center gap-4 py-6 text-left md:gap-8 md:py-7" aria-expanded="false">
+                        <span class="font-display text-[42px] font-[300] leading-none tracking-[-0.06em] text-white/20 md:text-[56px]">02</span>
+                        <span class="flex-1">
+                            <span class="font-display text-[18px] font-[700] tracking-[-0.02em] md:text-[20px]">Zero Friction Downloads</span>
+                            <span class="mt-1 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">ONE CLICK · SIGNED URLS</span>
+                        </span>
+                        <span class="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-400"><i data-lucide="plus" class="acc-icon h-4 w-4"></i></span>
+                    </button>
+                    <div class="acc-panel">
+                        <div class="overflow-hidden">
+                            <p class="pb-6 pl-[58px] pr-4 text-[13.5px] leading-6 text-zinc-400 md:pl-[88px] md:text-[14px]">No logins to download, no popups. Files are delivered via signed, expiring URLs directly from storage. Tap View to preview, Download to keep. Works on any device, even low bandwidth.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- 03 -->
+                <div class="acc-item" data-acc>
+                    <button class="acc-btn flex w-full items-center gap-4 py-6 text-left md:gap-8 md:py-7" aria-expanded="false">
+                        <span class="font-display text-[42px] font-[300] leading-none tracking-[-0.06em] text-white/20 md:text-[56px]">03</span>
+                        <span class="flex-1">
+                            <span class="font-display text-[18px] font-[700] tracking-[-0.02em] md:text-[20px]">Direct Peer Collaboration</span>
+                            <span class="mt-1 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">FORUM · REPLIES · PINGS</span>
+                        </span>
+                        <span class="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-400"><i data-lucide="plus" class="acc-icon h-4 w-4"></i></span>
+                    </button>
+                    <div class="acc-panel">
+                        <div class="overflow-hidden">
+                            <p class="pb-6 pl-[58px] pr-4 text-[13.5px] leading-6 text-zinc-400 md:pl-[88px] md:text-[14px]">Stuck on a topic? Drop it in Discussions. Replies are threaded, mentions notify instantly, and admins can pin the best answers so future batches benefit too.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="relative z-10 overflow-hidden border-t border-white/10 bg-[#0a0a0a]">
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center overflow-hidden select-none">
+            <span class="translate-y-[28%] font-display text-[20vw] font-[800] leading-none tracking-[-0.06em] text-white/[0.035] md:text-[17vw]">NEXUS</span>
+        </div>
+        <div class="relative mx-auto max-w-[1120px] px-5 py-10 md:px-6 md:py-12">
+            <div class="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="grid h-8 w-8 place-items-center rounded-full bg-white text-[11px] font-black tracking-tighter text-black">NX</span>
+                        <span class="font-display text-[15px] font-[800] tracking-[-0.03em]">NEXUS</span>
+                        <span class="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] tracking-[0.14em] text-zinc-500">© 2026</span>
+                    </div>
+                    <p class="mt-3 max-w-[36ch] text-[13px] leading-5 text-zinc-500">An editorial-grade academic repository by students, for students. Minimal. Fast. Obsessively curated.</p>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <div class="font-mono text-[11px] tracking-[0.14em] text-zinc-500">QUICK LINKS</div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="https://github.com" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="github" class="h-3.5 w-3.5"></i> GitHub</a>
+                        <a href="discussion.html" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="messages-square" class="h-3.5 w-3.5"></i> Discord</a>
+                        <a href="notice.html" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="graduation-cap" class="h-3.5 w-3.5"></i> Campus Portal</a>
+                        <a href="#" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="mail" class="h-3.5 w-3.5"></i> Feedback</a>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-[11px] leading-5 text-zinc-600 md:flex-row md:items-center md:justify-between">
+                <span>Built with care in India · <a href="#" class="underline decoration-white/20 underline-offset-4 hover:text-zinc-400">Privacy</a> · <a href="#" class="underline decoration-white/20 underline-offset-4 hover:text-zinc-400">Terms</a></span>
+                <span class="font-mono tracking-wide">ALL MATERIALS ARE PEER-CONTRIBUTED — VERIFY BEFORE CITING.</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- FAB -->
+    <button id="upload-fab" class="fab hidden" aria-label="Upload material" title="Upload material">
+        <i data-lucide="plus" class="h-5 w-5"></i>
     </button>
 
-    <!-- ========================================
-         AUTH MODAL — GOOGLE SIGN-IN ONLY
-         ======================================== -->
-    <div class="modal-overlay" id="auth-modal">
-        <div class="modal">
-            <h2>Welcome</h2>
-            <p class="modal-subtitle">Sign in to access class materials</p>
-
-            <!-- Status message area (hidden by default) -->
-            <div class="auth-status" id="auth-status"></div>
-
-            <!-- Google Sign-In Button -->
-            <button class="google-btn magnetic" id="google-signin-btn">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-                Continue with Google
+    <!-- Auth modal -->
+    <div id="auth-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Sign in">
+        <div class="modal-card">
+            <div class="mx-auto grid h-10 w-10 place-items-center rounded-full bg-white text-xs font-black tracking-tighter text-black">NX</div>
+            <h2 class="mt-4 text-center font-display text-[22px] font-[800] tracking-[-0.03em]">Welcome to NEXUS</h2>
+            <p class="mt-1 text-center text-[13.5px] leading-5 text-zinc-500">Sign in to browse, download and contribute.</p>
+            <div id="auth-status" class="mt-5 hidden rounded-xl border px-3 py-2.5 text-center text-[13px]" role="status" aria-live="polite"></div>
+            <button id="google-signin-btn" class="btn-white mt-5 w-full !h-11 justify-center gap-2.5 !rounded-full border border-black/5 bg-white text-sm !text-zinc-900 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" class="h-5 w-5"> Continue with Google
             </button>
-
-            <div class="auth-info">
-                <p>🔒 Secure authentication via Google</p>
-                <p>New users require admin approval before accessing materials</p>
-            </div>
+            <p class="mt-4 text-center font-mono text-[11px] leading-4 tracking-wide text-zinc-600">Secure authentication via Google · New accounts require admin approval</p>
         </div>
     </div>
 
-    <!-- Upload Modal -->
-    <div class="modal-overlay" id="upload-modal">
-        <div class="modal">
-            <h2>Upload Material</h2>
-            <form id="upload-form">
-                <div class="input-group">
-                    <input type="text" id="upload-title" required>
-                    <label>Document Title</label>
+    <!-- Upload modal -->
+    <div id="upload-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Upload material">
+        <div class="modal-card">
+            <div class="flex items-center justify-between">
+                <h2 class="font-display text-[18px] font-[800] tracking-[-0.02em]">Upload material</h2>
+                <button id="upload-close" class="icon-btn h-8 w-8" aria-label="Close"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <form id="upload-form" class="mt-6 space-y-4" novalidate>
+                <div>
+                    <label for="upload-title" class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">DOCUMENT TITLE</label>
+                    <input id="upload-title" type="text" required placeholder="e.g. DAA — Unit 2 Handwritten Notes" class="field">
                 </div>
-                <div class="input-group">
-                    <select id="upload-subject" required>
-                        <option value="" disabled selected>Select Subject</option>
-                        <!-- Subjects loaded dynamically -->
-                    </select>
+                <div>
+                    <label for="upload-subject" class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">SUBJECT</label>
+                    <div class="relative">
+                        <select id="upload-subject" required class="field pr-9">
+                            <option value="" disabled selected>Select subject…</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"></i>
+                    </div>
                 </div>
-                <div class="input-group">
-                    <input type="file" id="upload-file" accept=".pdf,.doc,.docx,.ppt,.pptx" required>
+                <div>
+                    <label for="upload-file" class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">FILE — PDF / DOC / PPT</label>
+                    <input id="upload-file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" required class="field !py-2.5 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-1.5 file:text-xs file:font-semibold file:text-black hover:file:bg-zinc-200">
                 </div>
-                <button type="submit" class="magnetic-btn submit-btn">Upload</button>
-                <div style="text-align: center; margin-top: 1rem; display: none;" id="upload-progress">
-                    <span style="color: var(--accent);">Uploading...</span>
-                </div>
+                <button type="submit" class="btn-white mt-2 w-full !h-11">Upload material</button>
+                <div id="upload-progress" class="hidden text-center font-mono text-xs tracking-wide text-violet" role="status" aria-live="polite"><span>Uploading…</span></div>
             </form>
         </div>
     </div>
 
-    <!-- ========================================
-         JAVASCRIPT — ALL AUTH LOGIC WITH COMMENTS
-         ======================================== -->
-    <script>
-        // ========================================
-        // SECTION 1: FIREBASE INITIALIZATION
-        // ========================================
-        // Initialize Firebase with your project config
-        // This connects your website to Firebase services
+<script>
+    // Help Lucide refresh
+    function refreshIcons(){ if(window.lucide && typeof lucide.createIcons==='function'){ try{ lucide.createIcons(); }catch(e){} } }
 
-        // Global variables for Firebase services
-        let auth = null;
-        let db = null;
+    // Firebase state
+    let auth=null, db=null;
+    let currentUser=null, isAdmin=false;
+    let allFilesCache=[], currentSubjectFilter='all';
+    let filesListener=null, subjectsListener=null;
 
-        // Global state variable to track current user
-        let currentUser = null;
-        // Global state to track if current user is admin
-        let isAdmin = false;
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCSHxv74kZ2kSeJVHHDRzT9UUAwAebAdr4",
-            authDomain: "nexus-e7a36.firebaseapp.com",
-            projectId: "nexus-e7a36",
-            storageBucket: "nexus-e7a36.firebasestorage.app",
-            messagingSenderId: "516259533933",
-            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
-        };
-
-        async function initializeAppFlow() {
-            try {
-                firebase.initializeApp(firebaseConfig);
-                auth = firebase.auth();
-                db = firebase.firestore();
-                db.enablePersistence().catch(err => console.warn('Firestore persistence disabled:', err));
-                
-                initMarqueeNotices();
-                initAuthListener();
-                initNotifications();
-            } catch (err) {
-                console.error('Initialization error:', err);
-                const filesGrid = document.getElementById('files-grid');
-                if (filesGrid) {
-                    filesGrid.innerHTML = `<p style="color: var(--error); text-align: center; padding: 2rem;">Failed to initialize system connection: ${err.message}</p>`;
-                }
-            }
+    // ---------- App init ----------
+    async function initializeAppFlow(){
+        try{
+            const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
+            if(!res.ok) throw new Error('Failed to fetch firebase config: '+res.statusText);
+            const config = await res.json();
+            firebase.initializeApp(config);
+            auth = firebase.auth(); db = firebase.firestore();
+            initAuthListener();
+            initNotifications();
+            buildMarqueeFallback();
+            // marquee from subjects will hydrate shortly via loadSubjects(); keep fallback until then
+        }catch(err){
+            console.error('Init error',err);
+            const g=document.getElementById('files-grid');
+            if(g) g.innerHTML = '<div class="empty-state"><span class="text-2xl">⚠️</span><h3 class="font-display mt-2 text-lg font-bold text-white">Couldn’t connect</h3><p class="mx-auto mt-2 max-w-[42ch] text-sm">'+escapeHtml(err.message)+'</p></div>';
         }
-        initializeAppFlow();
+    }
+    initializeAppFlow();
 
-        // ========================================
-        // SECTION 2: SMOOTH SCROLLING (LENIS)
-        // ========================================
-        // Only initialize Lenis on desktop non-touch devices for 60 FPS native mobile scrolling
-
-        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 768;
-        let lenis = null;
-        if (!isTouchDevice && typeof Lenis !== 'undefined') {
-            lenis = new Lenis({
-                duration: 1.2,
-                easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-                direction: 'vertical',
-                gestureDirection: 'vertical',
-                smooth: true,
-                mouseMultiplier: 1,
-                infinite: false,
-            });
-
-            function raf(time) {
-                if (lenis) lenis.raf(time);
-                requestAnimationFrame(raf);
-            }
-            requestAnimationFrame(raf);
-        }
-
-        // ========================================
-        // SECTION 3: CUSTOM CURSOR
-        // ========================================
-        // Creates a custom cursor that follows mouse movement
-
-        const cursor = document.querySelector('.custom-cursor');
-
-        // Listen for mouse movement across entire page
-        document.addEventListener('mousemove', (e) => {
-            // e.clientX/Y = mouse position in viewport
-            // gsap.to = animate the cursor to follow with slight delay
-            gsap.to(cursor, {
-                x: e.clientX,
-                y: e.clientY,
-                duration: 0.1,
-                ease: "power2.out"
-            });
-        });
-
-        // Add hover effect: cursor grows and turns into a rainbow prism lens over text & interactive elements
-        document.addEventListener('mouseover', (e) => {
-            const target = e.target;
-            if (target && target.closest) {
-                const isTextOrInteractive = target.closest('h1, h2, h3, h4, .file-name, .subject-item, .nav-links a, button, .file-card, .magnetic-btn, .tag, .badge');
-                if (isTextOrInteractive) {
-                    cursor.classList.add('active', 'prism-hover');
-                }
-            }
-        });
-        document.addEventListener('mouseout', (e) => {
-            const target = e.target;
-            if (target && target.closest) {
-                const isTextOrInteractive = target.closest('h1, h2, h3, h4, .file-name, .subject-item, .nav-links a, button, .file-card, .magnetic-btn, .tag, .badge');
-                if (isTextOrInteractive) {
-                    cursor.classList.remove('active', 'prism-hover');
-                }
-            }
-        });
-
-        // ========================================
-        // SECTION 4: MAGNETIC BUTTONS
-        // ========================================
-        // Buttons that "stick" to cursor when hovered
-
-        function initMagneticButtons() {
-            const magnetics = document.querySelectorAll('.magnetic, .magnetic-btn');
-            magnetics.forEach(btn => {
-                btn.addEventListener('mousemove', (e) => {
-                    const rect = btn.getBoundingClientRect();
-                    const h = rect.width / 2;
-                    const v = rect.height / 2;
-                    const x = e.clientX - rect.left - h;
-                    const y = e.clientY - rect.top - v;
-
-                    gsap.to(btn, {
-                        x: x * 0.4,
-                        y: y * 0.4,
-                        duration: 0.4,
-                        ease: "power3.out"
-                    });
-                });
-                btn.addEventListener('mouseleave', () => {
-                    gsap.to(btn, {
-                        x: 0,
-                        y: 0,
-                        duration: 0.7,
-                        ease: "elastic.out(1, 0.3)"
-                    });
-                });
-            });
-        }
-        initMagneticButtons();
-
-        // ========================================
-        // SECTION 5: MARQUEE ANIMATION
-        // ========================================
-        // Infinite scrolling text animation
-
-        function initMarqueeNotices() {
-            db.collection('notices').orderBy('createdAt', 'desc').limit(5).onSnapshot(snap => {
-                const marquee = document.getElementById('marquee');
-                let content = '';
-
-                if (snap.empty) {
-                    content = '<span>📢 No notices available at the moment. Stay tuned!</span> ';
-                } else {
-                    snap.forEach(doc => {
-                        const notice = doc.data();
-                        content += `<span>📢 ${notice.title}</span> <span>✦</span> `;
-                    });
-                }
-
-                marquee.innerHTML = (content + ' ').repeat(6);
-
-                gsap.killTweensOf('.marquee');
-                gsap.to('.marquee', {
-                    xPercent: -50,
-                    ease: "none",
-                    duration: 20,
-                    repeat: -1
-                });
-            });
-        }
-
-        // ========================================
-        // SECTION 6: PAGE LOAD ANIMATIONS
-        // ========================================
-        // Staggered entrance animations
-
-        gsap.from('.hero h1', {
-            y: 100, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.2
-        });
-        gsap.from('.hero p', {
-            y: 50, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.4
-        });
-        gsap.from('.marquee-container', {
-            rotate: 0, scale: 1, opacity: 0, duration: 1.5, ease: "power4.out", delay: 0.6
-        });
-        gsap.from('.subject-item', {
-            x: -50, opacity: 0, stagger: 0.1, duration: 1, ease: "power3.out", delay: 0.8
-        });
-
-        // ========================================
-        // SECTION 7: THEME TOGGLE
-        // ========================================
-
-        const themeToggle = document.getElementById('theme-toggle');
-        let currentTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        if (currentTheme === 'light') themeToggle.checked = true;
-
-        themeToggle.addEventListener('change', (e) => {
-            currentTheme = e.target.checked ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', currentTheme);
-            localStorage.setItem('theme', currentTheme);
-        });
-
-        // ========================================
-        // SECTION 8: AUTHENTICATION LOGIC
-        // ========================================
-        // THE HEART OF THE SYSTEM — Google Auth with Admin Approval
-
-        // DOM elements for auth
-        const loginLink = document.getElementById('login-link');
-        const userSection = document.getElementById('user-section');
-        const authModal = document.getElementById('auth-modal');
-        const modalInner = authModal.querySelector('.modal');
-        const googleSignInBtn = document.getElementById('google-signin-btn');
-        const authStatus = document.getElementById('auth-status');
-        const uploadFab = document.getElementById('upload-fab');
-
-        // ========================================
-        // AUTH STATE LISTENER (THE GUARD)
-        // ========================================
-        // onAuthStateChanged = Firebase's security guard
-        // It runs automatically whenever someone logs in or out
-        // This is the SINGLE SOURCE OF TRUTH for auth state
-
-        function initAuthListener() {
-            auth.onAuthStateChanged(async (user) => {
-                // "user" = Firebase user object (null if nobody is logged in)
-
-                if (user) {
-                    // ==================================================
-                    // SOMEONE IS LOGGED IN (via Google)
-                    // ==================================================
-
-                    currentUser = user;
-                    console.log('👤 User logged in:', user.email);
-
-                    // Check if this user is approved in Firestore
-                    // We MUST check Firestore because Firebase Auth doesn't know about our approval system
-                    const userData = await getUserData(user.uid);
-
-                    if (userData && userData.role === 'admin') {
-                        // ==================================================
-                        // ADMIN USER — Full access
-                        // ==================================================
-                        isAdmin = true;
-                        console.log('👑 Admin access granted');
-
-                        // Show admin UI
-                        showUserBadge(user, 'admin', userData);
-                        showUploadButton();
-                        loadSubjects();
-                        loadFiles();
-
-                    } else if (userData && userData.role === 'friend') {
-                        // ==================================================
-                        // APPROVED FRIEND — Full access
-                        // ==================================================
-                        isAdmin = false;
-                        console.log('👤 Friend access granted');
-
-                        // Show friend UI
-                        showUserBadge(user, 'friend', userData);
-                        showUploadButton();
-                        loadSubjects();
-                        loadFiles();
-
-                    } else {
-                        // ==================================================
-                        // NEW OR PENDING USER — No access yet
-                        // ==================================================
-                        // This happens when:
-                        // 1. First time signing in with Google
-                        // 2. Admin hasn't approved them yet
-
-                        console.log('⏳ User pending approval');
-
-                        // Create pending record in Firestore (if not exists)
-                        if (!userData) {
-                            try {
-                                await createPendingUser(user);
-                            } catch (err) {
-                                console.error('Failed to create pending user:', err);
-                            }
-                        }
-
-                        // Keep them logged in but show the pending UI
-                        showPendingState(user, userData);
-                    }
-
-                } else {
-                    // ==================================================
-                    // NO ONE IS LOGGED IN
-                    // ==================================================
-
-                    currentUser = null;
-                    isAdmin = false;
-                    console.log('🔒 No user logged in');
-
-                    // Show login button
-                    showLoginButton();
-                    showLockedState();
-                }
-            });
-        }
-
-        // ========================================
-        // GET USER DATA FROM FIRESTORE
-        // ========================================
-        // Looks up user in database by their Firebase UID
-
-        async function getUserData(uid) {
-            try {
-                // db.collection('users') = the "users" table/collection
-                // .doc(uid) = specific row identified by user's unique ID
-                const docRef = db.collection('users').doc(uid);
-                const docSnap = await docRef.get();
-                // .get() = read operation (returns a "snapshot")
-
-                if (docSnap.exists) {
-                    // User found in database — return their data
-                    return docSnap.data();
-                    // .data() = converts Firestore document to plain JavaScript object
-                } else {
-                    // User not found — they're new
-                    return null;
-                }
-            } catch (error) {
-                console.error('Error getting user data:', error);
-                return null;
-            }
-        }
-
-        // ========================================
-        // CREATE PENDING USER RECORD
-        // ========================================
-        // Called when someone signs in with Google for the first time
-        // Creates their profile with "pending" status
-
-        async function createPendingUser(user) {
-            try {
-                // Prepare user data object
-                const userData = {
-                    uid: user.uid,                          // Firebase unique ID
-                    email: user.email,                       // Google email
-                    name: user.displayName || 'Unknown',     // Display name (can be changed manually)
-                    googleName: user.displayName || '',      // Original Google name (alias)
-                    photoURL: user.photoURL || '',           // Google profile photo
-                    role: 'pending',                         // ⏳ WAITING FOR APPROVAL
-                    approved: false,                         // Not approved yet
-                    provider: 'google',                      // Signed in via Google
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    // serverTimestamp() = Firebase sets the time (prevents clock cheating)
-                };
-
-                // Save to Firestore
-                // .doc(user.uid) = use UID as document ID (easy lookup later)
-                // .set(userData) = create the document
-                await db.collection('users').doc(user.uid).set(userData);
-
-                console.log('✅ Pending user created:', user.email);
-
-            } catch (error) {
-                console.error('Error creating pending user:', error);
-                alert('FATAL DATABASE ERROR: Could not create user profile in Firestore. Check your Firebase Security Rules. Error: ' + error.message);
-            }
-        }
-
-        // ========================================
-        // UI HELPER FUNCTIONS
-        // ========================================
-
-        // Show user badge in header (when logged in)
-        function showUserBadge(user, role, userData) {
-            // Hide login link
-            loginLink.classList.add('hidden');
-
-            // Show user section
-            userSection.classList.remove('hidden');
-
-            let adminPortalBtn = '';
-            if (role === 'admin' || (userData && userData.role === 'admin')) {
-                adminPortalBtn = `<a href="#" id="admin-portal-link" class="magnetic" style="color: var(--warning); font-size: 0.9rem; margin-right: 1rem; text-decoration: none; font-weight: 600; text-transform: uppercase;">Admin Portal</a>`;
-            }
-
-            // Display only the manual Firestore name (Alias)
-            const displayName = userData ? userData.name : (user.displayName || user.email);
-
-            userSection.innerHTML = `
-                ${adminPortalBtn}
-                <div class="user-badge magnetic" id="user-badge-trigger" title="Click to change display name">
-                    <img src="${user.photoURL || 'https://via.placeholder.com/32'}" alt="Profile">
-                    <div>
-                        <div class="user-name">${displayName}</div>
-                        <div class="user-role">${role}</div>
-                    </div>
-                </div>
-                <a href="#" id="logout-link" class="magnetic" style="color: var(--text-muted);">Logout</a>
-            `;
-
-            // Add name change listener
-            document.getElementById('user-badge-trigger').addEventListener('click', async () => {
-                const currentManualName = userData ? userData.name : (user.displayName || '');
-                const newName = prompt('Enter new display name:', currentManualName);
-
-                if (newName && newName.trim() !== '' && newName !== currentManualName) {
-                    if (confirm(`Change display name to "${newName.trim()}"?`)) {
-                        await updateDisplayName(user.uid, newName.trim());
-                    }
-                }
-            });
-
-            // Add logout listener
-            document.getElementById('logout-link').addEventListener('click', (e) => {
+    // ---------- Lenis ----------
+    let lenis=null;
+    try{
+        lenis = new Lenis({ duration: 1.0, easing: t=>Math.min(1,1.001-Math.pow(2,-10*t)), smoothWheel: true, smoothTouch: false, syncTouch: false, infinite: false });
+        function raf(t){ lenis.raf(t); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+        // anchor smooth
+        document.addEventListener('click', (e)=>{
+            const a = e.target.closest('a[href^="#"]');
+            if(!a) return;
+            const id = a.getAttribute('href');
+            if(!id || id==='#') return;
+            const target = document.querySelector(id);
+            if(target){
                 e.preventDefault();
-                auth.signOut();
+                lenis.scrollTo(target, {offset:-88, duration:1});
+                if(window.closeMobileMenu) closeMobileMenu();
+            }
+        });
+    }catch(e){ /* lenis unavailable */ }
+
+    // ---------- Cursor ----------
+    const cursor=document.querySelector('.custom-cursor');
+    if(cursor && window.matchMedia('(pointer:fine)').matches){
+        document.documentElement.classList.add('custom-cursor-active');
+        cursor.style.opacity='1';
+        document.addEventListener('mousemove',(e)=>{
+            gsap.to(cursor,{x:e.clientX,y:e.clientY,duration:.10,ease:"power2.out"});
+        });
+        document.addEventListener('mouseover',(e)=>{
+            if(e.target.closest('a,button,.file-card')) cursor.classList.add('active');
+        });
+        document.addEventListener('mouseout',(e)=>{
+            if(e.target.closest('a,button,.file-card')) cursor.classList.remove('active');
+        });
+    }
+
+    // ---------- Magnetic (subtle) ----------
+    function initMagnetic(){
+        if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if(window.matchMedia('(pointer:coarse)').matches) return;
+        document.querySelectorAll('.btn-white,.btn-glass,.fab').forEach(btn=>{
+            if(btn.dataset.mag) return; btn.dataset.mag='1';
+            btn.addEventListener('mousemove',(e)=>{
+                const r=btn.getBoundingClientRect();
+                const x=e.clientX - r.left - r.width/2, y=e.clientY - r.top - r.height/2;
+                gsap.to(btn,{x:x*0.18,y:y*0.18,duration:.32,ease:"power3.out"});
             });
-
-            // Add Admin Portal listener
-            const adminLink = document.getElementById('admin-portal-link');
-            if (adminLink) {
-                adminLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const password = prompt('Enter Master Password to access Admin Portal:');
-                    if (password === 'NEXUSEM50') {
-                        // Store short-lived session token in sessionStorage
-                        sessionStorage.setItem('admin_access', 'granted');
-                        window.location.href = 'admin.html';
-                    } else if (password !== null) {
-                        alert('Access Denied. Incorrect password.');
-                    }
-                });
-            }
-
-            // Re-init magnetic buttons for new elements
-            initMagneticButtons();
-        }
-
-        // Update display name in Firestore
-        async function updateDisplayName(uid, newName) {
-            try {
-                await db.collection('users').doc(uid).update({ name: newName });
-                console.log('✅ Name updated to:', newName);
-
-                // Refresh data and UI
-                const updatedData = await getUserData(uid);
-                showUserBadge(auth.currentUser, updatedData.role, updatedData);
-
-                alert('Display name updated successfully!');
-            } catch (error) {
-                console.error('Error updating name:', error);
-                alert('Failed to update name: ' + error.message);
-            }
-        }
-
-        // Show login button (when logged out)
-        function showLoginButton() {
-            loginLink.classList.remove('hidden');
-            userSection.classList.add('hidden');
-            userSection.innerHTML = '';
-        }
-
-        // Show upload button (for approved users)
-        function showUploadButton() {
-            uploadFab.classList.remove('hidden');
-        }
-
-        // Hide upload button (for logged out/pending users)
-        function hideUploadButton() {
-            uploadFab.classList.add('hidden');
-        }
-
-        // Show auth status message in modal
-        function showAuthStatus(type, message) {
-            authStatus.className = 'auth-status ' + type;
-            authStatus.textContent = message;
-        }
-
-        // Clear auth status
-        function clearAuthStatus() {
-            authStatus.className = 'auth-status';
-            authStatus.textContent = '';
-        }
-
-        // Show locked state (no access)
-        function showLockedState() {
-            hideUploadButton();
-
-            // Show "please login" message in files grid
-            const filesGrid = document.getElementById('files-grid');
-            filesGrid.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
-                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">🔒</div>
-                    <h3 style="font-family: 'Syne', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-main);">
-                        Access Restricted
-                    </h3>
-                    <p>Please sign in with Google to view class materials.</p>
-                    <p style="margin-top: 0.5rem; font-size: 0.9rem;">New accounts require admin approval.</p>
-                </div>
-            `;
-        }
-
-        // Show pending state (waiting for approval)
-        function showPendingState(user, userData) {
-            hideUploadButton();
-
-            // Close auth modal if open
-            if (authModal.classList.contains('active')) {
-                gsap.to(modalInner, {
-                    y: 20,
-                    opacity: 0,
-                    duration: 0.3,
-                    ease: "power2.in",
-                    onComplete: () => {
-                        authModal.classList.remove('active');
-                        clearAuthStatus();
-                    }
-                });
-            }
-
-            // Show badge in header but with "Pending" role
-            showUserBadge(user, 'Pending Approval', userData);
-
-            // Show "pending approval" message in files grid
-            const filesGrid = document.getElementById('files-grid');
-            filesGrid.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
-                    <div style="font-size: 4rem; margin-bottom: 1.5rem;">⏳</div>
-                    <h3 style="font-family: 'Syne', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; color: var(--warning);">
-                        Waiting for Admin Approval
-                    </h3>
-                    <p>Your account has been created, but an admin needs to grant you access.</p>
-                    <p style="margin-top: 0.5rem; font-size: 0.9rem;">Please check back later.</p>
-                </div>
-            `;
-        }
-
-        // ========================================
-        // LOGIN LINK CLICK HANDLER
-        // ========================================
-
-        loginLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Show auth modal
-            authModal.classList.add('active');
-            // Animate modal entrance
-            gsap.fromTo(modalInner,
-                { y: 50, opacity: 0 },
-                { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.5)" }
-            );
+            btn.addEventListener('mouseleave',()=> gsap.to(btn,{x:0,y:0,duration:.5,ease:"elastic.out(1,0.35)"}));
         });
+    }
+    initMagnetic();
 
-        // ========================================
-        // CLOSE MODAL WHEN CLICKING OUTSIDE
-        // ========================================
+    // ---------- Reveal on scroll ----------
+    const revealEls = document.querySelectorAll('[data-reveal]');
+    if('IntersectionObserver' in window){
+        const io=new IntersectionObserver((entries)=>{
+            entries.forEach(ent=>{
+                if(ent.isIntersecting){ ent.target.classList.add('in-view'); io.unobserve(ent.target); }
+            });
+       },{threshold:.12});
+        revealEls.forEach(el=>io.observe(el));
+    } else {
+        revealEls.forEach(el=>el.classList.add('in-view'));
+    }
 
-        authModal.addEventListener('click', (e) => {
-            // e.target = element actually clicked
-            // If clicked on overlay (not modal content), close it
-            if (e.target === authModal) {
-                gsap.to(modalInner, {
-                    y: 20,
-                    opacity: 0,
-                    duration: 0.3,
-                    ease: "power2.in",
-                    onComplete: () => {
-                        authModal.classList.remove('active');
-                        clearAuthStatus();
-                    }
-                });
-            }
+    // ---------- Nav scroll state ----------
+    const navPill=document.getElementById('nav-pill');
+    const onScroll=()=>{
+        if(!navPill) return;
+        if(window.scrollY>10){ navPill.classList.add('shadow-[0_12px_40px_rgba(0,0,0,0.45)]'); }
+        else{ navPill.classList.remove('shadow-[0_12px_40px_rgba(0,0,0,0.45)]'); }
+    };
+    window.addEventListener('scroll',onScroll,{passive:true}); onScroll();
+
+    // ---------- Mobile menu ----------
+    const hamburger=document.getElementById('hamburger');
+    const mobileMenu=document.getElementById('mobile-menu');
+    const menuClose=document.getElementById('menu-close');
+    const menuLogin=document.getElementById('menu-login');
+    const menuNotifLink=document.getElementById('menu-notif-link');
+    function openMobileMenu(){
+        mobileMenu.classList.add('is-open'); mobileMenu.setAttribute('aria-hidden','false');
+        hamburger.setAttribute('aria-expanded','true');
+        document.body.style.overflow='hidden'; try{ lenis && lenis.stop(); }catch(e){}; try{ lenis && lenis.stop(); }catch(e){};
+        refreshIcons();
+        menuClose?.focus();
+    }
+    window.closeMobileMenu = function(){
+        mobileMenu.classList.remove('is-open'); mobileMenu.setAttribute('aria-hidden','true');
+        hamburger.setAttribute('aria-expanded','false');
+        document.body.style.overflow=""; try{ lenis && lenis.start(); }catch(e){}; try{ lenis && lenis.start(); }catch(e){};
+        hamburger?.focus();
+    }
+    hamburger?.addEventListener('click',()=>{
+        if(mobileMenu.classList.contains('is-open')) window.closeMobileMenu(); else openMobileMenu();
+    });
+    menuClose?.addEventListener('click', window.closeMobileMenu);
+    mobileMenu?.addEventListener('click',(e)=>{ if(e.target===mobileMenu) window.closeMobileMenu(); });
+    document.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && mobileMenu.classList.contains('is-open')) window.closeMobileMenu(); });
+    menuNotifLink?.addEventListener('click', (e)=>{
+        e.preventDefault(); window.closeMobileMenu();
+        document.getElementById('notification-panel').classList.add('active');
+        document.getElementById('notif-backdrop').classList.add('active');
+        localStorage.setItem('nexus_last_notif_check', Date.now());
+        const b=document.getElementById('notif-badge'); if(b) b.classList.add('hidden'); b.style.display='none';
+        const d=document.getElementById('menu-notif-dot'); if(d) d.classList.add('hidden');
+    });
+    menuLogin?.addEventListener('click',(e)=>{
+        e.preventDefault(); window.closeMobileMenu();
+        document.getElementById('auth-modal').classList.add('active');
+        refreshIcons();
+    });
+
+    // ---------- Marquee ----------
+    const FALLBACK_SUBJECTS = ['DAA','COA','DATABASE MANAGEMENT','OPERATING SYSTEMS','ETHNUS','COMPUTER NETWORKS','SOFTWARE ENGINEERING','MATHS'];
+    function buildMarquee(items){
+        const a=document.getElementById('marquee-a');
+        const b=document.getElementById('marquee-b');
+        const track=document.getElementById('marquee-track');
+        if(!a||!b||!track) return;
+        const uniq = [];
+        const seen=new Set();
+        items.forEach(s=>{
+            const k=(s||'').trim().toUpperCase(); if(!k) return;
+            if(!seen.has(k)){ seen.add(k); uniq.push(k); }
         });
+        const display = uniq.length? uniq : FALLBACK_SUBJECTS;
+        // create twice for density
+        let html='';
+        for(let r=0;r<2;r++){
+            display.forEach(s=>{
+                html += '<span class="marquee-item">'+escapeHtml(s)+'</span><span class="marquee-dot" aria-hidden="true"></span>';
+            });
+        }
+        a.innerHTML = html;
+        b.innerHTML = html;
+        // duration ~ items * 2.2s + base 12s
+        const dur = Math.max(22, Math.min(48, display.length*3.2 + 14));
+        track.style.setProperty('--marquee-dur', dur+'s');
+        // reduced motion guard already in CSS
+    }
+    function buildMarqueeFallback(){ buildMarquee(FALLBACK_SUBJECTS); }
+    // hydrate from Firestore subjects once available — called from loadSubjects()
+    function hydrateMarqueeFromSubjects(subjectNames){
+        if(!subjectNames || !subjectNames.length) return;
+        buildMarquee(subjectNames);
+    }
 
-        // ========================================
-        // GOOGLE SIGN-IN BUTTON HANDLER
-        // ========================================
-        // This is the ONLY way to authenticate — no email/password
+    // (old marquee notices removed — new minimalist marquee shows trending subjects/tags per spec)
 
-        // ========================================
-        // GOOGLE SIGN-IN BUTTON HANDLER
-        // ========================================
+    // Hero entrance
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+        gsap.from('.accent-word',{scale:.98,opacity:0,duration:.7,delay:.35,ease:"power3.out"});
+    }
 
-        googleSignInBtn.addEventListener('click', () => {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            provider.addScope('email');
-            provider.addScope('profile');
-
-            // Popup called SYNCHRONOUSLY inside click handler
-            // No async/await before this = browser never blocks it
-            auth.signInWithPopup(provider)
-                .then((result) => {
-                    console.log('✅ Signed in:', result.user.email);
-                    // onAuthStateChanged handles UI
-                })
-                .catch((error) => {
-                    if (
-                        error.code === 'auth/popup-closed-by-user' ||
-                        error.code === 'auth/cancelled-popup-request'
-                    ) return;
-                    console.error('❌ Sign-in error:', error);
-                    showAuthStatus('error', 'Sign-in failed: ' + error.message);
-                });
-        });
-
-        // ========================================
-        // SECTION 9: FILE MANAGEMENT
-        // ========================================
-
-        const filesGrid = document.getElementById('files-grid');
-        let currentSubjectFilter = 'all';
-        let filesListener = null;  // Store Firestore listener to unsubscribe later
-
-        // ========================================
-        // LOAD FILES FROM FIRESTORE (REAL-TIME)
-        // ========================================
-        // onSnapshot = live listener that auto-updates when data changes
-
-        function loadFiles() {
-            if (filesListener) {
-                filesListener();
+    // ---------- Accordion ----------
+    document.querySelectorAll('[data-acc]').forEach(item=>{
+        const btn=item.querySelector('.acc-btn');
+        btn.addEventListener('click',()=>{
+            const wasOpen=item.classList.contains('open');
+            document.querySelectorAll('[data-acc]').forEach(i=>{
+                i.classList.remove('open');
+                i.querySelector('.acc-btn').setAttribute('aria-expanded','false');
+            });
+            if(!wasOpen){
+                item.classList.add('open');
+                btn.setAttribute('aria-expanded','true');
             }
+            refreshIcons();
+        });
+    });
 
-            // Fetch ALL materials ordered by creation date
-            // We'll filter them in JS to avoid "Missing Index" errors in Firestore
-            filesListener = db.collection('materials').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-                const files = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    // Client-side filtering
-                    if (currentSubjectFilter === 'all' || data.subject === currentSubjectFilter) {
-                        files.push({
-                            id: doc.id,
-                            ...data
-                        });
+    // ---------- Auth ----------
+    const loginLink=document.getElementById('login-link');
+    const userSection=document.getElementById('user-section');
+    const menuUserSection=document.getElementById('menu-user-section');
+    const authModal=document.getElementById('auth-modal');
+    const googleBtn=document.getElementById('google-signin-btn');
+    const authStatus=document.getElementById('auth-status');
+    const uploadFab=document.getElementById('upload-fab');
+    const uploadModal=document.getElementById('upload-modal');
+    const uploadClose=document.getElementById('upload-close');
+
+    function initAuthListener(){
+        if(!auth) return;
+        auth.onAuthStateChanged(async (user)=>{
+            if(user){
+                currentUser=user;
+                let userData=null;
+                try{ userData = await getUserData(user.uid); }catch(e){}
+                if(userData && userData.role==='admin'){
+                    isAdmin=true;
+                    renderUser(user,'admin',userData);
+                    showUploadButton(); loadSubjects(); loadFiles();
+                }else if(userData && userData.role==='friend'){
+                    isAdmin=false;
+                    renderUser(user,'friend',userData);
+                    showUploadButton(); loadSubjects(); loadFiles();
+                }else{
+                    if(!userData){
+                        try{ await createPendingUser(user);}catch(err){ console.error(err); }
                     }
-                });
-
-                renderFiles(files);
-                if (window.pwaHelper) {
-                    pwaHelper.checkAndSyncFiles(files);
+                    showPendingState(user,userData);
                 }
-
-            }, (error) => {
-                console.error('Error loading files:', error);
-                filesGrid.innerHTML = '<p style="color: var(--error); text-align: center;">Error loading materials</p>';
-            });
-        }
-
-        // ========================================
-        // RENDER FILES TO PAGE
-        // ========================================
-
-        function renderFiles(files) {
-            filesGrid.innerHTML = '';
-
-            if (files.length === 0) {
-                filesGrid.innerHTML = `
-                    <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-muted);">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
-                        <p>No materials found.</p>
-                    </div>
-                `;
-                return;
+            }else{
+                currentUser=null; isAdmin=false;
+                renderLoggedOut(); showLockedState();
             }
-
-            files.forEach((file, index) => {
-                // Determine icon based on file type
-                let icon = '📄';
-                if (file.fileType === 'pdf') icon = '📕';
-                else if (file.fileType === 'pptx' || file.fileType === 'ppt') icon = '📊';
-                else if (file.fileType === 'docx' || file.fileType === 'doc') icon = '📘';
-
-                // Format date
-                const date = file.createdAt
-                    ? new Date(file.createdAt.toDate()).toLocaleDateString()
-                    : 'Recently';
-
-                // Create card element
-                const card = document.createElement('div');
-                card.className = 'file-card';
-                card.innerHTML = `
-                    <div class="file-icon">${icon}</div>
-                    <h3 class="file-name">${escapeHtml(file.title)}</h3>
-                    <p class="file-meta">${file.subject} • ${escapeHtml(file.uploaderName)} • ${date}</p>
-                    <div class="file-actions">
-                        <button class="magnetic-btn" onclick="window.pwaHelper ? pwaHelper.viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}, \`${escapeHtml(file.title)}\`, this, '${file.githubAssetId || ''}') : viewFile('${file.fileUrl}', '${file.id}', ${file.version || 1}, \`${escapeHtml(file.title)}\`, this, '${file.githubAssetId || ''}')">View</button>
-                        <button class="magnetic-btn btn-outline" onclick="window.pwaHelper ? pwaHelper.downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}, this, '${file.githubAssetId || ''}') : downloadFile('${file.fileUrl}', \`${escapeHtml(file.title)}\`, '${file.id}', ${file.version || 1}, this, '${file.githubAssetId || ''}')">Download</button>
-                    </div>
-                `;
-
-                filesGrid.appendChild(card);
-
-                // Animate entrance
-                gsap.from(card, {
-                    y: 30,
-                    opacity: 0,
-                    duration: 0.6,
-                    delay: index * 0.1,
-                    ease: "power3.out"
-                });
-            });
-
-            // Re-init magnetic buttons for new elements
-            initMagneticButtons();
-
-            // Add mouse tracking for glow effect
-            initCardGlow();
-        }
-
-        // ========================================
-        // SUBJECT FILTERING AND LOADING
-        // ========================================
-
-        let subjectsListener = null;
-
-        function loadSubjects() {
-            if (subjectsListener) {
-                subjectsListener();
-            }
-
-            subjectsListener = db.collection('subjects').orderBy('name').onSnapshot((snapshot) => {
-                const dynamicContainer = document.getElementById('dynamic-subjects-container');
-                const uploadSelect = document.getElementById('upload-subject');
-
-                // Clear existing
-                dynamicContainer.innerHTML = '';
-                uploadSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
-
-                snapshot.forEach((doc) => {
-                    const subjectData = doc.data();
-                    const subjectName = subjectData.name;
-                    const subjectId = doc.id;
-
-                    // Add to Sidebar
-                    const a = document.createElement('a');
-                    a.className = 'subject-item magnetic';
-                    a.dataset.subject = subjectName;
-                    a.textContent = subjectName;
-                    dynamicContainer.appendChild(a);
-
-                    // Add to Upload Select
-                    const option = document.createElement('option');
-                    option.value = subjectName;
-                    option.textContent = subjectName;
-                    uploadSelect.appendChild(option);
-                });
-
-                // Re-attach filter listeners
-                attachSubjectFilterListeners();
-                initMagneticButtons();
-            });
-        }
-
-        function attachSubjectFilterListeners() {
-            document.querySelectorAll('.subject-item').forEach(item => {
-                // Remove old event listeners by cloning if necessary, or just avoid duplicates
-                item.addEventListener('click', (e) => {
-                    // Update active state
-                    document.querySelectorAll('.subject-item').forEach(i => i.classList.remove('active'));
-                    e.target.classList.add('active');
-
-                    // Update filter
-                    currentSubjectFilter = e.target.dataset.subject;
-
-                    // Reload files with new filter
-                    loadFiles();
-                });
-            });
-        }
-
-        // Attach listener for the "All Materials" default
-        attachSubjectFilterListeners();
-
-        // ========================================
-        // UPLOAD FUNCTIONALITY
-        // ========================================
-
-        const uploadModal = document.getElementById('upload-modal');
-        const uploadModalInner = uploadModal.querySelector('.modal');
-        const uploadForm = document.getElementById('upload-form');
-
-        // Open upload modal
-        uploadFab.addEventListener('click', () => {
-            if (!currentUser) {
-                alert('Please sign in first!');
-                return;
-            }
-            uploadModal.classList.add('active');
-            gsap.fromTo(uploadModalInner,
-                { y: 50, opacity: 0 },
-                { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.5)" }
-            );
+            refreshIcons();
         });
+    }
+    async function getUserData(uid){
+        const snap=await db.collection('users').doc(uid).get();
+        return snap.exists ? snap.data() : null;
+    }
+    async function createPendingUser(user){
+        const data={
+            uid:user.uid,email:user.email,name:user.displayName||'Unknown',
+            googleName:user.displayName||'',photoURL:user.photoURL||'',
+            role:'pending',approved:false,provider:'google',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection('users').doc(user.uid).set(data);
+    }
+    function renderUser(user, role, userData){
+        loginLink.classList.add('hidden');
+        loginLink.style.display='none';
+        userSection.classList.remove('hidden');
+        userSection.classList.add('flex');
 
-        // Close upload modal
-        uploadModal.addEventListener('click', (e) => {
-            if (e.target === uploadModal) {
-                gsap.to(uploadModalInner, {
-                    y: 20,
-                    opacity: 0,
-                    duration: 0.3,
-                    ease: "power2.in",
-                    onComplete: () => uploadModal.classList.remove('active')
-                });
-            }
+        const displayName = userData ? userData.name : (user.displayName||user.email);
+        const safeName = escapeHtml(displayName);
+        const photo = user.photoURL || 'https://via.placeholder.com/32';
+
+        const adminDot = (role==='admin' || (userData && userData.role==='admin')) ? '<span class="hidden items-center gap-1.5 rounded-full border border-violet/25 bg-violet/10 px-2.5 py-1 text-[10px] font-[700] tracking-[0.12em] text-violet md:inline-flex"><span class="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_8px_#8b5cf6]"></span>ADMIN</span>' : '';
+
+        userSection.innerHTML =
+            adminDot +
+            '<div class="relative" id="user-menu-root">'+
+                '<button id="user-chip" class="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pl-1 pr-3 backdrop-blur-md transition-colors hover:border-white/20 hover:bg-white/[0.08]">'+
+                    '<img src="'+photo+'" alt="" class="h-7 w-7 rounded-full object-cover">'+
+                    '<span class="hidden flex-col items-start leading-none md:flex"><span class="text-[12.5px] font-[600] tracking-[-0.01em]">'+safeName+'</span><span class="font-mono text-[10px] tracking-[0.12em] text-violet">'+escapeHtml(role)+'</span></span>'+
+                    '<i data-lucide="chevron-down" class="hidden h-3.5 w-3.5 text-zinc-500 md:block"></i>'+
+                '</button>'+
+                '<div id="user-dropdown" class="absolute right-0 top-[calc(100%+10px)] hidden w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#141416] p-1.5 shadow-[0_20px_48px_rgba(0,0,0,0.55)]">'+
+                    '<button data-action="change-name" class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] font-[500] text-zinc-300 hover:bg-white/[0.06] hover:text-white"><i data-lucide="pencil" class="h-4 w-4 text-zinc-500"></i> Change display name</button>'+
+                    ((role==='admin' || (userData && userData.role==='admin')) ? '<button data-action="admin-portal" class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] font-[500] text-zinc-300 hover:bg-white/[0.06] hover:text-white"><i data-lucide="shield" class="h-4 w-4 text-violet"></i> Admin portal</button>' : '')+
+                    '<div class="my-1 h-px bg-white/10"></div>'+
+                    '<button data-action="logout" class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] font-[500] text-zinc-300 hover:bg-white/[0.06] hover:text-white"><i data-lucide="log-out" class="h-4 w-4 text-zinc-500"></i> Sign out</button>'+
+                '</div>'+
+            '</div>';
+
+        // menu copy
+        if(menuUserSection){
+            menuUserSection.innerHTML =
+                '<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">'+
+                    '<img src="'+photo+'" alt="" class="h-10 w-10 rounded-full object-cover">'+
+                    '<div class="min-w-0"><div class="truncate text-sm font-[600]">'+safeName+'</div><div class="font-mono text-[11px] tracking-[0.12em] text-violet">'+escapeHtml(role)+'</div></div>'+
+                    '<span class="ml-auto grid h-8 w-8 place-items-center rounded-full bg-white text-black"><i data-lucide="user" class="h-4 w-4"></i></span>'+
+                '</div>' +
+                '<button data-action="change-name" class="mt-2 flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-2.5 text-sm font-[500] text-zinc-300">Change display name</button>' +
+                '<button data-action="logout" class="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-white py-2.5 text-sm font-[600] text-black">Sign out</button>';
+            const ml=document.getElementById('menu-login'); if(ml) ml.classList.add('hidden');
+        }
+        refreshIcons();
+
+        // dropdown toggle
+        const chip=document.getElementById('user-chip');
+        const dropdown=document.getElementById('user-dropdown');
+        chip?.addEventListener('click',(e)=>{
+            e.stopPropagation();
+            dropdown.classList.toggle('hidden');
         });
+        document.addEventListener('click', function onDocClick(e){
+            if(!e.target.closest('#user-menu-root')) dropdown?.classList.add('hidden');
+        }, {once:false});
 
-        function uploadFileToGitHub(file, onProgress) {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    const maxSizeBytes = 2000 * 1024 * 1024; // 2 GB limit
-                    if (file.size > maxSizeBytes) {
-                        return reject(new Error(`File size (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB) exceeds limit of 2 GB.`));
+        // actions (delegate)
+        userSection.querySelectorAll('[data-action]').forEach(btn=>{
+            btn.addEventListener('click', async (e)=>{
+                const act=e.currentTarget.getAttribute('data-action');
+                dropdown?.classList.add('hidden');
+                if(act==='logout'){ auth.signOut(); }
+                else if(act==='change-name'){
+                    const cur=userData?userData.name:(user.displayName||'');
+                    const nn=prompt('Enter new display name:',cur);
+                    if(nn && nn.trim()!=='' && nn!==cur){
+                        if(confirm('Change display name to "'+nn.trim()+'"?')) await updateDisplayName(user.uid, nn.trim());
                     }
-
-                    const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-                    const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-                    const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB per chunk
-                    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-                    if (onProgress) onProgress(`Preparing high-speed upload (${totalChunks} chunks)...`);
-
-                    let finalResult = null;
-
-                    for (let i = 0; i < totalChunks; i++) {
-                        const start = i * CHUNK_SIZE;
-                        const end = Math.min(file.size, start + CHUNK_SIZE);
-                        const blobSlice = file.slice(start, end);
-
-                        const base64Chunk = await new Promise((resSlice, rejSlice) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resSlice(reader.result);
-                            reader.onerror = () => rejSlice(new Error('Failed to read file slice'));
-                            reader.readAsDataURL(blobSlice);
-                        });
-
-                        const progressPercent = Math.round(((i + 1) / totalChunks) * 95);
-                        if (onProgress) onProgress(`Uploading material: ${progressPercent}% (${i + 1}/${totalChunks})...`);
-
-                        const chunkRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                uploadId: uploadId,
-                                chunkIndex: i,
-                                totalChunks: totalChunks,
-                                fileName: fileName,
-                                chunkData: base64Chunk
-                            })
-                        });
-
-                        if (!chunkRes.ok) {
-                            const errJson = await chunkRes.json().catch(() => null);
-                            const errMsg = errJson ? (errJson.error || errJson.message || JSON.stringify(errJson)) : await chunkRes.text();
-                            throw new Error(`Upload failed on chunk ${i + 1}/${totalChunks}: ${errMsg}`);
-                        }
-
-                        const resData = await chunkRes.json();
-                        if (resData.publicUrl) {
-                            finalResult = resData;
-                        }
-                    }
-
-                    if (!finalResult || !finalResult.publicUrl) {
-                        throw new Error('Upload completed but no public URL was returned.');
-                    }
-
-                    if (onProgress) onProgress('Upload complete!');
-                    resolve(finalResult);
-                } catch (err) {
-                    reject(err);
+                } else if(act==='admin-portal'){
+                    const pw=prompt('Enter Master Password to access Admin Portal:');
+                    if(pw==='NEXUSEM50'){ sessionStorage.setItem('admin_access','granted'); window.location.href='admin.html'; }
+                    else if(pw!==null) alert('Access Denied. Incorrect password.');
                 }
             });
-        }
-
-        // Handle file upload
-        uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const title = document.getElementById('upload-title').value;
-            const subject = document.getElementById('upload-subject').value;
-            const file = document.getElementById('upload-file').files[0];
-
-            if (!file) return;
-
-            const progressContainer = document.getElementById('upload-progress');
-            const progressText = progressContainer.querySelector('span') || progressContainer;
-            progressContainer.style.display = 'block';
-            progressText.textContent = 'Preparing secure upload...';
-
-            try {
-                const resData = await uploadFileToGitHub(file, (msg) => {
-                    progressText.textContent = msg;
-                });
-
-                progressText.textContent = 'Saving to database...';
-
-                const userDoc = await getUserData(currentUser.uid);
-                const uploaderName = userDoc ? userDoc.name : (currentUser.displayName || currentUser.email);
-
-                await db.collection('materials').add({
-                    title: title,
-                    subject: subject,
-                    fileUrl: resData.publicUrl,
-                    githubAssetId: resData.assetId || null,
-                    githubAssetName: resData.assetName || null,
-                    fileType: file.name.split('.').pop().toLowerCase(),
-                    uploaderId: currentUser.uid,
-                    uploaderName: uploaderName,
-                    version: 1,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                // 4. Trigger Notification
-                await sendNotification('New Material', `${uploaderName} uploaded "${title}" to ${subject}.`);
-
-                uploadForm.reset();
-                progressContainer.style.display = 'none';
-                uploadModal.classList.remove('active');
-
-                alert('✅ Material uploaded successfully!');
-
-            } catch (err) {
-                console.error(err);
-                alert('Error: ' + err.message);
-                progressContainer.style.display = 'none';
-            }
         });
-
-        // ========================================
-        // UTILITY FUNCTIONS
-        // ========================================
-
-        // Prevent XSS attacks
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        menuUserSection?.querySelectorAll('[data-action]').forEach(btn=>{
+            btn.addEventListener('click', async (e)=>{
+                const act=e.currentTarget.getAttribute('data-action');
+                if(act==='logout'){ auth.signOut(); window.closeMobileMenu(); }
+                else if(act==='change-name'){
+                    const cur=userData?userData.name:(user.displayName||'');
+                    const nn=prompt('Enter new display name:',cur);
+                    if(nn && nn.trim()!=='' && nn!==cur){
+                        if(confirm('Change display name to "'+nn.trim()+'"?')) await updateDisplayName(user.uid, nn.trim());
+                    }
+                }
+            });
+        });
+    }
+    async function updateDisplayName(uid,newName){
+        try{
+            await db.collection('users').doc(uid).update({name:newName});
+            const updated=await getUserData(uid);
+            renderUser(auth.currentUser, updated.role, updated);
+            refreshIcons();
+        }catch(e){ alert('Failed to update name: '+e.message); }
+    }
+    function renderLoggedOut(){
+        loginLink.classList.remove('hidden'); loginLink.style.display='';
+        userSection.classList.add('hidden'); userSection.classList.remove('flex'); userSection.innerHTML='';
+        if(menuUserSection) menuUserSection.innerHTML='';
+        const ml=document.getElementById('menu-login'); if(ml) ml.classList.remove('hidden');
+        refreshIcons();
+    }
+    function showUploadButton(){ uploadFab.classList.remove('hidden'); }
+    function hideUploadButton(){ uploadFab.classList.add('hidden'); }
+    function showAuthStatus(type,msg){
+        authStatus.className='mt-5 rounded-xl border px-3 py-2.5 text-center text-[13px]';
+        if(type==='error'){ authStatus.classList.add('border-red-500/20','bg-red-500/10','text-red-300'); }
+        else if(type==='pending'){ authStatus.classList.add('border-amber-500/20','bg-amber-500/10','text-amber-300'); }
+        else { authStatus.classList.add('border-emerald-500/20','bg-emerald-500/10','text-emerald-300'); }
+        authStatus.textContent=msg; authStatus.classList.remove('hidden');
+    }
+    function clearAuthStatus(){ authStatus.classList.add('hidden'); authStatus.textContent=''; }
+    function showLockedState(){
+        hideUploadButton();
+        const grid=document.getElementById('files-grid');
+        grid.innerHTML='<div class="empty-state"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5 text-white"><i data-lucide="lock" class="h-5 w-5"></i></div><h3 class="mt-4 font-display text-[18px] font-[700] tracking-[-0.02em] text-white">Members only</h3><p class="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-5 text-zinc-500">Please sign in with Google to browse and download materials. New accounts require admin approval.</p><button data-action="open-auth" class="btn-white mt-5">Sign in to continue <i data-lucide="arrow-right" class="h-4 w-4"></i></button></div>';
+        const m=document.getElementById('results-meta'); if(m) m.textContent='';
+        const a=document.getElementById('archive-count'); if(a) a.textContent='—';
+        const h1=document.getElementById('hero-stat-materials'); if(h1) h1.textContent='—';
+        refreshIcons();
+    }
+    function showPendingState(user,userData){
+        hideUploadButton();
+        if(authModal.classList.contains('active')){
+            authModal.classList.remove('active'); clearAuthStatus();
         }
-
-        // Get download URL directly for GitHub storage
-        async function getSignedUrl(fileUrl) {
-            return fileUrl || '';
+        // still show user chip as pending
+        renderUser(user,'Pending Approval', userData || {name:user.displayName});
+        const grid=document.getElementById('files-grid');
+        grid.innerHTML='<div class="empty-state"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-amber-500/10 text-amber-300"><i data-lucide="clock" class="h-5 w-5"></i></div><h3 class="mt-4 font-display text-[18px] font-[700] tracking-[-0.02em] text-white">Waiting for approval</h3><p class="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-5 text-zinc-500">Your account has been created — an admin needs to grant you access. Check back soon.</p></div>';
+        const m=document.getElementById('results-meta'); if(m) m.textContent='';
+        refreshIcons();
+    }
+    // auth modal triggers
+    loginLink.addEventListener('click',(e)=>{
+        e.preventDefault(); authModal.classList.add('active'); refreshIcons();
+        gsap.fromTo(authModal.querySelector('.modal-card'),{y:14,opacity:0},{y:0,opacity:1,duration:.42,ease:"power3.out"});
+    });
+    // delegated open-auth inside empty states
+    document.getElementById('files-grid')?.addEventListener('click',(e)=>{
+        if(e.target.closest('[data-action="open-auth"]')){
+            e.preventDefault(); authModal.classList.add('active'); refreshIcons();
         }
+        if(e.target.closest('[data-action="clear-filters"]')){
+            document.getElementById('clear-filters')?.click();
+        }
+        if(e.target.closest('[data-action="upload"]')){
+            document.getElementById('upload-fab')?.click();
+        }
+    });
+    authModal.addEventListener('click',(e)=>{ if(e.target===authModal){ authModal.classList.remove('active'); clearAuthStatus(); }});
+    uploadModal.addEventListener('click',(e)=>{ if(e.target===uploadModal) uploadModal.classList.remove('active'); });
+    uploadClose?.addEventListener('click',()=> uploadModal.classList.remove('active'));
+    document.addEventListener('keydown',(e)=>{
+        if(e.key==='Escape'){
+            if(authModal.classList.contains('active')){ authModal.classList.remove('active'); clearAuthStatus(); }
+            if(uploadModal.classList.contains('active')) uploadModal.classList.remove('active');
+        }
+    });
+    googleBtn.addEventListener('click',()=>{
+        const provider=new firebase.auth.GoogleAuthProvider();
+        provider.addScope('email'); provider.addScope('profile');
+        auth.signInWithPopup(provider).then(r=>{ /* will trigger onAuthStateChanged */ }).catch(error=>{
+            if(error.code==='auth/popup-closed-by-user' || error.code==='auth/cancelled-popup-request') return;
+            showAuthStatus('error','Sign-in failed: '+error.message);
+        });
+    });
 
-        // View file cleanly via pwaHelper & Google Docs Viewer
-        window.viewFile = async function (url, id, version, title, btn) {
-            if (!url) { alert('File URL not available'); return; }
-            if (window.pwaHelper && typeof window.pwaHelper.viewFile === 'function') {
-                return window.pwaHelper.viewFile(url, id, version, title, btn);
-            }
-            const isPdf = (title || url).toLowerCase().includes('.pdf');
-            if (isPdf) {
-                window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`, '_blank');
+    // ---------- Files ----------
+    const filesGrid=document.getElementById('files-grid');
+    const searchInput=document.getElementById('search-input');
+    const sortSelect=document.getElementById('sort-select');
+    const resultsMeta=document.getElementById('results-meta');
+    const clearBtn=document.getElementById('clear-filters');
+    const archiveCount=document.getElementById('archive-count');
+    const heroStatM=document.getElementById('hero-stat-materials');
+    const heroStatS=document.getElementById('hero-stat-subjects');
+
+    function loadFiles(){
+        if(!db) return;
+        if(filesListener) filesListener();
+        filesListener=db.collection('materials').orderBy('createdAt','desc').onSnapshot((snap)=>{
+            allFilesCache=[];
+            snap.forEach(doc=> allFilesCache.push({id:doc.id, ...doc.data()}));
+            updateCounts();
+            applyFiltersAndRender();
+        },(err)=>{
+            console.error(err);
+            filesGrid.innerHTML='<div class="empty-state">Error loading materials</div>';
+        });
+    }
+    function updateCounts(){
+        const counts={};
+        allFilesCache.forEach(f=>{ const s=f.subject||'Unsorted'; counts[s]=(counts[s]||0)+1; });
+        counts['all']=allFilesCache.length;
+        document.querySelectorAll('#subject-pills .chip').forEach(el=>{
+            const subj=el.dataset.subject;
+            const c=counts[subj] ?? 0;
+            const badge=el.querySelector('.count');
+            if(badge) badge.textContent=c;
+            el.setAttribute('aria-label', (el.textContent.trim().split('  ')[0]||subj) + ' — ' + c + ' materials');
+        });
+        if(archiveCount) archiveCount.textContent = allFilesCache.length;
+        if(heroStatM) heroStatM.textContent = allFilesCache.length;
+        const subjCount = document.querySelectorAll('#dynamic-subjects-container .chip').length || (allFilesCache.length? new Set(allFilesCache.map(f=>f.subject)).size : 0);
+        if(heroStatS) heroStatS.textContent = subjCount || '—';
+    }
+    function applyFiltersAndRender(){
+        const q=(searchInput.value||'').trim().toLowerCase();
+        const sort=sortSelect.value;
+        let files=[...allFilesCache];
+        if(currentSubjectFilter!=='all'){
+            files=files.filter(f=> f.subject===currentSubjectFilter);
+        }
+        if(q){
+            files=files.filter(f=>{
+                const hay=[f.title||'', f.subject||'', f.uploaderName||''].join(' ').toLowerCase();
+                return hay.includes(q);
+            });
+        }
+        files.sort((a,b)=>{
+            if(sort==='newest'){ const at=a.createdAt?.toMillis?.()||0, bt=b.createdAt?.toMillis?.()||0; return bt-at; }
+            else if(sort==='oldest'){ const at=a.createdAt?.toMillis?.()||0, bt=b.createdAt?.toMillis?.()||0; return at-bt; }
+            else if(sort==='name-asc'){ return (a.title||'').localeCompare(b.title||''); }
+            else if(sort==='name-desc'){ return (b.title||'').localeCompare(a.title||''); }
+            return 0;
+        });
+        renderFiles(files, q);
+        if(q || currentSubjectFilter!=='all' || sort!=='newest'){ clearBtn.style.display='inline-flex'; }
+        else clearBtn.style.display='none';
+        if(allFilesCache.length===0){ resultsMeta.textContent=''; }
+        else if(files.length===allFilesCache.length && !q){ resultsMeta.innerHTML='Showing <b class="text-zinc-300">'+files.length+'</b> materials'; }
+        else { resultsMeta.innerHTML='Showing <b class="text-zinc-300">'+files.length+'</b> of <b class="text-zinc-300">'+allFilesCache.length+'</b> materials' + (q ? ' for “'+escapeHtml(q)+'”' : '') + (currentSubjectFilter!=='all' ? ' in <b class="text-zinc-300">'+escapeHtml(currentSubjectFilter)+'</b>' : ''); }
+        filesGrid.setAttribute('aria-busy','false');
+    }
+    let searchT=null;
+    searchInput.addEventListener('input', ()=>{
+        filesGrid.setAttribute('aria-busy','true');
+        clearTimeout(searchT); searchT=setTimeout(applyFiltersAndRender, 180);
+    });
+    sortSelect.addEventListener('change', applyFiltersAndRender);
+    clearBtn.addEventListener('click', ()=>{
+        searchInput.value=''; sortSelect.value='newest';
+        currentSubjectFilter='all';
+        document.querySelectorAll('#subject-pills .chip').forEach(i=>{i.classList.remove('active'); i.setAttribute('aria-selected','false')});
+        document.querySelector('#subject-pills .chip[data-subject="all"]')?.classList.add('active');
+        document.querySelector('#subject-pills .chip[data-subject="all"]')?.setAttribute('aria-selected','true');
+        applyFiltersAndRender();
+    });
+
+    function badgeForType(ft){
+        const t=(ft||'').toLowerCase();
+        if(t==='pdf') return {label:'PDF', cls:'badge-pdf'};
+        if(t==='ppt' || t==='pptx') return {label:'PPT', cls:'badge-ppt'};
+        if(t==='doc' || t==='docx') return {label:'DOC', cls:'badge-doc'};
+        if(['jpg','jpeg','png','heic','webp'].includes(t)) return {label:'HANDWRITTEN', cls:'badge-img'};
+        if(t) return {label:t.toUpperCase().slice(0,12), cls:'badge-other'};
+        return {label:'FILE', cls:'badge-other'};
+    }
+    function renderFiles(files, query){
+        filesGrid.innerHTML='';
+        if(files.length===0){
+            const isSearching = (query && query.length>0) || currentSubjectFilter!=='all';
+            if(isSearching){
+                filesGrid.innerHTML='<div class="empty-state"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5 text-white"><i data-lucide="search-x" class="h-5 w-5"></i></div><h3 class="mt-4 font-display text-[18px] font-[700] tracking-[-0.02em] text-white">No results found</h3><p class="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-5 text-zinc-500">We couldn’t find materials matching your search. Try a different keyword or clear filters.</p><button data-action="clear-filters" class="btn-white mt-5">Clear filters</button></div>';
             } else {
-                window.open(url, '_blank');
+                const subj = currentSubjectFilter==='all' ? 'materials' : escapeHtml(currentSubjectFilter);
+                filesGrid.innerHTML='<div class="empty-state"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5 text-white"><i data-lucide="folder-open" class="h-5 w-5"></i></div><h3 class="mt-4 font-display text-[18px] font-[700] tracking-[-0.02em] text-white">No '+subj+' yet</h3><p class="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-5 text-zinc-500">No '+subj+' have been added yet — upload the first one to get started.</p>'+(currentUser?'<button data-action="upload" class="btn-white mt-5">Upload material <i data-lucide="upload" class="h-4 w-4"></i></button>':'<button data-action="open-auth" class="btn-white mt-5">Sign in to upload</button>')+'</div>';
             }
-        };
-
-        // Download file cleanly via pwaHelper
-        window.downloadFile = async function (url, filename, id, version, btn) {
-            if (!url) { alert('File URL not available'); return; }
-            if (window.pwaHelper && typeof window.pwaHelper.downloadFile === 'function') {
-                return window.pwaHelper.downloadFile(url, filename, id, version, btn);
-            }
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename || 'material';
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        };
-
-        // Notifications Logic
-        async function sendNotification(title, message) {
-            try {
-                await db.collection('notifications').add({
-                    title: title,
-                    message: message,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (err) {
-                console.error('Notification error:', err);
-            }
+            refreshIcons(); return;
         }
+        files.forEach((file,index)=>{
+            const badge=badgeForType(file.fileType);
+            const date=file.createdAt ? new Date(file.createdAt.toDate()).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'Recently';
+            const card=document.createElement('article');
+            card.className='file-card group p-5';
+            card.style.animationDelay=(index*0.05)+'s';
+            card.innerHTML=
+                '<div class="flex items-start justify-between gap-3">'+
+                    '<span class="badge '+badge.cls+'">'+escapeHtml(badge.label)+'</span>'+
+                    '<span class="subject-tag">'+escapeHtml(file.subject||'General')+'</span>'+
+                '</div>'+
+                '<h3 class="mt-4 line-clamp-2 min-h-[2.95em] font-display text-[16.5px] font-[700] leading-[1.28] tracking-[-0.02em] text-white">'+escapeHtml(file.title||'Untitled')+'</h3>'+
+                '<p class="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-[11px] tracking-wide text-zinc-500"><span class="truncate">'+escapeHtml(file.uploaderName||'Unknown')+'</span><span class="h-1 w-1 rounded-full bg-white/15"></span><span>'+escapeHtml(date)+'</span><span class="h-1 w-1 rounded-full bg-white/15"></span><span class="tracking-[0.08em]">'+escapeHtml((file.fileType||'').toUpperCase())+'</span></p>'+
+                '<div class="card-actions mt-5 flex gap-2">'+
+                    '<button class="btn-white flex-1" data-view="'+escapeAttr(file.fileUrl)+'" aria-label="View '+escapeAttr(file.title||'file')+'"><i data-lucide="eye" class="h-3.5 w-3.5"></i> View</button>'+
+                    '<button class="btn-glass flex-1" data-download="'+escapeAttr(file.fileUrl)+'" data-filename="'+escapeAttr(file.title||'download')+'" aria-label="Download '+escapeAttr(file.title||'file')+'"><i data-lucide="download" class="h-3.5 w-3.5"></i> Download</button>'+
+                '</div>';
+            filesGrid.appendChild(card);
+        });
+        // delegated handlers attached once below; just refresh icons & glow
+        refreshIcons();
+        bindCardGlow();
+        // stagger gsap if not reduced motion
+        if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+            gsap.from(filesGrid.querySelectorAll('.file-card'),{y:10,opacity:0,duration:.45,stagger:.04,ease:"power2.out",clearProps:"all"});
+        }
+    }
+    // delegated view/download
+    filesGrid.addEventListener('click', async (e)=>{
+        const v=e.target.closest('[data-view]');
+        if(v){ e.preventDefault(); const url=v.getAttribute('data-view'); if(url) viewFile(url); }
+        const d=e.target.closest('[data-download]');
+        if(d){ e.preventDefault(); const url=d.getAttribute('data-download'); const name=d.getAttribute('data-filename'); if(url) downloadFile(url,name); }
+    });
 
-        function initNotifications() {
-            const badge = document.getElementById('notif-badge');
-            const list = document.getElementById('notif-list');
-            const panel = document.getElementById('notification-panel');
-            const trigger = document.getElementById('notifications-link');
-            const closeBtn = document.getElementById('close-notifs');
-
-            trigger.addEventListener('click', (e) => {
-                e.preventDefault();
-                panel.classList.toggle('active');
-                if (panel.classList.contains('active')) {
-                    badge.style.display = 'none';
-                    // Save the timestamp when user opened the panel
-                    localStorage.setItem('nexus_last_notif_check', Date.now());
-                }
+    // ---------- Subjects ----------
+    function loadSubjects(){
+        if(!db) return;
+        if(subjectsListener) subjectsListener();
+        subjectsListener=db.collection('subjects').orderBy('name').onSnapshot((snap)=>{
+            const container=document.getElementById('dynamic-subjects-container');
+            const uploadSelect=document.getElementById('upload-subject');
+            container.innerHTML=''; uploadSelect.innerHTML='<option value="" disabled selected>Select subject…</option>';
+            const names=[];
+            if(!snap.empty){
+                snap.forEach(doc=>{
+                    const name=doc.data().name;
+                    names.push(name);
+                    const btn=document.createElement('button');
+                    btn.className='chip'; btn.dataset.subject=name; btn.setAttribute('role','tab'); btn.setAttribute('aria-selected','false');
+                    btn.innerHTML=escapeHtml(name)+' <span class="count">0</span>';
+                    container.appendChild(btn);
+                    const opt=document.createElement('option'); opt.value=name; opt.textContent=name; uploadSelect.appendChild(opt);
+                });
+            }
+            // hydrate marquee with subject names
+            if(names.length) hydrateMarqueeFromSubjects(names);
+            bindSubjectPills();
+            updateCounts();
+            refreshIcons();
+        });
+    }
+    function bindSubjectPills(){
+        document.querySelectorAll('#subject-pills .chip').forEach(item=>{
+            if(item.dataset.bound) return; item.dataset.bound='1';
+            item.addEventListener('click',()=>{
+                document.querySelectorAll('#subject-pills .chip').forEach(i=>{i.classList.remove('active'); i.setAttribute('aria-selected','false')});
+                item.classList.add('active'); item.setAttribute('aria-selected','true');
+                currentSubjectFilter=item.dataset.subject;
+                applyFiltersAndRender();
+                // ensure visible
+                item.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
             });
+            item.addEventListener('keydown',(e)=>{
+                if(e.key==='Enter' || e.key===' '){ e.preventDefault(); item.click(); }
+            });
+        });
+    }
+    bindSubjectPills();
 
-            closeBtn.addEventListener('click', () => panel.classList.remove('active'));
-
-            db.collection('notifications').orderBy('createdAt', 'desc').limit(15).onSnapshot(snap => {
-                if (snap.empty) {
-                    list.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>';
-                    badge.style.display = 'none';
-                    return;
-                }
-
-                const lastChecked = parseInt(localStorage.getItem('nexus_last_notif_check') || 0);
-                let hasNew = false;
-
-                list.innerHTML = '';
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const createdAt = data.createdAt ? data.createdAt.toMillis() : Date.now();
-                    
-                    if (createdAt > lastChecked) {
-                        hasNew = true;
+    // ---------- Upload ----------
+    uploadFab.addEventListener('click',()=>{
+        if(!currentUser){ authModal.classList.add('active'); refreshIcons(); return; }
+        uploadModal.classList.add('active'); refreshIcons();
+        gsap.fromTo(uploadModal.querySelector('.modal-card'),{y:12,opacity:0},{y:0,opacity:1,duration:.36,ease:"power3.out"});
+    });
+    document.getElementById('upload-form').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const title=document.getElementById('upload-title').value.trim();
+        const subject=document.getElementById('upload-subject').value;
+        const file=document.getElementById('upload-file').files[0];
+        if(!file) return;
+        if(!title){ alert('Please enter a title'); return; }
+        if(!subject){ alert('Please select a subject'); return; }
+        const progress=document.getElementById('upload-progress');
+        const progressText=progress.querySelector('span')||progress;
+        progress.classList.remove('hidden'); progressText.textContent='Requesting secure upload URL…';
+        const submitBtn=e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled=true; submitBtn.style.opacity='.6';
+        try{
+            const response=await fetch('https://nexus-omega-jet.vercel.app/api/get-upload-url',{
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({fileName: file.name.replace(/[^a-zA-Z0-9.]/g,'_'), fileType: file.type||'application/octet-stream'})
+            });
+            if(!response.ok){ const err=await response.json().catch(()=>({error:response.statusText})); throw new Error(err.error||'Failed to get upload URL'); }
+            const {uploadUrl, authToken, fileName:b2FileName, publicUrl}=await response.json();
+            await new Promise((resolve,reject)=>{
+                const xhr=new XMLHttpRequest(); xhr.open('POST',uploadUrl,true);
+                xhr.setRequestHeader('Authorization',authToken);
+                xhr.setRequestHeader('X-Bz-File-Name',encodeURIComponent(b2FileName));
+                xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');
+                xhr.setRequestHeader('X-Bz-Content-Sha1','do_not_verify');
+                xhr.upload.onprogress=(evt)=>{
+                    if(evt.lengthComputable){
+                        const p=Math.round((evt.loaded/evt.total)*100);
+                        progressText.textContent='Uploading: '+p+'%';
                     }
-
-                    const time = data.createdAt ? data.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
-                    const item = document.createElement('div');
-                    item.className = 'notification-item';
-                    item.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <b>${data.title}</b>
-                            ${isAdmin ? `<button onclick="deleteNotification('${doc.id}')" style="background:none; border:none; color:var(--error); cursor:pointer; font-size:1.2rem; line-height:1;">×</button>` : ''}
-                        </div>
-                        <span style="display:block; margin-top:0.2rem;">${data.message}</span>
-                        <span class="notification-time">${time}</span>
-                    `;
-                    list.appendChild(item);
-                });
-
-                if (hasNew && !panel.classList.contains('active')) {
-                    badge.style.display = 'block';
-                } else {
-                    badge.style.display = 'none';
-                }
+                };
+                xhr.onload=()=>{ if(xhr.status>=200&&xhr.status<300) resolve(); else reject(new Error('Upload failed (HTTP '+xhr.status+'): '+xhr.responseText)); };
+                xhr.onerror=()=> reject(new Error('Network error during upload'));
+                xhr.send(file);
             });
+            progressText.textContent='Saving to database…';
+            const userDoc=await getUserData(currentUser.uid);
+            const uploaderName=userDoc? userDoc.name : (currentUser.displayName||currentUser.email);
+            await db.collection('materials').add({
+                title, subject, fileUrl: publicUrl,
+                fileType: file.name.split('.').pop().toLowerCase(),
+                uploaderId: currentUser.uid, uploaderName, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            try{ await db.collection('notifications').add({title:'New Material', message: uploaderName+' uploaded “'+title+'” to '+subject+'.', createdAt: firebase.firestore.FieldValue.serverTimestamp()}); }catch(_){}
+            e.target.reset(); progress.classList.add('hidden'); uploadModal.classList.remove('active');
+            submitBtn.disabled=false; submitBtn.style.opacity='';
+        }catch(err){
+            console.error(err); alert('Error: '+err.message); progress.classList.add('hidden');
+            submitBtn.disabled=false; submitBtn.style.opacity='';
         }
+    });
 
-        async function deleteNotification(id) {
-            if (confirm('Delete this notification for everyone?')) {
-                try {
-                    await db.collection('notifications').doc(id).delete();
-                } catch (err) {
-                    console.error('Delete error:', err);
-                }
+    // ---------- Utils ----------
+    function escapeHtml(text){
+        if(!text) return '';
+        const div=document.createElement('div'); div.textContent=text; return div.innerHTML;
+    }
+    function escapeAttr(text){
+        if(!text) return '';
+        return text.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    async function getSignedUrl(fileUrl){
+        const m=fileUrl.match(/\/file\/[^/]+\/(.+)$/);
+        if(!m) return fileUrl;
+        const fileName=m[1];
+        const r=await fetch('https://nexus-omega-jet.vercel.app/api/get-download-url',{
+            method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fileName})
+        });
+        if(!r.ok) return fileUrl;
+        const {signedUrl}=await r.json(); return signedUrl;
+    }
+    window.viewFile=async function(url){
+        if(!url){alert('File URL not available');return;}
+        try{ const s=await getSignedUrl(url); window.open(s,'_blank','noopener'); }catch(e){ window.open(url,'_blank','noopener'); }
+    };
+    window.downloadFile=async function(url,filename){
+        if(!url){alert('File URL not available');return;}
+        try{
+            const s=await getSignedUrl(url);
+            const a=document.createElement('a'); a.href=s; a.download=filename||'download'; a.rel='noopener';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }catch(e){ alert('Download failed: '+e.message); }
+    };
+
+    // ---------- Notifications ----------
+    function initNotifications(){
+        if(!db) return;
+        const badge=document.getElementById('notif-badge');
+        const list=document.getElementById('notif-list');
+        const panel=document.getElementById('notification-panel');
+        const backdrop=document.getElementById('notif-backdrop');
+        const trigger=document.getElementById('notifications-link');
+        const closeBtn=document.getElementById('close-notifs');
+        const menuDot=document.getElementById('menu-notif-dot');
+
+        function openPanel(){
+            panel.classList.add('active'); backdrop.classList.add('active');
+            if(badge){ badge.style.display='none'; badge.classList.add('hidden'); }
+            if(menuDot) menuDot.classList.add('hidden');
+            localStorage.setItem('nexus_last_notif_check', Date.now());
+        }
+        function closePanel(){
+            panel.classList.remove('active'); backdrop.classList.remove('active');
+        }
+        trigger?.addEventListener('click',(e)=>{
+            e.preventDefault();
+            if(panel.classList.contains('active')) closePanel();
+            else openPanel();
+        });
+        closeBtn?.addEventListener('click', closePanel);
+        backdrop?.addEventListener('click', closePanel);
+        document.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && panel.classList.contains('active')) closePanel(); });
+
+        db.collection('notifications').orderBy('createdAt','desc').limit(15).onSnapshot(snap=>{
+            if(snap.empty){
+                list.innerHTML='<p class="py-12 text-center font-mono text-sm text-zinc-500">No new notifications</p>';
+                if(badge){ badge.style.display='none'; badge.classList.add('hidden'); }
+                if(menuDot) menuDot.classList.add('hidden');
+                return;
             }
-        }
-
-        window.deleteNotification = deleteNotification;
-
-        // Card glow effect on mouse move
-        function initCardGlow() {
-            document.querySelectorAll('.file-card').forEach(card => {
-                card.addEventListener('mousemove', (e) => {
-                    const rect = card.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    card.style.setProperty('--mouse-x', `${x}px`);
-                    card.style.setProperty('--mouse-y', `${y}px`);
-                });
+            const lastChecked=parseInt(localStorage.getItem('nexus_last_notif_check')||0);
+            let hasNew=false;
+            list.innerHTML='';
+            snap.forEach(doc=>{
+                const data=doc.data();
+                const createdAt=data.createdAt? data.createdAt.toMillis(): Date.now();
+                if(createdAt>lastChecked) hasNew=true;
+                const time=data.createdAt? data.createdAt.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Just now';
+                const item=document.createElement('div'); item.className='border-b border-white/10 py-4 last:border-0';
+                item.innerHTML='<div class="flex items-start justify-between gap-3"><b class="font-display text-[13px] font-[700] leading-tight text-white">'+escapeHtml(data.title)+'</b>'+(isAdmin?'<button onclick="deleteNotification(\''+doc.id+'\')" aria-label="Delete notification" class="grid h-8 w-8 place-items-center rounded-full text-zinc-500 hover:bg-white/10 hover:text-red-400" title="Delete"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>':'')+'</div><p class="mt-1 text-[13px] leading-5 text-zinc-400">'+escapeHtml(data.message)+'</p><span class="mt-2 inline-block font-mono text-[11px] tracking-wide text-violet">'+escapeHtml(time)+'</span>';
+                list.appendChild(item);
             });
+            refreshIcons();
+            if(hasNew && !panel.classList.contains('active')){
+                if(badge){ badge.style.display='block'; badge.classList.remove('hidden'); }
+                if(menuDot) menuDot.classList.remove('hidden');
+            } else {
+                if(badge){ badge.style.display='none'; badge.classList.add('hidden'); }
+                if(menuDot) menuDot.classList.add('hidden');
+            }
+        });
+    }
+    window.deleteNotification=async function(id){
+        if(confirm('Delete this notification for everyone?')){
+            try{ await db.collection('notifications').doc(id).delete(); }catch(e){ console.error(e); }
         }
+    };
 
-        // ========================================
-        // INITIALIZATION COMPLETE
-        // ========================================
+    // ---------- Card glow ----------
+    function bindCardGlow(){
+        // use delegation on grid for performance
+    }
+    filesGrid.addEventListener('mousemove',(e)=>{
+        const card=e.target.closest('.file-card');
+        if(!card) return;
+        const rect=card.getBoundingClientRect();
+        card.style.setProperty('--mx', (e.clientX-rect.left)+'px');
+        card.style.setProperty('--my', (e.clientY-rect.top)+'px');
+    });
 
-        console.log('🚀 Class Material Hub initialized');
-        console.log('🔑 Google Auth with Admin Approval enabled');
-        console.log('📋 To make yourself admin:');
-        console.log('   1. Sign in with Google');
-        console.log('   2. Check Firestore → users collection');
-        console.log('   3. Find your document, change role to "admin"');
+    // init icons once
+    refreshIcons();
+    console.log('✦ NEXUS — editorial dark build loaded');
+</script>
 
+    <script>
+    // Force scrollable after load - fix for Lenis lock
+    window.addEventListener('load', () => {
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.height = 'auto';
+        document.body.style.height = 'auto';
+        // If Lenis is active, ensure it doesn't lock
+        if(document.documentElement.classList.contains('lenis')){
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+        }
+        // Emergency: if page is not scrollable after 1s, disable Lenis
+        setTimeout(() => {
+            if(window.scrollY === 0 && document.documentElement.scrollHeight <= window.innerHeight + 10){
+                // Not scrollable - maybe Lenis locked?
+            }
+            // Test scroll - if document is stuck, remove Lenis
+            const testScroll = () => {
+                const before = window.scrollY;
+                window.scrollBy(0, 1);
+                const after = window.scrollY;
+                if(before === after && document.documentElement.scrollHeight > window.innerHeight){
+                    console.warn('Scroll locked, disabling Lenis');
+                    document.documentElement.classList.remove('lenis','lenis-smooth');
+                    document.body.style.overflow = 'auto';
+                    document.documentElement.style.overflow = 'auto';
+                    if(window.lenis) try{ window.lenis.destroy(); }catch(e){}
+                }
+                window.scrollTo(0,0);
+            };
+            // Only test if user hasn't scrolled yet
+            if(window.scrollY === 0) setTimeout(testScroll, 500);
+        }, 1200);
+    });
     </script>
-</body>
 
+</body>
 </html>

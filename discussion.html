@@ -1,591 +1,625 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus | Community Discussion</title>
-
-    <!-- PWA Basics -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#9d4edd">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=52"></script>
-
+    <title>NEXUS — Community Discussion</title>
+    <meta name="color-scheme" content="dark">
+    <meta name="description" content="Ask questions, share knowledge, and collaborate with your peers.">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0a0a'/><rect x='10' y='10' width='44' height='44' rx='10' fill='none' stroke='white' stroke-opacity='0.08'/><text x='32' y='40' font-family='Syne,sans-serif' font-size='22' font-weight='800' fill='white' text-anchor='middle' letter-spacing='-0.04em'>NX</text></svg>">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
-
-    <!-- GSAP & Lenis -->
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne','sans-serif'],
+                        body: ['Inter','sans-serif'],
+                        mono: ['JetBrains Mono','monospace'],
+                        serif: ['Instrument Serif','serif'],
+                    },
+                    colors: {
+                        obsidian: '#0a0a0a',
+                        charcoal: '#0f0f11',
+                        surface: '#141416',
+                        lilac: '#c4b5fd',
+                        butter: '#fef08a',
+                        violet: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <!-- GSAP / Lenis / Firebase -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js"></script>
-
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
 
     <style>
-        :root {
-            --bg-color: #030005;
-            --text-main: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --accent: #9d4edd;
-            --accent-bright: #c77dff;
-            --panel-bg: rgba(255, 255, 255, 0.03);
-            --border: rgba(255, 255, 255, 0.08);
-            --cursor-color: #c77dff;
+        *,*::before,*::after{box-sizing:border-box}
+        /* Lenis - smooth scroll fix */
+        html.lenis, html.lenis body { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto !important; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
+        html { scroll-behavior: auto; overflow-y: auto; overflow-x: clip; }
+        body { min-height: 100vh; overflow-y: auto; overflow-x: clip; }
+        html, body { height: auto; }
+
+        html{scrollbar-gutter:stable}
+        body{
+            background:#0a0a0a;
+            color:#f4f4f5;
+            font-family:'Inter',sans-serif;
+            -webkit-font-smoothing:antialiased;
+            text-rendering:optimizeLegibility;
+            overflow-x:clip;
         }
-
-        /* Creative Glu Crystal-Clear Glass & Prism Lens Light Theme */
-        /* 28k.studio Specular Glassmorphic Light Theme System */
-        [data-theme="light"] {
-            --bg-color: #f8fafc;
-            --text-main: #0f172a;
-            --text-muted: #475569;
-            --accent: #6366f1;
-            --accent-bright: #a855f7;
-            --panel-bg: rgba(255, 255, 255, 0.65);
-            --border: rgba(255, 255, 255, 0.85);
-            --cursor-color: #6366f1;
+        ::selection{background:#8b5cf6;color:white}
+        :where(a,button,input,select,textarea,[tabindex]):focus{outline:none}
+        :where(a,button,input,select,textarea,[tabindex]):focus-visible{
+            outline:2px solid #8b5cf6;outline-offset:3px;
+            box-shadow:0 0 0 6px rgba(139,92,246,0.18);
+            border-radius:8px;
         }
-
-        /* 28k.studio Ambient Pastel Aurora Canvas Background */
-        [data-theme="light"] body {
-            background-color: #f8fafc;
-            background-image: 
-                radial-gradient(circle at 12% 18%, rgba(224, 231, 255, 0.65) 0%, transparent 40%),
-                radial-gradient(circle at 88% 25%, rgba(209, 250, 229, 0.55) 0%, transparent 45%),
-                radial-gradient(circle at 50% 80%, rgba(254, 226, 226, 0.5) 0%, transparent 50%);
-            background-attachment: fixed;
+        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+        .skip-link{position:absolute;top:-100%;left:12px;z-index:9999;background:white;color:#0a0a0a;padding:10px 16px;border-radius:999px;font-weight:600;text-decoration:none;font-size:.9rem;transition:top .2s}
+        .skip-link:focus{top:12px}
+        /* noise + glow */
+        .noise{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:1;opacity:.42;background-image:url("data:image/svg+xml;utf8,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")}
+        .glow-a{position:fixed;width:72vw;height:72vw;left:-14%;top:-32%;pointer-events:none;z-index:0;background:radial-gradient(circle, rgba(139,92,246,0.09) 0%, transparent 64%);filter:blur(48px)}
+        .glow-b{position:fixed;width:60vw;height:60vw;right:-18%;bottom:-18%;pointer-events:none;z-index:0;background:radial-gradient(circle, rgba(196,181,253,0.06) 0%, transparent 66%);filter:blur(56px)}
+        /* custom cursor */
+        .custom-cursor{position:fixed;top:0;left:0;width:18px;height:18px;border-radius:50%;background:#c4b5fd;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:width .22s,height .22s,background-color .22s,opacity .22s,border-color .22s;opacity:0}
+        .custom-cursor.active{width:54px;height:54px;background:transparent;border:1px solid #c4b5fd}
+        @media (pointer:coarse),(max-width:768px){.custom-cursor{display:none !important}}
+        @media (pointer:fine){html.custom-cursor-active *{cursor:none !important}}
+        /* nav link underline */
+        .nav-link{position:relative;color:#9ca3af;transition:color .2s}
+        .nav-link::after{content:"";position:absolute;left:14px;right:14px;bottom:7px;height:1px;background:white;transform:scaleX(0);transform-origin:left;transition:transform .3s cubic-bezier(.16,1,.3,1);opacity:.9}
+        .nav-link:hover{color:white}
+        .nav-link:hover::after{transform:scaleX(1)}
+        .nav-link[aria-current="page"]{color:white}
+        /* hamburger */
+        .hamburger span{transition:transform .3s,opacity .3s}
+        .hamburger[aria-expanded="true"] span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+        .hamburger[aria-expanded="true"] span:nth-child(2){opacity:0}
+        .hamburger[aria-expanded="true"] span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+        /* mobile menu */
+        .mobile-menu{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:rgba(10,10,10,0.78);backdrop-filter:blur(18px) saturate(1.1);-webkit-backdrop-filter:blur(18px) saturate(1.1);opacity:0;pointer-events:none;transition:opacity .36s ease}
+        .mobile-menu.is-open{opacity:1;pointer-events:auto}
+        .mobile-menu-panel{flex:1;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 18px) 20px 28px;max-width:520px;width:100%;margin:0 auto}
+        .mm-link{opacity:0;transform:translateY(14px);transition:opacity .5s cubic-bezier(.16,1,.3,1),transform .5s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--i)*70ms + 60ms)}
+        .mobile-menu.is-open .mm-link{opacity:1;transform:none}
+        /* marquee */
+        .marquee{position:relative;overflow:hidden;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.016)}
+        .marquee-track{display:flex;width:max-content;animation:marquee var(--marquee-dur,32s) linear infinite;will-change:transform}
+        .marquee:hover .marquee-track{animation-play-state:paused}
+        .marquee-group{display:flex;align-items:center;flex-shrink:0}
+        .marquee-item{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:#9ca3af;white-space:nowrap}
+        .marquee-dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;margin:0 1.6rem}
+        @keyframes marquee{to{transform:translateX(-50%)}}
+        /* glitch accent word */
+        .accent-word{position:relative;display:inline-block;isolation:isolate}
+        .accent-word .serif{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;letter-spacing:-0.02em;color:#f4f4f5;position:relative;z-index:1}
+        .accent-word::before,.accent-word::after{
+            content:attr(data-text);position:absolute;inset:0;
+            font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;letter-spacing:-0.02em;
+            opacity:0;pointer-events:none;
         }
-
-        /* 28k.studio Specular Crystal Glass Panels */
-        [data-theme="light"] header,
-        [data-theme="light"] .chat-card,
-        [data-theme="light"] .discussion-box,
-        [data-theme="light"] .glass-panel {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.45) 100%) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border: 1px solid rgba(255, 255, 255, 0.85) !important;
-            box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.95), 0 10px 30px -10px rgba(15, 23, 42, 0.06) !important;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        .accent-word::before{color:#c4b5fd;transform:translate(0,0);mix-blend-mode:screen}
+        .accent-word::after{color:#8b5cf6;transform:translate(0,0);mix-blend-mode:screen}
+        .accent-word:hover::before{opacity:.95;animation:glitch-a .9s steps(8) infinite}
+        .accent-word:hover::after{opacity:.9;animation:glitch-b .9s steps(8) infinite}
+        .accent-word:hover .serif{color:transparent;background:linear-gradient(100deg,#c4b5fd 0%,#fef08a 52%,#c4b5fd 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;animation:sheen 1.2s ease}
+        @keyframes glitch-a{
+            0%{clip-path:inset(12% 0 68% 0);transform:translate(-2px,-1px)}
+            20%{clip-path:inset(68% 0 8% 0);transform:translate(2px,1px)}
+            40%{clip-path:inset(28% 0 42% 0);transform:translate(-1px,0)}
+            60%{clip-path:inset(78% 0 2% 0);transform:translate(1px,-1px)}
+            80%{clip-path:inset(38% 0 52% 0);transform:translate(-2px,1px)}
+            100%{clip-path:inset(12% 0 68% 0);transform:translate(2px,0)}
         }
-
-        [data-theme="light"] .chat-card:hover {
-            transform: translateY(-4px) !important;
-            box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 1), 0 20px 40px -15px rgba(99, 102, 241, 0.18) !important;
-            border-color: rgba(99, 102, 241, 0.45) !important;
+        @keyframes glitch-b{
+            0%{clip-path:inset(68% 0 12% 0);transform:translate(2px,1px)}
+            20%{clip-path:inset(8% 0 72% 0);transform:translate(-2px,-1px)}
+            40%{clip-path:inset(42% 0 28% 0);transform:translate(1px,1px)}
+            60%{clip-path:inset(2% 0 78% 0);transform:translate(-1px,0)}
+            80%{clip-path:inset(52% 0 18% 0);transform:translate(2px,-1px)}
+            100%{clip-path:inset(68% 0 12% 0);transform:translate(-2px,0)}
         }
-
-        /* Prism Rainbow Spectrum Text Hover Effect */
-        [data-theme="light"] h1:hover,
-        [data-theme="light"] h2:hover,
-        [data-theme="light"] h3:hover,
-        [data-theme="light"] .nav-links a:hover {
-            background: linear-gradient(270deg, #D586E1 0%, #A886E1 14%, #6F75E4 28%, #6FB1E4 42%, #6FE4B7 56%, #98E46F 70%, #DEE46F 79%, #E4A46F 93%, #E46F6F 100%) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        @keyframes sheen{from{background-position:0% 50%}to{background-position:100% 50%}}
+        /* pills */
+        .chip{
+            display:inline-flex;align-items:center;gap:.5rem;
+            height:36px;padding:0 14px 0 14px;
+            border-radius:999px;border:1px solid rgba(255,255,255,0.10);
+            background:rgba(255,255,255,0.03);color:#a1a1aa;
+            font-size:.86rem;font-weight:500;white-space:nowrap;flex-shrink:0;
+            transition:all .22s cubic-bezier(.16,1,.3,1);cursor:pointer;
+            min-height:36px;
         }
-
-        /* 28k.studio Floating Glass Header */
-        [data-theme="light"] header {
-            background: rgba(255, 255, 255, 0.65) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.85) !important;
-            mix-blend-mode: normal !important;
-            z-index: 9999 !important;
-            padding: 1.2rem 4vw !important;
-            box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+        .chip:hover{color:white;border-color:rgba(255,255,255,0.22);background:rgba(255,255,255,0.06);transform:translateY(-1px)}
+        .chip.active{background:white;color:#0a0a0a;border-color:white;box-shadow:0 4px 18px rgba(255,255,255,0.08)}
+        .chip .count{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.02em;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,0.09);line-height:1}
+        .chip.active .count{background:rgba(0,0,0,0.08);color:#0a0a0a}
+        .chip:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
+        /* file card */
+        .file-card{
+            position:relative;overflow:hidden;
+            background:#141416;border:1px solid rgba(255,255,255,0.08);
+            border-radius:1.25rem;
+            display:flex;flex-direction:column;
+            transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s,box-shadow .28s,background .28s;
+            transform:translateZ(0);
         }
-
-        [data-theme="light"] .logo {
-            color: #0f172a !important;
+        .file-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.14);box-shadow:0 18px 40px rgba(0,0,0,0.42),0 2px 10px rgba(0,0,0,0.3);background:#17171a}
+        .file-card::after{
+            content:"";position:absolute;inset:0;
+            background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%), rgba(139,92,246,0.07), transparent 62%);
+            opacity:0;transition:opacity .3s;pointer-events:none;
         }
-
-        [data-theme="light"] .nav-links a {
-            color: #0f172a !important;
-            font-weight: 600 !important;
+        .file-card:hover::after{opacity:1}
+        .file-card::before{
+            content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+            background:linear-gradient(135deg, rgba(139,92,246,0.28), transparent 55%, rgba(196,181,253,0.18));
+            -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+            mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+            -webkit-mask-composite:xor;mask-composite:exclude;
+            opacity:0;transition:opacity .3s;pointer-events:none;
         }
-
-        [data-theme="light"] input,
-        [data-theme="light"] select,
-        [data-theme="light"] textarea {
-            background: rgba(255, 255, 255, 0.6) !important;
-            color: #0f172a !important;
-            border: 1px solid rgba(255, 255, 255, 0.9) !important;
-            backdrop-filter: blur(10px) !important;
+        .file-card:hover::before{opacity:1}
+        @keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .file-card{animation:cardIn .5s ease both}
+        .badge{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.10em;text-transform:uppercase;padding:5px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;font-weight:500;line-height:1}
+        .badge-pdf{background:rgba(248,113,113,0.10);color:#fca5a5;border-color:rgba(248,113,113,0.18)}
+        .badge-ppt{background:rgba(251,146,60,0.10);color:#fed7aa;border-color:rgba(251,146,60,0.18)}
+        .badge-doc{background:rgba(56,189,248,0.10);color:#7dd3fc;border-color:rgba(56,189,248,0.18)}
+        .badge-img{background:rgba(167,139,250,0.11);color:#c4b5fd;border-color:rgba(167,139,250,0.18)}
+        .badge-other{background:rgba(255,255,255,0.06);color:#a1a1aa;border-color:rgba(255,255,255,0.09)}
+        .subject-tag{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.10em;text-transform:uppercase;color:#a78bfa;background:rgba(139,92,246,0.10);border:1px solid rgba(139,92,246,0.16);padding:5px 9px;border-radius:999px;white-space:nowrap}
+        .btn-white{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;height:40px;padding:0 16px;border-radius:999px;background:white;color:#0a0a0a;font-weight:600;font-size:.84rem;letter-spacing:-.01em;border:none;transition:transform .18s,background .18s,box-shadow .18s;cursor:pointer;text-decoration:none;white-space:nowrap}
+        .btn-white:hover{background:#e4e4e7;transform:translateY(-1px);box-shadow:0 8px 22px rgba(255,255,255,0.09)}
+        .btn-white:active{transform:none}
+        .btn-glass{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:40px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,0.06);color:white;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-weight:600;font-size:.84rem;transition:all .18s;cursor:pointer;white-space:nowrap}
+        .btn-glass:hover{background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.22);transform:translateY(-1px)}
+        .btn-ghost-dark{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:999px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.14);font-weight:600;font-size:.84rem;transition:all .18s;cursor:pointer;white-space:nowrap}
+        .btn-ghost-dark:hover{border-color:rgba(255,255,255,0.28);background:rgba(255,255,255,0.04);transform:translateY(-1px)}
+        /* card actions: hidden until hover on fine pointer, always visible on touch */
+        .card-actions{transition:opacity .28s,transform .28s}
+        @media (hover:hover) and (pointer:fine){
+            .file-card{padding-bottom:0}
+            .card-actions{opacity:0;transform:translateY(8px);pointer-events:none}
+            .file-card:hover .card-actions,.file-card:focus-within .card-actions{opacity:1;transform:none;pointer-events:auto}
+            /* reserve space visually via absolute? keep in flow but fade; to avoid layout shift we keep flow. So above is fine — still reserves space but fades. */
         }
-
-        /* Creative Glu Crystal-Clear Optical Lens Cursor */
-        .custom-cursor {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: var(--cursor-color);
-            pointer-events: none;
-            z-index: 10000000 !important;
-            transform: translate(-50%, -50%);
-            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+        @media (hover:none),(pointer:coarse){
+            .card-actions{opacity:1;transform:none}
         }
-
-        .custom-cursor.active,
-        .custom-cursor.prism-hover {
-            width: 70px !important;
-            height: 70px !important;
-            background: transparent !important;
-            border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
-            box-shadow: 0 0 20px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.6) !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            mix-blend-mode: normal !important;
-        }
-
-        [data-theme="light"] .custom-cursor.active,
-        [data-theme="light"] .custom-cursor.prism-hover {
-            border: 1.5px solid rgba(111, 117, 228, 0.8) !important;
-            box-shadow: 0 0 25px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.9) !important;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none !important; }
-        body { background: var(--bg-color); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
-        h1, h2, h3, .logo { font-family: 'Syne', sans-serif; }
-
-        .custom-cursor { position: fixed; top: 0; left: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--cursor-color); pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); mix-blend-mode: difference; transition: width 0.3s, height 0.3s; }
-        .custom-cursor.active { width: 60px; height: 60px; background: transparent; border: 1px solid var(--cursor-color); }
-
-        .noise { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E'); pointer-events: none; z-index: 10; }
-        .blob { position: fixed; width: 80vw; height: 80vw; background: radial-gradient(circle, rgba(157, 78, 221, 0.1) 0%, transparent 60%); border-radius: 50%; pointer-events: none; z-index: 0; top: -40%; left: -20%; filter: blur(80px); }
-
-        header { display: flex; justify-content: space-between; align-items: center; padding: 2.2rem 4vw; position: fixed; top: 0; width: 100%; z-index: 100; mix-blend-mode: difference; }
-        .logo { font-size: 2vw; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
-        .nav-links { display: flex; gap: 2.5vw; align-items: center; }
-        .nav-links a { 
-            text-decoration: none; 
-            color: white; 
-            font-size: 0.95rem; 
-            font-weight: 500; 
-            display: flex;
-            align-items: center;
-            height: 100%;
-            line-height: 1;
-        }
-
-        .hero { height: 40vh; display: flex; flex-direction: column; justify-content: center; padding: 8rem 4vw 0; position: relative; z-index: 1; }
-        .hero h1 { font-size: 7vw; line-height: 1.1; font-weight: 800; text-transform: uppercase; }
-        .accent-text { color: transparent; -webkit-text-stroke: 1px var(--text-main); }
-
-        .content-wrapper { padding: 4vw; max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; }
-        .ask-btn { background: var(--accent); color: white; border: none; padding: 1.2rem 2.5rem; border-radius: 3rem; font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 3rem; transition: all 0.3s; }
-        .ask-btn:hover { background: var(--accent-bright); transform: translateY(-3px); box-shadow: 0 10px 20px rgba(157, 78, 221, 0.3); }
-
-        .query-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 1.5rem; padding: 2rem; margin-bottom: 2rem; backdrop-filter: blur(10px); transition: border-color 0.3s; }
-        .query-card:hover { border-color: var(--accent); }
-        .query-header { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; }
-        .query-header img { width: 40px; height: 40px; border-radius: 50%; }
-        .query-info h3 { font-size: 1.2rem; margin-bottom: 0.2rem; }
-        .query-meta { font-size: 0.8rem; color: var(--text-muted); }
-        .query-body { font-size: 1.1rem; line-height: 1.6; color: var(--text-main); margin-bottom: 1.5rem; }
-
-        .replies-section { border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1.5rem; }
-        .reply { display: flex; gap: 1rem; margin-bottom: 1.2rem; padding-left: 1rem; border-left: 2px solid var(--accent); }
-        .reply img { width: 30px; height: 30px; border-radius: 50%; }
-        .reply-content { font-size: 0.95rem; color: var(--text-muted); }
-        .reply-author { font-weight: 600; color: var(--text-main); font-size: 0.85rem; margin-bottom: 0.2rem; }
-
-        .reply-form { display: flex; gap: 1rem; margin-top: 1.5rem; }
-        .reply-input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 2rem; padding: 0.8rem 1.5rem; color: white; outline: none; }
-        .reply-input:focus { border-color: var(--accent); }
-        .send-reply-btn { background: var(--accent); border: none; width: 45px; height: 45px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
-        .send-reply-btn:hover { background: var(--accent-bright); transform: scale(1.1); }
-
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 1000; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.3s; }
-        .modal-overlay.active { opacity: 1; pointer-events: all; }
-        .modal { background: var(--bg-color); padding: 3rem; border-radius: 2rem; border: 1px solid var(--border); width: 90%; max-width: 600px; }
-        .input-group { margin-bottom: 1.5rem; }
-        .input-group label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); }
-        .input-group input, .input-group textarea { width: 100%; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 0.8rem; color: white; outline: none; font-family: inherit; }
-
-        #user-section { display: flex; align-items: center; gap: 1rem; }
-        .user-badge { display: flex; align-items: center; gap: 0.75rem; background: var(--panel-bg); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 2rem; font-size: 0.9rem; }
-        .user-badge img { width: 32px; height: 32px; border-radius: 50%; }
-        .hidden { display: none !important; }
-
-        /* Notifications */
-        .notification-badge { position: absolute; top: -5px; right: -10px; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; display: none; }
-        .notification-panel { position: fixed; top: 0; right: -400px; width: 400px; height: 100vh; background: var(--bg-color); border-left: 1px solid var(--border); z-index: 1001; padding: 3rem 2rem; transition: right 0.5s; backdrop-filter: blur(20px); }
-        .notification-panel.active { right: 0; }
-        .notification-item { padding: 1.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text-muted); }
-        .notification-item b { color: var(--text-main); display: block; margin-bottom: 0.2rem; }
-        .notification-time { font-size: 0.75rem; color: var(--accent); display: block; margin-top: 0.5rem; }
-
-        @media (max-width: 768px) {
-            .custom-cursor { display: none !important; }
-            .logo { font-size: 1.4rem; }
-
-            /* Mobile Performance Optimization - Lighten Backdrop Filter GPU Compositing */
-            header,
-            .navbar,
-            .file-card,
-            .glass-panel,
-            .stat-card,
-            .modal-content,
-            .chat-card,
-            input, select, textarea {
-                backdrop-filter: blur(6px) !important;
-                -webkit-backdrop-filter: blur(6px) !important;
-            }
-
-            [data-theme="light"] header,
-            [data-theme="light"] .navbar,
-            [data-theme="light"] .glass-panel,
-            [data-theme="light"] .modal-content,
-            [data-theme="light"] .chat-card {
-                background: rgba(255, 255, 255, 0.65) !important;
-            }
+        /* accordion */
+        .acc-item{border-bottom:1px solid rgba(255,255,255,0.08)}
+        .acc-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s cubic-bezier(.16,1,.3,1)}
+        .acc-item.open .acc-panel{grid-template-rows:1fr}
+        .acc-item.open .acc-icon{transform:rotate(45deg)}
+        .acc-icon{transition:transform .35s cubic-bezier(.16,1,.3,1)}
+        /* modals */
+        .modal-overlay{position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.64);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:80;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .28s ease;padding:16px}
+        .modal-overlay.active{opacity:1;pointer-events:auto}
+        .modal-card{width:100%;max-width:480px;max-height:92vh;overflow:auto;background:#121214;border:1px solid rgba(255,255,255,0.09);border-radius:24px;padding:28px;transform:translateY(14px) scale(.98);transition:transform .36s cubic-bezier(.16,1,.3,1);box-shadow:0 24px 48px rgba(0,0,0,0.55),0 0 0 1px rgba(255,255,255,0.04)}
+        .modal-overlay.active .modal-card{transform:none}
+        .field{width:100%;height:46px;padding:0 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:12px;color:white;font-size:.94rem;outline:none;transition:border-color .18s,background .18s,box-shadow .18s}
+        .field::placeholder{color:#52525b}
+        .field:focus{border-color:rgba(139,92,246,0.5);background:rgba(255,255,255,0.06);box-shadow:0 0 0 4px rgba(139,92,246,0.12)}
+        .field-area{height:auto;min-height:92px;padding:12px 14px;resize:vertical}
+        select.field{appearance:none}
+        select option{background:#141416;color:white}
+        .icon-btn{width:40px;height:40px;display:grid;place-items:center;border-radius:999px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.04);color:#e4e4e7;transition:all .18s}
+        .icon-btn:hover{border-color:rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:white}
+        .fab{position:fixed;right:max(16px,2vw);bottom:calc(max(16px,2vw) + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:white;color:#0a0a0a;border:none;display:grid;place-items:center;box-shadow:0 10px 28px rgba(0,0,0,0.35),0 0 0 1px rgba(255,255,255,0.06);z-index:30;transition:transform .18s,box-shadow .18s}
+        .fab:hover{transform:scale(1.06) translateY(-2px);box-shadow:0 16px 32px rgba(0,0,0,0.42)}
+        .fab.hidden{display:none !important}
+        /* notification panel */
+        .notif-panel{position:fixed;inset:0 0 0 auto;width:min(380px,92vw);height:100dvh;background:#0f0f11;border-left:1px solid rgba(255,255,255,0.08);z-index:70;transform:translateX(100%);transition:transform .42s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column}
+        .notif-panel.active{transform:none}
+        .notif-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.32);backdrop-filter:blur(4px);z-index:69;opacity:0;pointer-events:none;transition:opacity .28s}
+        .notif-backdrop.active{opacity:1;pointer-events:auto}
+        .scrollbar-hide{scrollbar-width:none;-ms-overflow-style:none}
+        .scrollbar-hide::-webkit-scrollbar{display:none}
+        [data-reveal]{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+        [data-reveal].in-view{opacity:1;transform:none}
+        .empty-state{grid-column:1/-1;text-align:center;padding:3rem 1.25rem;background:#141416;border:1px dashed rgba(255,255,255,0.10);border-radius:20px;color:#a1a1aa}
+        @media (prefers-reduced-motion:reduce){
+            *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+            .marquee-track{animation:none !important;transform:none !important}
+            .file-card{animation:none !important}
         }
     </style>
 </head>
-
-<body>
-    <div class="noise"></div>
-    <div class="blob"></div>
-    <div class="custom-cursor"></div>
-
-    <header>
-        <div class="logo"><a href="index.html" style="color: inherit; text-decoration: none;">Nexus</a></div>
-        <nav class="nav-links">
-            <a href="index.html">Home</a>
-            <a href="notice.html">Notice</a>
-            <a href="discussion.html">Discussion</a>
-            <a href="#" id="notifications-link" style="position: relative;">
-                Notifications
-                <span id="notif-badge" class="notification-badge"></span>
+<body class="selection:bg-violet selection:text-white">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="noise" aria-hidden="true"></div>
+    <div class="glow-a" aria-hidden="true"></div>
+    <div class="glow-b" aria-hidden="true"></div>
+    <div class="custom-cursor" aria-hidden="true"></div>
+    <div class="fixed inset-x-0 top-0 z-40 flex justify-center px-4 pt-[14px] pointer-events-none">
+        <nav id="nav-pill" class="pointer-events-auto flex w-full max-w-[1120px] items-center justify-between gap-3 rounded-full border border-white/10 bg-[#121214]/80 px-3 py-[9px] shadow-[0_8px_32px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-[14px] md:px-5 md:py-3">
+            <a href="index.html" class="flex items-center gap-2.5 shrink-0 group" aria-label="NEXUS home">
+                <span class="grid h-8 w-8 place-items-center rounded-full bg-white text-[11px] font-black tracking-tighter text-black md:h-9 md:w-9 md:text-xs">NX</span>
+                <span class="hidden font-display text-[15px] font-[800] tracking-[-0.03em] text-white md:inline">NEXUS</span>
             </a>
-            <div id="user-section" class="hidden"></div>
-            <a href="#" id="login-link">Login</a>
+            <div class="hidden items-center gap-1 rounded-full bg-white/[0.03] p-1 ring-1 ring-white/5 md:flex">
+                <a href="index.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight">Materials</a>
+                <a href="notice.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight" aria-current="page">Notice</a>
+                <a href="discussion.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight">Discussion</a>
+                <a href="admin.html" class="nav-link hidden rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight lg:inline-flex">Admin</a>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="notifications-link" class="icon-btn relative hidden md:grid" aria-label="Notifications">
+                    <i data-lucide="bell" class="h-[16px] w-[16px]"></i>
+                    <span id="notif-badge" class="absolute -right-0.5 -top-0.5 hidden h-[8px] w-[8px] rounded-full bg-[#ef4444] shadow-[0_0_0_3px_#121214]"></span>
+                </button>
+                <div id="user-section" class="hidden items-center gap-2"></div>
+                <a href="#" id="login-link" class="btn-white h-8 px-4 text-[13px] md:h-9 md:px-5 md:text-[13.5px]">Sign in</a>
+                <button id="hamburger" class="hamburger icon-btn md:hidden" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                </button>
+            </div>
         </nav>
-    </header>
-
-    <div id="notification-panel" class="notification-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem;">
-            <h2 style="font-family: 'Syne';">Updates</h2>
-            <button id="close-notifs" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.5rem;">×</button>
-        </div>
-        <div id="notif-list">
-            <p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>
+    </div>
+    <div id="mobile-menu" class="mobile-menu" aria-hidden="true">
+        <div class="mobile-menu-panel">
+            <div class="flex items-center justify-between">
+                <a href="index.html" class="flex items-center gap-2.5">
+                    <span class="grid h-9 w-9 place-items-center rounded-full bg-white text-xs font-black tracking-tighter text-black">NX</span>
+                    <span class="font-display text-[15px] font-[800] tracking-[-0.03em]">NEXUS</span>
+                </a>
+                <button id="menu-close" class="icon-btn" aria-label="Close menu"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <nav class="mt-10 flex flex-col gap-1" aria-label="Mobile navigation">
+                <a href="index.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:0">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Materials</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">01 — ARCHIVE</span>
+                </a>
+                <a href="notice.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:1">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Notice</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">02 — BOARD</span>
+                </a>
+                <a href="discussion.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:2">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Discussion</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">03 — FORUM</span>
+                </a>
+                <a href="admin.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:3">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Admin</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">04 — CONTROL</span>
+                </a>
+                <button id="menu-notif-link" class="mm-link flex items-center justify-between border-b border-white/10 py-6 text-left" style="--i:4">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Updates</span>
+                    <span class="flex items-center gap-2 font-mono text-xs tracking-[0.18em] text-zinc-500"><span id="menu-notif-dot" class="hidden h-2 w-2 rounded-full bg-[#ef4444]"></span> NOTIFICATIONS</span>
+                </button>
+            </nav>
+            <div class="mt-auto pt-8">
+                <div id="menu-user-section" class="mb-4"></div>
+                <a href="#" id="menu-login" class="btn-white w-full justify-center">Sign in with Google</a>
+                <p class="mt-4 text-center font-mono text-[10px] tracking-[0.18em] text-zinc-600">PRODUCTIVITY — ACADEMIC REPOSITORY &amp; NOTES</p>
+            </div>
         </div>
     </div>
+    <div id="notif-backdrop" class="notif-backdrop"></div>
+    <aside id="notification-panel" class="notif-panel" role="complementary" aria-label="Notifications">
+        <div class="flex items-center justify-between border-b border-white/10 px-6 py-5">
+            <h2 class="font-display text-[13px] font-[700] tracking-[0.14em] text-zinc-400">UPDATES</h2>
+            <button id="close-notifs" class="icon-btn h-9 w-9" aria-label="Close notifications"><i data-lucide="x" class="h-4 w-4"></i></button>
+        </div>
+        <div id="notif-list" class="flex-1 overflow-auto px-6 py-6">
+            <p class="py-12 text-center font-mono text-sm text-zinc-500">No new notifications</p>
+        </div>
+    </aside>
 
-    <section class="hero">
-        <h1>Community<br><span class="accent-text">Discussion.</span></h1>
-        <p style="color: var(--text-muted); margin-top: 1rem; max-width: 500px;">Ask questions, share knowledge, and collaborate with your peers.</p>
+
+    <section class="relative z-10 mx-auto max-w-[1120px] px-5 pb-10 pt-[112px] md:px-6 md:pt-[136px]">
+        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-md" data-reveal>
+            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-lilac"></span>
+            <span class="font-mono text-[10px] leading-none tracking-[0.18em] text-zinc-400">COMMUNITY &nbsp;|&nbsp; DISCUSSION FORUM &amp; PEER Q&amp;A</span>
+        </div>
+        <h1 class="mt-6 font-display text-[clamp(2.6rem,7vw,5.4rem)] font-[800] leading-[0.9] tracking-[-0.05em] md:mt-7" data-reveal style="transition-delay:80ms">
+            <span class="block">Community</span>
+            <span class="block"><span class="accent-word" data-text="Discussion."><span class="serif">Discussion.</span></span></span>
+        </h1>
+        <p class="mt-5 max-w-[560px] text-[15px] leading-6 text-zinc-400 md:text-[16px] md:leading-7" data-reveal style="transition-delay:140ms">
+            Ask questions, share knowledge, and collaborate with your peers. Replies are threaded, searchable, and notified in real time.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center gap-3" data-reveal style="transition-delay:200ms">
+            <button id="ask-btn" class="btn-white hidden h-11 px-6 text-[14px]"><i data-lucide="plus" class="h-4 w-4"></i> Ask a question</button>
+            <a href="notice.html" class="btn-ghost-dark hidden h-11 px-6 text-[14px] md:inline-flex">View notices</a>
+        </div>
     </section>
-
-    <div class="content-wrapper">
-        <button id="ask-btn" class="ask-btn hidden">Ask a Question</button>
-        <div id="discussion-grid">
-            <!-- Discussions load here -->
+    <div class="marquee relative z-10" aria-hidden="true">
+        <div class="marquee-track" style="--marquee-dur:32s">
+            <div class="marquee-group"><span class="marquee-item">ASK</span><span class="marquee-dot"></span><span class="marquee-item">ANSWER</span><span class="marquee-dot"></span><span class="marquee-item">COLLABORATE</span><span class="marquee-dot"></span><span class="marquee-item">LEARN TOGETHER</span><span class="marquee-dot"></span><span class="marquee-item">PEER SUPPORT</span><span class="marquee-dot"></span></div>
+            <div class="marquee-group" aria-hidden="true"><span class="marquee-item">ASK</span><span class="marquee-dot"></span><span class="marquee-item">ANSWER</span><span class="marquee-dot"></span><span class="marquee-item">COLLABORATE</span><span class="marquee-dot"></span><span class="marquee-item">LEARN TOGETHER</span><span class="marquee-dot"></span><span class="marquee-item">PEER SUPPORT</span><span class="marquee-dot"></span></div>
         </div>
     </div>
-
-    <!-- Ask Modal -->
-    <div class="modal-overlay" id="ask-modal">
-        <div class="modal">
-            <h2>Ask the Community</h2>
-            <form id="ask-form" style="margin-top: 2rem;">
-                <div class="input-group">
-                    <label>Title</label>
-                    <input type="text" id="ask-title" placeholder="What's on your mind?" required>
+    <section class="relative z-10 mx-auto max-w-[1000px] px-5 py-8 md:px-6 md:py-10">
+        <div class="flex items-center justify-between gap-4 border-t border-white/10 pt-8">
+            <div>
+                <div class="font-mono text-[11px] tracking-[0.18em] text-zinc-500">FORUM — LIVE</div>
+                <h2 class="mt-2 font-display text-[22px] font-[800] tracking-[-0.03em]">Latest discussions</h2>
+            </div>
+            <div class="hidden items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-zinc-600 md:flex"><span class="h-1.5 w-1.5 rounded-full bg-violet"></span> REAL-TIME</div>
+        </div>
+        <div id="discussion-grid" class="mt-6 space-y-4">
+            <div class="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
+                <div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5"><i data-lucide="loader-2" class="h-5 w-5 animate-spin text-zinc-500"></i></div>
+                <p class="mt-4 font-mono text-sm text-zinc-500">Loading discussions…</p>
+            </div>
+        </div>
+    </section>
+    <div id="ask-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Ask question">
+        <div class="modal-card">
+            <div class="flex items-center justify-between">
+                <h2 class="font-display text-[18px] font-[800] tracking-[-0.02em]">Ask the community</h2>
+                <button id="close-modal" class="icon-btn h-8 w-8" aria-label="Close"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <form id="ask-form" class="mt-6 space-y-4">
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">TITLE</label>
+                    <input id="ask-title" type="text" placeholder="What's on your mind?" required class="field">
                 </div>
-                <div class="input-group">
-                    <label>Description</label>
-                    <textarea id="ask-body" rows="5" placeholder="Provide more details..." required></textarea>
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">DESCRIPTION</label>
+                    <textarea id="ask-body" rows="5" placeholder="Provide more details..." required class="field field-area"></textarea>
                 </div>
-                <div style="display: flex; gap: 1rem;">
-                    <button type="button" class="ask-btn" id="close-modal" style="background: transparent; border: 1px solid var(--border);">Cancel</button>
-                    <button type="submit" class="ask-btn" style="flex: 1; margin: 0;">Post Query</button>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" id="cancel-ask" class="btn-ghost-dark flex-1">Cancel</button>
+                    <button type="submit" class="btn-white flex-1">Post question</button>
                 </div>
             </form>
         </div>
     </div>
+<script>
+function refreshIcons(){ if(window.lucide) try{ lucide.createIcons(); }catch(e){} }
+let auth=null, db=null, currentUser=null, userData=null;
+async function initializeAppFlow(){
+    try{
+        const res=await fetch("https://nexus-omega-jet.vercel.app/api/firebase-config");
+        if(!res.ok) throw new Error("Failed to fetch firebase config: "+res.statusText);
+        const config=await res.json();
+        firebase.initializeApp(config);
+        auth=firebase.auth(); db=firebase.firestore();
+        initAuthListener(); initNotifications();
+    }catch(err){
+        console.error(err);
+        const g=document.getElementById("discussion-grid");
+        if(g) g.innerHTML = `<div class="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center text-red-300">${err.message}</div>`;
+    }
+}
+initializeAppFlow();
+const cursor=document.querySelector(".custom-cursor");
+if(cursor && matchMedia("(pointer:fine)").matches){
+    document.documentElement.classList.add("custom-cursor-active"); cursor.style.opacity="1";
+    document.addEventListener("mousemove",e=> gsap.to(cursor,{x:e.clientX,y:e.clientY,duration:.1,ease:"power2.out"}));
+    document.addEventListener("mouseover",e=>{ if(e.target.closest("a,button,.query-card")) cursor.classList.add("active"); });
+    document.addEventListener("mouseout",e=>{ if(e.target.closest("a,button,.query-card")) cursor.classList.remove("active"); });
+}
+let lenis=null;
+        try{
+            const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+            lenis=new Lenis({ duration: 1.0, easing: t=>Math.min(1,1.001-Math.pow(2,-10*t)), smoothWheel: true, smoothTouch: false, syncTouch: false, infinite: false });
+            document.documentElement.classList.add('lenis','lenis-smooth');
+            function raf(t){ lenis.raf(t); requestAnimationFrame(raf); }
+            requestAnimationFrame(raf);
+            document.body.style.overflow = '';
+        }catch(e){ console.warn('Lenis init failed, using native scroll', e); document.documentElement.classList.remove('lenis','lenis-smooth'); }
+const navPill=document.getElementById("nav-pill");
+window.addEventListener("scroll",()=>{ if(window.scrollY>10) navPill?.classList.add("shadow-[0_12px_40px_rgba(0,0,0,0.45)]"); else navPill?.classList.remove("shadow-[0_12px_40px_rgba(0,0,0,0.45)]"); },{passive:true});
+const hamburger=document.getElementById("hamburger"), mobileMenu=document.getElementById("mobile-menu"), menuClose=document.getElementById("menu-close");
+function openMenu(){ mobileMenu.classList.add("is-open"); mobileMenu.setAttribute("aria-hidden","false"); hamburger.setAttribute("aria-expanded","true"); document.body.style.overflow="hidden"; refreshIcons(); }
+window.closeMobileMenu=function(){ mobileMenu.classList.remove("is-open"); mobileMenu.setAttribute("aria-hidden","true"); hamburger.setAttribute("aria-expanded","false"); document.body.style.overflow=""; try{ lenis && lenis.start(); }catch(e){}; try{ lenis && lenis.start(); }catch(e){};};
+hamburger?.addEventListener("click",()=> mobileMenu.classList.contains("is-open")?window.closeMobileMenu():openMenu());
+menuClose?.addEventListener("click",window.closeMobileMenu);
+mobileMenu?.addEventListener("click",e=>{ if(e.target===mobileMenu) window.closeMobileMenu(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && mobileMenu.classList.contains("is-open")) window.closeMobileMenu(); });
+document.getElementById("menu-notif-link")?.addEventListener("click",e=>{ e.preventDefault(); window.closeMobileMenu(); document.getElementById("notification-panel").classList.add("active"); document.getElementById("notif-backdrop").classList.add("active"); });
+document.getElementById("menu-login")?.addEventListener("click",e=>{ e.preventDefault(); window.closeMobileMenu(); auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); });
+if(!matchMedia("(prefers-reduced-motion: reduce)").matches){ gsap.from(".accent-word",{scale:.98,opacity:0,duration:.7,delay:.3,ease:"power3.out"}); }
+document.querySelectorAll("[data-reveal]").forEach(el=>{
+    if("IntersectionObserver" in window){
+        const io=new IntersectionObserver(ents=>{ ents.forEach(ent=>{ if(ent.isIntersecting){ ent.target.classList.add("in-view"); io.unobserve(ent.target); }}); },{threshold:.12});
+        io.observe(el);
+    } else el.classList.add("in-view");
+});
+function escapeHtml(s){ if(!s) return ""; const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+function initAuthListener(){
+    auth.onAuthStateChanged(async user=>{
+        if(user){
+            currentUser=user;
+            const snap=await db.collection("users").doc(user.uid).get();
+            userData=snap.exists?snap.data():null;
+            if(userData && (userData.role==="admin" || userData.role==="friend")){
+                renderUser(user, userData.role);
+                document.getElementById("ask-btn").classList.remove("hidden");
+                loadDiscussions();
+            } else { auth.signOut(); }
+        } else { renderLoggedOut(); loadDiscussions(); }
+        refreshIcons();
+    });
+}
+function renderUser(user, role){
+    const ll=document.getElementById("login-link"), us=document.getElementById("user-section"), mu=document.getElementById("menu-user-section");
+    ll.classList.add("hidden"); ll.style.display="none"; us.classList.remove("hidden"); us.classList.add("flex");
+    const name=userData?.name||user.displayName||user.email;
+    const photo=user.photoURL||"https://via.placeholder.com/32";
+    us.innerHTML=`<div class="relative" id="user-menu-root"><button id="user-chip" class="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pl-1 pr-3 backdrop-blur-md hover:border-white/20"><img src="${photo}" alt="" class="h-7 w-7 rounded-full object-cover"><span class="hidden flex-col items-start leading-none md:flex"><span class="text-[12.5px] font-[600]">${escapeHtml(name)}</span><span class="font-mono text-[10px] tracking-[0.12em] text-violet">${escapeHtml(role)}</span></span><i data-lucide="chevron-down" class="hidden h-3.5 w-3.5 text-zinc-500 md:block"></i></button><div id="user-dropdown" class="absolute right-0 top-[calc(100%+10px)] hidden w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#141416] p-1.5 shadow-xl"><button data-action="change-name" class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] text-zinc-300 hover:bg-white/[0.06] hover:text-white"><i data-lucide="pencil" class="h-4 w-4"></i> Change name</button><div class="my-1 h-px bg-white/10"></div><button data-action="logout" class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] text-zinc-300 hover:bg-white/[0.06] hover:text-white"><i data-lucide="log-out" class="h-4 w-4"></i> Sign out</button></div></div>`;
+    if(mu) mu.innerHTML=`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3"><img src="${photo}" alt="" class="h-10 w-10 rounded-full"><div class="min-w-0"><div class="truncate text-sm font-[600]">${escapeHtml(name)}</div><div class="font-mono text-[11px] tracking-[0.12em] text-violet">${escapeHtml(role)}</div></div></div><button data-action="logout" class="mt-2 flex w-full justify-center rounded-full bg-white py-2.5 text-sm font-[600] text-black">Sign out</button>`;
+    document.getElementById("menu-login")?.classList.add("hidden"); refreshIcons();
+    const chip=document.getElementById("user-chip"), dd=document.getElementById("user-dropdown");
+    chip?.addEventListener("click",e=>{ e.stopPropagation(); dd.classList.toggle("hidden"); });
+    document.addEventListener("click",e=>{ if(!e.target.closest("#user-menu-root")) dd?.classList.add("hidden"); });
+    us.querySelectorAll("[data-action]").forEach(b=> b.addEventListener("click", async e=>{
+        const a=e.currentTarget.getAttribute("data-action");
+        dd?.classList.add("hidden");
+        if(a==="logout") auth.signOut();
+        if(a==="change-name"){ const nn=prompt("Enter new display name:", name); if(nn && nn.trim() && nn!==name && confirm(`Change to "${nn.trim()}"?`)){ await db.collection("users").doc(user.uid).update({name:nn.trim()}); location.reload(); } }
+    }));
+    mu?.querySelectorAll("[data-action]").forEach(b=> b.addEventListener("click", e=>{ if(e.currentTarget.getAttribute("data-action")==="logout"){ auth.signOut(); window.closeMobileMenu(); }}));
+}
+function renderLoggedOut(){
+    const ll=document.getElementById("login-link"), us=document.getElementById("user-section"), mu=document.getElementById("menu-user-section");
+    ll.classList.remove("hidden"); ll.style.display=""; us.classList.add("hidden"); us.classList.remove("flex"); us.innerHTML=""; if(mu) mu.innerHTML=""; document.getElementById("menu-login")?.classList.remove("hidden"); document.getElementById("ask-btn").classList.add("hidden"); refreshIcons();
+}
+document.getElementById("login-link").addEventListener("click",()=> auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
+function loadDiscussions(){
+    db.collection("discussions").orderBy("createdAt","desc").onSnapshot(snap=>{
+        const grid=document.getElementById("discussion-grid"); grid.innerHTML="";
+        if(snap.empty){ grid.innerHTML='<div class="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5"><i data-lucide="messages-square" class="h-5 w-5 text-zinc-500"></i></div><h3 class="mt-4 font-display text-[18px] font-[700]">No discussions yet</h3><p class="mx-auto mt-2 max-w-[40ch] text-sm text-zinc-500">Be the first to ask a question and start the conversation.</p></div>'; refreshIcons(); return; }
+        snap.forEach(doc=>{
+            const d=doc.data();
+            const card=document.createElement("div");
+            card.className="group relative overflow-hidden rounded-[20px] border border-white/10 bg-[#141416] p-6 transition-all hover:border-white/15 md:p-7";
+            card.innerHTML=`<div class="flex gap-3"><img src="${d.authorPhoto||'https://via.placeholder.com/40'}" alt="" class="h-10 w-10 shrink-0 rounded-full object-cover"><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-3"><h3 class="font-display text-[16px] font-[700] leading-tight tracking-[-0.02em]">${escapeHtml(d.title)}</h3><span class="hidden shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] tracking-[0.14em] text-zinc-500 md:inline-flex">${d.createdAt? d.createdAt.toDate().toLocaleDateString():"Just now"}</span></div><div class="mt-1 font-mono text-[11px] tracking-wide text-zinc-500">Asked by ${escapeHtml(d.authorName)} • ${d.createdAt? d.createdAt.toDate().toLocaleDateString():"Just now"}</div><p class="mt-3 whitespace-pre-wrap text-[13.5px] leading-6 text-zinc-300">${escapeHtml(d.body)}</p>${(userData && userData.role==="admin")?`<button onclick="deleteDiscussion('${doc.id}')" class="mt-3 inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/15"><i data-lucide="trash-2" class="h-3 w-3"></i> Delete</button>`:""}<div class="replies-section mt-6 border-t border-white/10 pt-6" id="replies-${doc.id}"></div>${userData?`<form class="reply-form mt-4 flex gap-2" onsubmit="event.preventDefault(); postReply('${doc.id}', this['reply-text'].value); this.reset();"><input type="text" name="reply-text" placeholder="Type your answer..." required class="field flex-1 !h-10 !rounded-full !text-[13.5px]"><button type="submit" class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-black transition hover:bg-zinc-200"><i data-lucide="send" class="h-4 w-4"></i></button></form>`:"<p class='mt-4 rounded-full bg-white/[0.04] px-4 py-2 text-center text-xs text-zinc-500'>Sign in to reply</p>"}</div></div>`;
+            grid.appendChild(card);
+            loadReplies(doc.id);
+        });
+        refreshIcons();
+    });
+}
+function loadReplies(id){
+    db.collection("discussions").doc(id).collection("replies").orderBy("createdAt","asc").onSnapshot(snap=>{
+        const c=document.getElementById(`replies-${id}`); if(!c) return; c.innerHTML="";
+        snap.forEach(doc=>{
+            const d=doc.data();
+            const el=document.createElement("div");
+            el.className="flex gap-3 py-3";
+            el.innerHTML=`<img src="${d.authorPhoto||'https://via.placeholder.com/30'}" alt="" class="h-7 w-7 shrink-0 rounded-full object-cover"><div class="min-w-0 flex-1 rounded-2xl bg-white/[0.04] px-4 py-3"><div class="flex items-center justify-between gap-2"><span class="font-display text-[13px] font-[600]">${escapeHtml(d.authorName)}</span>${(userData && userData.role==="admin")?`<button onclick="deleteReply('${id}', '${doc.id}')" class="text-[11px] text-red-300 hover:text-red-200">Delete</button>`:""}</div><p class="mt-1 text-[13px] leading-5 text-zinc-400">${escapeHtml(d.text)}</p></div>`;
+            c.appendChild(el);
+        });
+        refreshIcons();
+    });
+}
+async function postReply(id, text){
+    if(!userData) return;
+    await db.collection("discussions").doc(id).collection("replies").add({ text, authorName: userData.name||currentUser.displayName||"Anonymous", authorPhoto: currentUser.photoURL||"", authorId: currentUser.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection("notifications").add({ title:"New Reply", message: `${userData.name||"Someone"} replied to a discussion.`, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+}
+const askModal=document.getElementById("ask-modal");
+document.getElementById("ask-btn")?.addEventListener("click",()=> askModal.classList.add("active"));
+document.getElementById("close-modal")?.addEventListener("click",()=> askModal.classList.remove("active"));
+document.getElementById("cancel-ask")?.addEventListener("click",()=> askModal.classList.remove("active"));
+askModal?.addEventListener("click",e=>{ if(e.target===askModal) askModal.classList.remove("active"); });
+document.getElementById("ask-form")?.addEventListener("submit", async e=>{
+    e.preventDefault();
+    const title=document.getElementById("ask-title").value, body=document.getElementById("ask-body").value;
+    await db.collection("discussions").add({ title, body, authorName: userData.name||currentUser.displayName||"Anonymous", authorPhoto: currentUser.photoURL||"", authorId: currentUser.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection("notifications").add({ title:"New Discussion", message: `${userData.name||"Someone"} started: ${title}`, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    askModal.classList.remove("active"); e.target.reset();
+});
+function initNotifications(){
+    const badge=document.getElementById("notif-badge"), list=document.getElementById("notif-list"), panel=document.getElementById("notification-panel"), backdrop=document.getElementById("notif-backdrop"), trigger=document.getElementById("notifications-link"), closeBtn=document.getElementById("close-notifs"), menuDot=document.getElementById("menu-notif-dot");
+    function openPanel(){ panel.classList.add("active"); backdrop.classList.add("active"); if(badge){badge.style.display="none"; badge.classList.add("hidden");} if(menuDot) menuDot.classList.add("hidden"); localStorage.setItem("nexus_last_notif_check", Date.now()); }
+    function closePanel(){ panel.classList.remove("active"); backdrop.classList.remove("active"); }
+    trigger?.addEventListener("click",e=>{ e.preventDefault(); if(panel.classList.contains("active")) closePanel(); else openPanel(); });
+    closeBtn?.addEventListener("click",closePanel); backdrop?.addEventListener("click",closePanel);
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape" && panel.classList.contains("active")) closePanel(); });
+    db.collection("notifications").orderBy("createdAt","desc").limit(15).onSnapshot(snap=>{
+        if(snap.empty){ list.innerHTML='<p class="py-12 text-center font-mono text-sm text-zinc-500">No new notifications</p>'; if(badge) badge.classList.add("hidden"); if(menuDot) menuDot.classList.add("hidden"); return; }
+        const lastChecked=parseInt(localStorage.getItem("nexus_last_notif_check")||0); let hasNew=false; list.innerHTML="";
+        snap.forEach(doc=>{
+            const d=doc.data(); const at=d.createdAt? d.createdAt.toMillis():Date.now(); if(at>lastChecked) hasNew=true;
+            const time=d.createdAt? d.createdAt.toDate().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Just now";
+            const item=document.createElement("div"); item.className="border-b border-white/10 py-4 last:border-0";
+            item.innerHTML=`<div class="flex items-start justify-between gap-3"><b class="font-display text-[13px] font-[700]">${escapeHtml(d.title)}</b>${(userData && userData.role==="admin")?`<button onclick="deleteNotification('${doc.id}')" class="grid h-8 w-8 place-items-center rounded-full text-zinc-500 hover:bg-white/10 hover:text-red-400"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>`:""}</div><p class="mt-1 text-[13px] leading-5 text-zinc-400">${escapeHtml(d.message)}</p><span class="mt-2 inline-block font-mono text-[11px] text-violet">${escapeHtml(time)}</span>`;
+            list.appendChild(item);
+        }); refreshIcons();
+        if(hasNew && !panel.classList.contains("active")){ if(badge){badge.style.display="block"; badge.classList.remove("hidden");} if(menuDot) menuDot.classList.remove("hidden"); } else { if(badge) badge.classList.add("hidden"); if(menuDot) menuDot.classList.add("hidden"); }
+    });
+}
+window.deleteNotification=async function(id){ if(confirm("Delete this notification for everyone?")) await db.collection("notifications").doc(id).delete(); };
+window.deleteDiscussion=async function(id){ if(confirm("Delete this discussion and all its replies?")) await db.collection("discussions").doc(id).delete(); };
+window.deleteReply=async function(did, rid){ if(confirm("Delete this reply?")) await db.collection("discussions").doc(did).collection("replies").doc(rid).delete(); };
+window.postReply=postReply;
+refreshIcons();
+</script>
+
+    <footer class="relative z-10 overflow-hidden border-t border-white/10 bg-[#0a0a0a]">
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center overflow-hidden select-none">
+            <span class="translate-y-[28%] font-display text-[20vw] font-[800] leading-none tracking-[-0.06em] text-white/[0.035] md:text-[17vw]">NEXUS</span>
+        </div>
+        <div class="relative mx-auto max-w-[1120px] px-5 py-10 md:px-6 md:py-12">
+            <div class="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="grid h-8 w-8 place-items-center rounded-full bg-white text-[11px] font-black tracking-tighter text-black">NX</span>
+                        <span class="font-display text-[15px] font-[800] tracking-[-0.03em]">NEXUS</span>
+                        <span class="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] tracking-[0.14em] text-zinc-500">© 2026</span>
+                    </div>
+                    <p class="mt-3 max-w-[36ch] text-[13px] leading-5 text-zinc-500">An editorial-grade academic repository by students, for students. Minimal. Fast. Obsessively curated.</p>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <div class="font-mono text-[11px] tracking-[0.14em] text-zinc-500">QUICK LINKS</div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="https://github.com" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="github" class="h-3.5 w-3.5"></i> GitHub</a>
+                        <a href="discussion.html" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="messages-square" class="h-3.5 w-3.5"></i> Discord</a>
+                        <a href="notice.html" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="graduation-cap" class="h-3.5 w-3.5"></i> Campus Portal</a>
+                        <a href="#" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="mail" class="h-3.5 w-3.5"></i> Feedback</a>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-[11px] leading-5 text-zinc-600 md:flex-row md:items-center md:justify-between">
+                <span>Built with care in India · <a href="#" class="underline decoration-white/20 underline-offset-4 hover:text-zinc-400">Privacy</a> · <a href="#" class="underline decoration-white/20 underline-offset-4 hover:text-zinc-400">Terms</a></span>
+                <span class="font-mono tracking-wide">ALL MATERIALS ARE PEER-CONTRIBUTED — VERIFY BEFORE CITING.</span>
+            </div>
+        </div>
+    </footer>
+
 
     <script>
-        let auth = null;
-        let db = null;
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCSHxv74kZ2kSeJVHHDRzT9UUAwAebAdr4",
-            authDomain: "nexus-e7a36.firebaseapp.com",
-            projectId: "nexus-e7a36",
-            storageBucket: "nexus-e7a36.firebasestorage.app",
-            messagingSenderId: "516259533933",
-            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
-        };
-
-        async function initializeAppFlow() {
-            try {
-                firebase.initializeApp(firebaseConfig);
-                auth = firebase.auth();
-                db = firebase.firestore();
-                db.enablePersistence().catch(err => console.warn('Firestore persistence disabled:', err));
-                
-                initAuthListener();
-                initNotifications();
-            } catch (err) {
-                console.error('Initialization error:', err);
-                const grid = document.getElementById('discussion-grid');
-                if (grid) {
-                    grid.innerHTML = `<p style="color: var(--error); text-align: center; padding: 2rem;">Failed to initialize system connection: ${err.message}</p>`;
-                }
+    // Force scrollable after load - fix for Lenis lock
+    window.addEventListener('load', () => {
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.height = 'auto';
+        document.body.style.height = 'auto';
+        // If Lenis is active, ensure it doesn't lock
+        if(document.documentElement.classList.contains('lenis')){
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+        }
+        // Emergency: if page is not scrollable after 1s, disable Lenis
+        setTimeout(() => {
+            if(window.scrollY === 0 && document.documentElement.scrollHeight <= window.innerHeight + 10){
+                // Not scrollable - maybe Lenis locked?
             }
-        }
-        initializeAppFlow();
-        let currentUser = null;
-        let userData = null;
-
-        const cursor = document.querySelector('.custom-cursor');
-        document.addEventListener('mousemove', e => gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1 }));
-        function initCursor() { document.querySelectorAll('a, button, .user-badge').forEach(el => {
-            el.addEventListener('mouseenter', () => cursor.classList.add('active'));
-            el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
-        }); }
-
-        function initAuthListener() {
-            auth.onAuthStateChanged(async user => {
-                if (user) {
-                    currentUser = user;
-                    const snap = await db.collection('users').doc(user.uid).get();
-                    userData = snap.exists ? snap.data() : null;
-                    if (userData && (userData.role === 'admin' || userData.role === 'friend')) {
-                        showUserBadge(user, userData.role);
-                        document.getElementById('ask-btn').classList.remove('hidden');
-                        loadDiscussions();
-                    } else { auth.signOut(); }
-                } else { showLoginBtn(); loadDiscussions(); }
-            });
-        }
-
-        function showUserBadge(user, role) {
-            const loginLink = document.getElementById('login-link');
-            const userSection = document.getElementById('user-section');
-            loginLink.classList.add('hidden');
-            userSection.classList.remove('hidden');
-            const name = userData.name || user.displayName || user.email;
-            userSection.innerHTML = `
-                <div class="user-badge">
-                    <img src="${user.photoURL || 'https://via.placeholder.com/32'}" alt="">
-                    <div><div style="font-weight:600;">${name}</div><div style="font-size:0.7rem; color:var(--accent);">${role}</div></div>
-                </div>
-                <a href="#" onclick="auth.signOut()" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">Logout</a>
-            `;
-            initCursor();
-        }
-
-        function showLoginBtn() {
-            document.getElementById('login-link').classList.remove('hidden');
-            document.getElementById('user-section').classList.add('hidden');
-            document.getElementById('ask-btn').classList.add('hidden');
-        }
-
-        document.getElementById('login-link').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
-
-        function loadDiscussions() {
-            db.collection('discussions').orderBy('createdAt', 'desc').onSnapshot(snap => {
-                const grid = document.getElementById('discussion-grid');
-                grid.innerHTML = '';
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const card = document.createElement('div');
-                    card.className = 'query-card';
-                    card.innerHTML = `
-                        <div class="query-header">
-                            <img src="${data.authorPhoto || 'https://via.placeholder.com/40'}" alt="">
-                            <div class="query-info">
-                                <h3>${data.title}</h3>
-                                <div class="query-meta">Asked by ${data.authorName} • ${data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Just now'}</div>
-                            </div>
-                        </div>
-                        <div class="query-body">${data.body}</div>
-                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                            ${(userData && userData.role === 'admin') ? `
-                                <button onclick="deleteDiscussion('${doc.id}')" style="background:none; border:none; color:var(--error); cursor:pointer; font-size:0.8rem;">Delete Discussion</button>
-                            ` : ''}
-                        </div>
-                        <div class="replies-section" id="replies-${doc.id}">
-                            <!-- Replies load here -->
-                        </div>
-                        ${userData ? `
-                            <form class="reply-form" onsubmit="event.preventDefault(); postReply('${doc.id}', this['reply-text'].value); this.reset();">
-                                <input type="text" name="reply-text" class="reply-input" placeholder="Type your answer..." required>
-                                <button type="submit" class="send-reply-btn">➤</button>
-                            </form>
-                        ` : ''}
-                    `;
-                    grid.appendChild(card);
-                    loadReplies(doc.id);
-                });
-                initCursor();
-            });
-        }
-
-        function loadReplies(id) {
-            db.collection('discussions').doc(id).collection('replies').orderBy('createdAt', 'asc').onSnapshot(snap => {
-                const container = document.getElementById(`replies-${id}`);
-                container.innerHTML = '';
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const reply = document.createElement('div');
-                    reply.className = 'reply';
-                    reply.innerHTML = `
-                        <img src="${data.authorPhoto || 'https://via.placeholder.com/30'}" alt="">
-                        <div class="reply-content">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div class="reply-author">${data.authorName}</div>
-                                ${(userData && userData.role === 'admin') ? `
-                                    <button onclick="deleteReply('${id}', '${doc.id}')" style="background:none; border:none; color:var(--error); cursor:pointer; font-size:0.7rem;">Delete</button>
-                                ` : ''}
-                            </div>
-                            <div>${data.text}</div>
-                        </div>
-                    `;
-                    container.appendChild(reply);
-                });
-            });
-        }
-
-        async function postReply(id, text) {
-            if (!userData) return;
-            await db.collection('discussions').doc(id).collection('replies').add({
-                text,
-                authorName: userData.name || currentUser.displayName || 'Anonymous',
-                authorPhoto: currentUser.photoURL || '',
-                authorId: currentUser.uid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Trigger Notification
-            await db.collection('notifications').add({
-                title: 'New Reply',
-                message: `${userData.name || 'Someone'} replied to a discussion.`,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        }
-
-        const askModal = document.getElementById('ask-modal');
-        document.getElementById('ask-btn').addEventListener('click', () => askModal.classList.add('active'));
-        document.getElementById('close-modal').addEventListener('click', () => askModal.classList.remove('active'));
-
-        document.getElementById('ask-form').addEventListener('submit', async e => {
-            e.preventDefault();
-            const title = document.getElementById('ask-title').value;
-            const body = document.getElementById('ask-body').value;
-            await db.collection('discussions').add({
-                title, body,
-                authorName: userData.name || currentUser.displayName || 'Anonymous',
-                authorPhoto: currentUser.photoURL || '',
-                authorId: currentUser.uid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Trigger Notification
-            await db.collection('notifications').add({
-                title: 'New Discussion',
-                message: `${userData.name || 'Someone'} started a new topic: ${title}`,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            askModal.classList.remove('active');
-        });
-
-        // Notifications
-        function initNotifications() {
-            const badge = document.getElementById('notif-badge');
-            const list = document.getElementById('notif-list');
-            const panel = document.getElementById('notification-panel');
-            const trigger = document.getElementById('notifications-link');
-            const closeBtn = document.getElementById('close-notifs');
-
-            trigger.addEventListener('click', (e) => {
-                e.preventDefault();
-                panel.classList.toggle('active');
-                if (panel.classList.contains('active')) {
-                    badge.style.display = 'none';
-                    localStorage.setItem('nexus_last_notif_check', Date.now());
+            // Test scroll - if document is stuck, remove Lenis
+            const testScroll = () => {
+                const before = window.scrollY;
+                window.scrollBy(0, 1);
+                const after = window.scrollY;
+                if(before === after && document.documentElement.scrollHeight > window.innerHeight){
+                    console.warn('Scroll locked, disabling Lenis');
+                    document.documentElement.classList.remove('lenis','lenis-smooth');
+                    document.body.style.overflow = 'auto';
+                    document.documentElement.style.overflow = 'auto';
+                    if(window.lenis) try{ window.lenis.destroy(); }catch(e){}
                 }
-            });
-
-            closeBtn.addEventListener('click', () => panel.classList.remove('active'));
-
-            db.collection('notifications').orderBy('createdAt', 'desc').limit(15).onSnapshot(snap => {
-                if (snap.empty) {
-                    list.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>';
-                    badge.style.display = 'none';
-                    return;
-                }
-
-                const lastChecked = parseInt(localStorage.getItem('nexus_last_notif_check') || 0);
-                const isSystemAdmin = userData && userData.role === 'admin';
-                let hasNew = false;
-
-                list.innerHTML = '';
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const createdAt = data.createdAt ? data.createdAt.toMillis() : Date.now();
-                    if (createdAt > lastChecked) hasNew = true;
-
-                    const time = data.createdAt ? data.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
-                    const item = document.createElement('div');
-                    item.className = 'notification-item';
-                    item.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <b>${data.title}</b>
-                            ${isSystemAdmin ? `<button onclick="deleteNotification('${doc.id}')" style="background:none; border:none; color:var(--error); cursor:pointer; font-size:1.2rem; line-height:1;">×</button>` : ''}
-                        </div>
-                        <span style="display:block; margin-top:0.2rem;">${data.message}</span>
-                        <span class="notification-time">${time}</span>
-                    `;
-                    list.appendChild(item);
-                });
-
-                if (hasNew && !panel.classList.contains('active')) {
-                    badge.style.display = 'block';
-                } else {
-                    badge.style.display = 'none';
-                }
-            });
-        }
-
-        async function deleteNotification(id) {
-            if (confirm('Delete this notification for everyone?')) {
-                await db.collection('notifications').doc(id).delete();
-            }
-        }
-        window.deleteNotification = deleteNotification;
-
-        async function deleteDiscussion(id) {
-            if (confirm('Are you sure you want to delete this discussion and all its replies?')) {
-                await db.collection('discussions').doc(id).delete();
-                // Subcollections need manual cleanup or just let them stay (not ideal but Firestore limit)
-            }
-        }
-
-        async function deleteReply(discussionId, replyId) {
-            if (confirm('Delete this reply?')) {
-                await db.collection('discussions').doc(discussionId).collection('replies').doc(replyId).delete();
-            }
-        }
-
-        window.postReply = postReply;
-        window.deleteDiscussion = deleteDiscussion;
-        window.deleteReply = deleteReply;
+                window.scrollTo(0,0);
+            };
+            // Only test if user hasn't scrolled yet
+            if(window.scrollY === 0) setTimeout(testScroll, 500);
+        }, 1200);
+    });
     </script>
+
 </body>
 </html>

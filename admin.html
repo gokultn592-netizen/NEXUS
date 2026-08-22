@@ -1,1191 +1,746 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Control | Admin Portal</title>
-    
-    <!-- PWA Basics -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#9d4edd">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="pwa-helper.js?v=52"></script>
-    
+    <title>NEXUS — Admin Portal</title>
+    <meta name="color-scheme" content="dark">
+    <meta name="description" content="Master control for members, subjects, and materials.">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0a0a'/><rect x='10' y='10' width='44' height='44' rx='10' fill='none' stroke='white' stroke-opacity='0.08'/><text x='32' y='40' font-family='Syne,sans-serif' font-size='22' font-weight='800' fill='white' text-anchor='middle' letter-spacing='-0.04em'>NX</text></svg>">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- GSAP & Lenis -->
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne','sans-serif'],
+                        body: ['Inter','sans-serif'],
+                        mono: ['JetBrains Mono','monospace'],
+                        serif: ['Instrument Serif','serif'],
+                    },
+                    colors: {
+                        obsidian: '#0a0a0a',
+                        charcoal: '#0f0f11',
+                        surface: '#141416',
+                        lilac: '#c4b5fd',
+                        butter: '#fef08a',
+                        violet: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <!-- GSAP / Lenis / Firebase -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js"></script>
-
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
 
     <style>
-        :root {
-            --bg-color: #030005;
-            --text-main: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --accent: #9d4edd;
-            --accent-bright: #c77dff;
-            --panel-bg: rgba(255, 255, 255, 0.03);
-            --border: rgba(255, 255, 255, 0.08);
-            --cursor-color: #c77dff;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-        }
+        *,*::before,*::after{box-sizing:border-box}
+        /* Lenis - smooth scroll fix */
+        html.lenis, html.lenis body { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto !important; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
+        html { scroll-behavior: auto; overflow-y: auto; overflow-x: clip; }
+        body { min-height: 100vh; overflow-y: auto; overflow-x: clip; }
+        html, body { height: auto; }
 
-        /* 28k.studio Specular Glassmorphic Light Theme System */
-        [data-theme="light"] {
-            --bg-color: #f8fafc;
-            --text-main: #0f172a;
-            --text-muted: #475569;
-            --accent: #6366f1;
-            --accent-bright: #a855f7;
-            --panel-bg: rgba(255, 255, 255, 0.65);
-            --border: rgba(255, 255, 255, 0.85);
-            --cursor-color: #6366f1;
+        html{scrollbar-gutter:stable}
+        body{
+            background:#0a0a0a;
+            color:#f4f4f5;
+            font-family:'Inter',sans-serif;
+            -webkit-font-smoothing:antialiased;
+            text-rendering:optimizeLegibility;
+            overflow-x:clip;
         }
-
-        /* 28k.studio Ambient Pastel Aurora Canvas Background */
-        [data-theme="light"] body {
-            background-color: #f8fafc;
-            background-image: 
-                radial-gradient(circle at 12% 18%, rgba(224, 231, 255, 0.65) 0%, transparent 40%),
-                radial-gradient(circle at 88% 25%, rgba(209, 250, 229, 0.55) 0%, transparent 45%),
-                radial-gradient(circle at 50% 80%, rgba(254, 226, 226, 0.5) 0%, transparent 50%);
-            background-attachment: fixed;
+        ::selection{background:#8b5cf6;color:white}
+        :where(a,button,input,select,textarea,[tabindex]):focus{outline:none}
+        :where(a,button,input,select,textarea,[tabindex]):focus-visible{
+            outline:2px solid #8b5cf6;outline-offset:3px;
+            box-shadow:0 0 0 6px rgba(139,92,246,0.18);
+            border-radius:8px;
         }
-
-        /* 28k.studio Specular Crystal Glass Panels */
-        [data-theme="light"] .navbar,
-        [data-theme="light"] .file-card,
-        [data-theme="light"] .glass-panel,
-        [data-theme="light"] .stat-card,
-        [data-theme="light"] .modal-content,
-        [data-theme="light"] .table-container,
-        [data-theme="light"] tr {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.45) 100%) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border: 1px solid rgba(255, 255, 255, 0.85) !important;
-            box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.95), 0 10px 30px -10px rgba(15, 23, 42, 0.06) !important;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+        .skip-link{position:absolute;top:-100%;left:12px;z-index:9999;background:white;color:#0a0a0a;padding:10px 16px;border-radius:999px;font-weight:600;text-decoration:none;font-size:.9rem;transition:top .2s}
+        .skip-link:focus{top:12px}
+        /* noise + glow */
+        .noise{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:1;opacity:.42;background-image:url("data:image/svg+xml;utf8,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")}
+        .glow-a{position:fixed;width:72vw;height:72vw;left:-14%;top:-32%;pointer-events:none;z-index:0;background:radial-gradient(circle, rgba(139,92,246,0.09) 0%, transparent 64%);filter:blur(48px)}
+        .glow-b{position:fixed;width:60vw;height:60vw;right:-18%;bottom:-18%;pointer-events:none;z-index:0;background:radial-gradient(circle, rgba(196,181,253,0.06) 0%, transparent 66%);filter:blur(56px)}
+        /* custom cursor */
+        .custom-cursor{position:fixed;top:0;left:0;width:18px;height:18px;border-radius:50%;background:#c4b5fd;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:width .22s,height .22s,background-color .22s,opacity .22s,border-color .22s;opacity:0}
+        .custom-cursor.active{width:54px;height:54px;background:transparent;border:1px solid #c4b5fd}
+        @media (pointer:coarse),(max-width:768px){.custom-cursor{display:none !important}}
+        @media (pointer:fine){html.custom-cursor-active *{cursor:none !important}}
+        /* nav link underline */
+        .nav-link{position:relative;color:#9ca3af;transition:color .2s}
+        .nav-link::after{content:"";position:absolute;left:14px;right:14px;bottom:7px;height:1px;background:white;transform:scaleX(0);transform-origin:left;transition:transform .3s cubic-bezier(.16,1,.3,1);opacity:.9}
+        .nav-link:hover{color:white}
+        .nav-link:hover::after{transform:scaleX(1)}
+        .nav-link[aria-current="page"]{color:white}
+        /* hamburger */
+        .hamburger span{transition:transform .3s,opacity .3s}
+        .hamburger[aria-expanded="true"] span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+        .hamburger[aria-expanded="true"] span:nth-child(2){opacity:0}
+        .hamburger[aria-expanded="true"] span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+        /* mobile menu */
+        .mobile-menu{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:rgba(10,10,10,0.78);backdrop-filter:blur(18px) saturate(1.1);-webkit-backdrop-filter:blur(18px) saturate(1.1);opacity:0;pointer-events:none;transition:opacity .36s ease}
+        .mobile-menu.is-open{opacity:1;pointer-events:auto}
+        .mobile-menu-panel{flex:1;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 18px) 20px 28px;max-width:520px;width:100%;margin:0 auto}
+        .mm-link{opacity:0;transform:translateY(14px);transition:opacity .5s cubic-bezier(.16,1,.3,1),transform .5s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--i)*70ms + 60ms)}
+        .mobile-menu.is-open .mm-link{opacity:1;transform:none}
+        /* marquee */
+        .marquee{position:relative;overflow:hidden;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.016)}
+        .marquee-track{display:flex;width:max-content;animation:marquee var(--marquee-dur,32s) linear infinite;will-change:transform}
+        .marquee:hover .marquee-track{animation-play-state:paused}
+        .marquee-group{display:flex;align-items:center;flex-shrink:0}
+        .marquee-item{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:#9ca3af;white-space:nowrap}
+        .marquee-dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0;margin:0 1.6rem}
+        @keyframes marquee{to{transform:translateX(-50%)}}
+        /* glitch accent word */
+        .accent-word{position:relative;display:inline-block;isolation:isolate}
+        .accent-word .serif{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;letter-spacing:-0.02em;color:#f4f4f5;position:relative;z-index:1}
+        .accent-word::before,.accent-word::after{
+            content:attr(data-text);position:absolute;inset:0;
+            font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;letter-spacing:-0.02em;
+            opacity:0;pointer-events:none;
         }
-
-        /* Prism Rainbow Spectrum Text Hover Effect */
-        [data-theme="light"] h1:hover,
-        [data-theme="light"] h2:hover,
-        [data-theme="light"] h3:hover,
-        [data-theme="light"] .nav-links a:hover,
-        [data-theme="light"] td:hover {
-            background: linear-gradient(270deg, #D586E1 0%, #A886E1 14%, #6F75E4 28%, #6FB1E4 42%, #6FE4B7 56%, #98E46F 70%, #DEE46F 79%, #E4A46F 93%, #E46F6F 100%) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        .accent-word::before{color:#c4b5fd;transform:translate(0,0);mix-blend-mode:screen}
+        .accent-word::after{color:#8b5cf6;transform:translate(0,0);mix-blend-mode:screen}
+        .accent-word:hover::before{opacity:.95;animation:glitch-a .9s steps(8) infinite}
+        .accent-word:hover::after{opacity:.9;animation:glitch-b .9s steps(8) infinite}
+        .accent-word:hover .serif{color:transparent;background:linear-gradient(100deg,#c4b5fd 0%,#fef08a 52%,#c4b5fd 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;animation:sheen 1.2s ease}
+        @keyframes glitch-a{
+            0%{clip-path:inset(12% 0 68% 0);transform:translate(-2px,-1px)}
+            20%{clip-path:inset(68% 0 8% 0);transform:translate(2px,1px)}
+            40%{clip-path:inset(28% 0 42% 0);transform:translate(-1px,0)}
+            60%{clip-path:inset(78% 0 2% 0);transform:translate(1px,-1px)}
+            80%{clip-path:inset(38% 0 52% 0);transform:translate(-2px,1px)}
+            100%{clip-path:inset(12% 0 68% 0);transform:translate(2px,0)}
         }
-
-        /* 28k.studio Floating Glass Header */
-        [data-theme="light"] header {
-            background: rgba(255, 255, 255, 0.65) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.85) !important;
-            mix-blend-mode: normal !important;
-            z-index: 9999 !important;
-            padding: 1.2rem 4vw !important;
-            box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+        @keyframes glitch-b{
+            0%{clip-path:inset(68% 0 12% 0);transform:translate(2px,1px)}
+            20%{clip-path:inset(8% 0 72% 0);transform:translate(-2px,-1px)}
+            40%{clip-path:inset(42% 0 28% 0);transform:translate(1px,1px)}
+            60%{clip-path:inset(2% 0 78% 0);transform:translate(-1px,0)}
+            80%{clip-path:inset(52% 0 18% 0);transform:translate(2px,-1px)}
+            100%{clip-path:inset(68% 0 12% 0);transform:translate(-2px,0)}
         }
-
-        [data-theme="light"] .logo {
-            color: #0f172a !important;
+        @keyframes sheen{from{background-position:0% 50%}to{background-position:100% 50%}}
+        /* pills */
+        .chip{
+            display:inline-flex;align-items:center;gap:.5rem;
+            height:36px;padding:0 14px 0 14px;
+            border-radius:999px;border:1px solid rgba(255,255,255,0.10);
+            background:rgba(255,255,255,0.03);color:#a1a1aa;
+            font-size:.86rem;font-weight:500;white-space:nowrap;flex-shrink:0;
+            transition:all .22s cubic-bezier(.16,1,.3,1);cursor:pointer;
+            min-height:36px;
         }
-
-        [data-theme="light"] .nav-links a {
-            color: #0f172a !important;
-            font-weight: 600 !important;
+        .chip:hover{color:white;border-color:rgba(255,255,255,0.22);background:rgba(255,255,255,0.06);transform:translateY(-1px)}
+        .chip.active{background:white;color:#0a0a0a;border-color:white;box-shadow:0 4px 18px rgba(255,255,255,0.08)}
+        .chip .count{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.02em;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,0.09);line-height:1}
+        .chip.active .count{background:rgba(0,0,0,0.08);color:#0a0a0a}
+        .chip:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
+        /* file card */
+        .file-card{
+            position:relative;overflow:hidden;
+            background:#141416;border:1px solid rgba(255,255,255,0.08);
+            border-radius:1.25rem;
+            display:flex;flex-direction:column;
+            transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s,box-shadow .28s,background .28s;
+            transform:translateZ(0);
         }
-
-        [data-theme="light"] .admin-pill,
-        [data-theme="light"] #admin-badge,
-        [data-theme="light"] .user-badge,
-        [data-theme="light"] .profile-pill {
-            background: rgba(255, 255, 255, 0.6) !important;
-            color: #0f172a !important;
-            border: 1px solid rgba(255, 255, 255, 0.9) !important;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.08) !important;
+        .file-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.14);box-shadow:0 18px 40px rgba(0,0,0,0.42),0 2px 10px rgba(0,0,0,0.3);background:#17171a}
+        .file-card::after{
+            content:"";position:absolute;inset:0;
+            background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%), rgba(139,92,246,0.07), transparent 62%);
+            opacity:0;transition:opacity .3s;pointer-events:none;
         }
-
-        [data-theme="light"] input,
-        [data-theme="light"] select,
-        [data-theme="light"] textarea {
-            background: rgba(255, 255, 255, 0.6) !important;
-            color: #0f172a !important;
-            border: 1px solid rgba(255, 255, 255, 0.9) !important;
-            backdrop-filter: blur(10px) !important;
+        .file-card:hover::after{opacity:1}
+        .file-card::before{
+            content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+            background:linear-gradient(135deg, rgba(139,92,246,0.28), transparent 55%, rgba(196,181,253,0.18));
+            -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+            mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+            -webkit-mask-composite:xor;mask-composite:exclude;
+            opacity:0;transition:opacity .3s;pointer-events:none;
         }
-
-        [data-theme="light"] input::placeholder,
-        [data-theme="light"] textarea::placeholder {
-            color: #64748b !important;
+        .file-card:hover::before{opacity:1}
+        @keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .file-card{animation:cardIn .5s ease both}
+        .badge{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.10em;text-transform:uppercase;padding:5px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;font-weight:500;line-height:1}
+        .badge-pdf{background:rgba(248,113,113,0.10);color:#fca5a5;border-color:rgba(248,113,113,0.18)}
+        .badge-ppt{background:rgba(251,146,60,0.10);color:#fed7aa;border-color:rgba(251,146,60,0.18)}
+        .badge-doc{background:rgba(56,189,248,0.10);color:#7dd3fc;border-color:rgba(56,189,248,0.18)}
+        .badge-img{background:rgba(167,139,250,0.11);color:#c4b5fd;border-color:rgba(167,139,250,0.18)}
+        .badge-other{background:rgba(255,255,255,0.06);color:#a1a1aa;border-color:rgba(255,255,255,0.09)}
+        .subject-tag{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.10em;text-transform:uppercase;color:#a78bfa;background:rgba(139,92,246,0.10);border:1px solid rgba(139,92,246,0.16);padding:5px 9px;border-radius:999px;white-space:nowrap}
+        .btn-white{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;height:40px;padding:0 16px;border-radius:999px;background:white;color:#0a0a0a;font-weight:600;font-size:.84rem;letter-spacing:-.01em;border:none;transition:transform .18s,background .18s,box-shadow .18s;cursor:pointer;text-decoration:none;white-space:nowrap}
+        .btn-white:hover{background:#e4e4e7;transform:translateY(-1px);box-shadow:0 8px 22px rgba(255,255,255,0.09)}
+        .btn-white:active{transform:none}
+        .btn-glass{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:40px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,0.06);color:white;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-weight:600;font-size:.84rem;transition:all .18s;cursor:pointer;white-space:nowrap}
+        .btn-glass:hover{background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.22);transform:translateY(-1px)}
+        .btn-ghost-dark{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:999px;background:transparent;color:white;border:1px solid rgba(255,255,255,0.14);font-weight:600;font-size:.84rem;transition:all .18s;cursor:pointer;white-space:nowrap}
+        .btn-ghost-dark:hover{border-color:rgba(255,255,255,0.28);background:rgba(255,255,255,0.04);transform:translateY(-1px)}
+        /* card actions: hidden until hover on fine pointer, always visible on touch */
+        .card-actions{transition:opacity .28s,transform .28s}
+        @media (hover:hover) and (pointer:fine){
+            .file-card{padding-bottom:0}
+            .card-actions{opacity:0;transform:translateY(8px);pointer-events:none}
+            .file-card:hover .card-actions,.file-card:focus-within .card-actions{opacity:1;transform:none;pointer-events:auto}
+            /* reserve space visually via absolute? keep in flow but fade; to avoid layout shift we keep flow. So above is fine — still reserves space but fades. */
         }
-
-        /* Creative Glu Crystal-Clear Optical Lens Cursor */
-        .custom-cursor {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: var(--cursor-color);
-            pointer-events: none;
-            z-index: 10000000 !important;
-            transform: translate(-50%, -50%);
-            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+        @media (hover:none),(pointer:coarse){
+            .card-actions{opacity:1;transform:none}
         }
-
-        .custom-cursor.active,
-        .custom-cursor.prism-hover {
-            width: 70px !important;
-            height: 70px !important;
-            background: transparent !important;
-            border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
-            box-shadow: 0 0 20px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.6) !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            mix-blend-mode: normal !important;
-        }
-
-        [data-theme="light"] .custom-cursor.active,
-        [data-theme="light"] .custom-cursor.prism-hover {
-            border: 1.5px solid rgba(111, 117, 228, 0.8) !important;
-            box-shadow: 0 0 25px rgba(213, 134, 225, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.9) !important;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            cursor: none !important;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Inter', sans-serif;
-            overflow-x: hidden;
-            transition: background-color 0.5s ease;
-        }
-
-        h1, h2, h3, .logo {
-            font-family: 'Syne', sans-serif;
-        }
-
-        /* Custom Cursor */
-        .custom-cursor {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: var(--cursor-color);
-            pointer-events: none;
-            z-index: 9999;
-            transform: translate(-50%, -50%);
-            mix-blend-mode: difference;
-            transition: width 0.3s, height 0.3s, background-color 0.3s;
-        }
-        .custom-cursor.active {
-            width: 60px;
-            height: 60px;
-            background-color: transparent;
-            border: 1px solid var(--cursor-color);
-        }
-
-        /* Background effects */
-        .noise {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.05"/%3E%3C/svg%3E');
-            pointer-events: none;
-            z-index: -10;
-        }
-        .blob {
-            position: fixed;
-            width: 80vw;
-            height: 80vw;
-            background: radial-gradient(circle, rgba(157,78,221,0.15) 0%, transparent 60%);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: -20;
-            top: -40%;
-            left: -20%;
-            filter: blur(80px);
-        }
-
-        /* Header */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 2rem 4vw;
-            width: 100%;
-            z-index: 100;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-color);
-        }
-        .logo {
-            font-size: 1.5vw;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--accent-bright);
-        }
-
-        /* Buttons */
-        .magnetic-btn {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.5rem 1rem;
-            border-radius: 2rem;
-            background: transparent;
-            color: var(--text-main);
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            transition: transform 0.2s, box-shadow 0.3s, border-color 0.3s;
-            z-index: 1;
-        }
-        .magnetic-btn::after {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: -100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s ease-in-out;
-            z-index: -1;
-        }
-        .magnetic-btn:hover::after {
-            left: 100%;
-        }
-        .magnetic-btn:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 15px rgba(157, 78, 221, 0.4);
-        }
-        .btn-outline {
-            border-color: var(--border);
-        }
-        .btn-danger {
-            border-color: var(--error);
-            color: var(--error);
-        }
-        .btn-danger:hover {
-            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
-            border-color: var(--error);
-            color: #fff;
-        }
-
-        /* Layout */
-        .admin-container {
-            display: flex;
-            min-height: calc(100vh - 100px);
-            padding: 2rem 4vw;
-            gap: 3rem;
-        }
-
-        /* Sidebar Tabs */
-        .sidebar {
-            width: 250px;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        .tab-btn {
-            padding: 1rem;
-            font-family: 'Syne', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            text-align: left;
-            transition: all 0.3s ease;
-        }
-        .tab-btn.active, .tab-btn:hover {
-            color: var(--text-main);
-            background: var(--panel-bg);
-            border-color: var(--accent);
-            transform: translateX(10px);
-        }
-
-        /* Tab Content */
-        .main-content {
-            flex: 1;
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 2rem;
-            backdrop-filter: blur(10px);
-            overflow-y: auto;
-        }
-        .tab-panel {
-            display: none;
-            animation: fadeIn 0.5s ease;
-        }
-        .tab-panel.active {
-            display: block;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Tables */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-        th, td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        th {
-            font-family: 'Syne', sans-serif;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-size: 0.9rem;
-        }
-        td {
-            font-size: 0.95rem;
-        }
-        
-        /* Select and Inputs */
-        select, input[type="text"] {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 0.5rem;
-            border-radius: 0.25rem;
-            outline: none;
-            font-family: 'Inter', sans-serif;
-        }
-        select option {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-        }
-        select:focus, input[type="text"]:focus {
-            border-color: var(--accent);
-        }
-        
-        .flex-row {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        /* Modal for file update */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(15px);
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: all;
-        }
-        .modal {
-            background: var(--bg-color);
-            padding: 3rem;
-            border-radius: 2rem;
-            border: 1px solid var(--border);
-            width: 90%;
-            max-width: 500px;
-        }
-        .modal h2 { margin-bottom: 1.5rem; }
-        .input-group {
-            margin-bottom: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        .input-group input, .input-group select {
-            width: 100%;
-            padding: 1rem;
-            font-size: 1rem;
-            border-radius: 0.5rem;
-        }
-
-        /* Notifications */
-        .notification-badge { position: absolute; top: -5px; right: -10px; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; display: none; }
-        .notification-panel { position: fixed; top: 0; right: -400px; width: 400px; height: 100vh; background: var(--bg-color); border-left: 1px solid var(--border); z-index: 1001; padding: 3rem 2rem; transition: right 0.5s; backdrop-filter: blur(20px); }
-        .notification-panel.active { right: 0; }
-        .notification-item { padding: 1.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text-muted); }
-        .notification-item b { color: var(--text-main); display: block; margin-bottom: 0.2rem; }
-        .notification-time { font-size: 0.75rem; color: var(--accent); display: block; margin-top: 0.5rem; }
-
-        @media (max-width: 768px) {
-            .custom-cursor { display: none !important; }
-            .logo { font-size: 1.4rem; }
-
-            /* Mobile Performance Optimization - Lighten Backdrop Filter GPU Compositing */
-            header,
-            .navbar,
-            .file-card,
-            .glass-panel,
-            .stat-card,
-            .modal-content,
-            .table-container,
-            input, select, textarea {
-                backdrop-filter: blur(6px) !important;
-                -webkit-backdrop-filter: blur(6px) !important;
-            }
-
-            [data-theme="light"] header,
-            [data-theme="light"] .navbar,
-            [data-theme="light"] .glass-panel,
-            [data-theme="light"] .modal-content,
-            [data-theme="light"] .table-container {
-                background: rgba(255, 255, 255, 0.65) !important;
-            }
+        /* accordion */
+        .acc-item{border-bottom:1px solid rgba(255,255,255,0.08)}
+        .acc-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s cubic-bezier(.16,1,.3,1)}
+        .acc-item.open .acc-panel{grid-template-rows:1fr}
+        .acc-item.open .acc-icon{transform:rotate(45deg)}
+        .acc-icon{transition:transform .35s cubic-bezier(.16,1,.3,1)}
+        /* modals */
+        .modal-overlay{position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.64);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:80;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .28s ease;padding:16px}
+        .modal-overlay.active{opacity:1;pointer-events:auto}
+        .modal-card{width:100%;max-width:480px;max-height:92vh;overflow:auto;background:#121214;border:1px solid rgba(255,255,255,0.09);border-radius:24px;padding:28px;transform:translateY(14px) scale(.98);transition:transform .36s cubic-bezier(.16,1,.3,1);box-shadow:0 24px 48px rgba(0,0,0,0.55),0 0 0 1px rgba(255,255,255,0.04)}
+        .modal-overlay.active .modal-card{transform:none}
+        .field{width:100%;height:46px;padding:0 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:12px;color:white;font-size:.94rem;outline:none;transition:border-color .18s,background .18s,box-shadow .18s}
+        .field::placeholder{color:#52525b}
+        .field:focus{border-color:rgba(139,92,246,0.5);background:rgba(255,255,255,0.06);box-shadow:0 0 0 4px rgba(139,92,246,0.12)}
+        .field-area{height:auto;min-height:92px;padding:12px 14px;resize:vertical}
+        select.field{appearance:none}
+        select option{background:#141416;color:white}
+        .icon-btn{width:40px;height:40px;display:grid;place-items:center;border-radius:999px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.04);color:#e4e4e7;transition:all .18s}
+        .icon-btn:hover{border-color:rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:white}
+        .fab{position:fixed;right:max(16px,2vw);bottom:calc(max(16px,2vw) + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:white;color:#0a0a0a;border:none;display:grid;place-items:center;box-shadow:0 10px 28px rgba(0,0,0,0.35),0 0 0 1px rgba(255,255,255,0.06);z-index:30;transition:transform .18s,box-shadow .18s}
+        .fab:hover{transform:scale(1.06) translateY(-2px);box-shadow:0 16px 32px rgba(0,0,0,0.42)}
+        .fab.hidden{display:none !important}
+        /* notification panel */
+        .notif-panel{position:fixed;inset:0 0 0 auto;width:min(380px,92vw);height:100dvh;background:#0f0f11;border-left:1px solid rgba(255,255,255,0.08);z-index:70;transform:translateX(100%);transition:transform .42s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column}
+        .notif-panel.active{transform:none}
+        .notif-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.32);backdrop-filter:blur(4px);z-index:69;opacity:0;pointer-events:none;transition:opacity .28s}
+        .notif-backdrop.active{opacity:1;pointer-events:auto}
+        .scrollbar-hide{scrollbar-width:none;-ms-overflow-style:none}
+        .scrollbar-hide::-webkit-scrollbar{display:none}
+        [data-reveal]{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+        [data-reveal].in-view{opacity:1;transform:none}
+        .empty-state{grid-column:1/-1;text-align:center;padding:3rem 1.25rem;background:#141416;border:1px dashed rgba(255,255,255,0.10);border-radius:20px;color:#a1a1aa}
+        @media (prefers-reduced-motion:reduce){
+            *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+            .marquee-track{animation:none !important;transform:none !important}
+            .file-card{animation:none !important}
         }
     </style>
 </head>
-<body>
-    <div class="noise"></div>
-    <div class="blob"></div>
-    <div class="custom-cursor"></div>
-
-    <header>
-        <div class="logo">Admin Master Control</div>
-        <div style="display: flex; gap: 1rem; align-items: center;">
-            <a href="#" id="notifications-link" style="position: relative; color: white; text-decoration: none; font-size: 0.9rem; margin-right: 1rem;">
-                Notifications
-                <span id="notif-badge" class="notification-badge"></span>
+<body class="selection:bg-violet selection:text-white">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="noise" aria-hidden="true"></div>
+    <div class="glow-a" aria-hidden="true"></div>
+    <div class="glow-b" aria-hidden="true"></div>
+    <div class="custom-cursor" aria-hidden="true"></div>
+    <div class="fixed inset-x-0 top-0 z-40 flex justify-center px-4 pt-[14px] pointer-events-none">
+        <nav id="nav-pill" class="pointer-events-auto flex w-full max-w-[1120px] items-center justify-between gap-3 rounded-full border border-white/10 bg-[#121214]/80 px-3 py-[9px] shadow-[0_8px_32px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-[14px] md:px-5 md:py-3">
+            <a href="index.html" class="flex items-center gap-2.5 shrink-0 group" aria-label="NEXUS home">
+                <span class="grid h-8 w-8 place-items-center rounded-full bg-white text-[11px] font-black tracking-tighter text-black md:h-9 md:w-9 md:text-xs">NX</span>
+                <span class="hidden font-display text-[15px] font-[800] tracking-[-0.03em] text-white md:inline">NEXUS</span>
             </a>
-            <a href="discussion.html" class="magnetic-btn">Discussion</a>
-            <a href="index.html" class="magnetic-btn">Exit to App</a>
-        </div>
-    </header>
-
-    <div id="notification-panel" class="notification-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem;">
-            <h2 style="font-family: 'Syne';">Updates</h2>
-            <button id="close-notifs" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.5rem;">×</button>
-        </div>
-        <div id="notif-list">
-            <p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>
+            <div class="hidden items-center gap-1 rounded-full bg-white/[0.03] p-1 ring-1 ring-white/5 md:flex">
+                <a href="index.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight">Materials</a>
+                <a href="notice.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight" aria-current="page">Notice</a>
+                <a href="discussion.html" class="nav-link rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight">Discussion</a>
+                <a href="admin.html" class="nav-link hidden rounded-full px-4 py-1.5 text-[13.5px] font-medium tracking-tight lg:inline-flex">Admin</a>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="notifications-link" class="icon-btn relative hidden md:grid" aria-label="Notifications">
+                    <i data-lucide="bell" class="h-[16px] w-[16px]"></i>
+                    <span id="notif-badge" class="absolute -right-0.5 -top-0.5 hidden h-[8px] w-[8px] rounded-full bg-[#ef4444] shadow-[0_0_0_3px_#121214]"></span>
+                </button>
+                <div id="user-section" class="hidden items-center gap-2"></div>
+                <a href="#" id="login-link" class="btn-white h-8 px-4 text-[13px] md:h-9 md:px-5 md:text-[13.5px]">Sign in</a>
+                <button id="hamburger" class="hamburger icon-btn md:hidden" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                    <span class="block h-[1.5px] w-[16px] rounded-full bg-white"></span>
+                </button>
+            </div>
+        </nav>
+    </div>
+    <div id="mobile-menu" class="mobile-menu" aria-hidden="true">
+        <div class="mobile-menu-panel">
+            <div class="flex items-center justify-between">
+                <a href="index.html" class="flex items-center gap-2.5">
+                    <span class="grid h-9 w-9 place-items-center rounded-full bg-white text-xs font-black tracking-tighter text-black">NX</span>
+                    <span class="font-display text-[15px] font-[800] tracking-[-0.03em]">NEXUS</span>
+                </a>
+                <button id="menu-close" class="icon-btn" aria-label="Close menu"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <nav class="mt-10 flex flex-col gap-1" aria-label="Mobile navigation">
+                <a href="index.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:0">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Materials</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">01 — ARCHIVE</span>
+                </a>
+                <a href="notice.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:1">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Notice</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">02 — BOARD</span>
+                </a>
+                <a href="discussion.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:2">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Discussion</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">03 — FORUM</span>
+                </a>
+                <a href="admin.html" class="mm-link group flex items-baseline justify-between border-b border-white/10 py-6" style="--i:3">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Admin</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-zinc-500">04 — CONTROL</span>
+                </a>
+                <button id="menu-notif-link" class="mm-link flex items-center justify-between border-b border-white/10 py-6 text-left" style="--i:4">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Updates</span>
+                    <span class="flex items-center gap-2 font-mono text-xs tracking-[0.18em] text-zinc-500"><span id="menu-notif-dot" class="hidden h-2 w-2 rounded-full bg-[#ef4444]"></span> NOTIFICATIONS</span>
+                </button>
+            </nav>
+            <div class="mt-auto pt-8">
+                <div id="menu-user-section" class="mb-4"></div>
+                <a href="#" id="menu-login" class="btn-white w-full justify-center">Sign in with Google</a>
+                <p class="mt-4 text-center font-mono text-[10px] tracking-[0.18em] text-zinc-600">PRODUCTIVITY — ACADEMIC REPOSITORY &amp; NOTES</p>
+            </div>
         </div>
     </div>
-
-    <div class="admin-container">
-        <!-- Sidebar Tabs -->
-        <div class="sidebar">
-            <button class="tab-btn active magnetic" data-tab="members">Members</button>
-            <button class="tab-btn magnetic" data-tab="subjects">Subjects</button>
-            <button class="tab-btn magnetic" data-tab="files">Files</button>
+    <div id="notif-backdrop" class="notif-backdrop"></div>
+    <aside id="notification-panel" class="notif-panel" role="complementary" aria-label="Notifications">
+        <div class="flex items-center justify-between border-b border-white/10 px-6 py-5">
+            <h2 class="font-display text-[13px] font-[700] tracking-[0.14em] text-zinc-400">UPDATES</h2>
+            <button id="close-notifs" class="icon-btn h-9 w-9" aria-label="Close notifications"><i data-lucide="x" class="h-4 w-4"></i></button>
         </div>
+        <div id="notif-list" class="flex-1 overflow-auto px-6 py-6">
+            <p class="py-12 text-center font-mono text-sm text-zinc-500">No new notifications</p>
+        </div>
+    </aside>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Members Panel -->
+
+    <section class="relative z-10 mx-auto max-w-[1120px] px-5 pb-6 pt-[112px] md:px-6 md:pt-[128px]">
+        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+                <div class="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-md">
+                    <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-violet"></span>
+                    <span class="font-mono text-[10px] leading-none tracking-[0.18em] text-zinc-400">MASTER CONTROL &nbsp;|&nbsp; ADMIN PORTAL</span>
+                </div>
+                <h1 class="mt-4 font-display text-[clamp(2rem,5vw,3.2rem)] font-[800] leading-[0.9] tracking-[-0.04em]">Master <span class="font-serif font-[400] italic tracking-[-0.02em] text-zinc-500">Control.</span></h1>
+                <p class="mt-3 max-w-[52ch] text-[13.5px] leading-5 text-zinc-500">Manage members, subjects, and materials. All actions are live and audited.</p>
+            </div>
+            <div class="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] p-1.5 md:flex">
+                <span class="rounded-full bg-white px-4 py-1.5 font-mono text-[11px] tracking-[0.14em] text-black">SECURE SESSION</span>
+                <span class="px-3 font-mono text-[11px] tracking-[0.14em] text-zinc-500">ENCRYPTED</span>
+            </div>
+        </div>
+        <div class="mt-8 flex gap-2 overflow-x-auto scrollbar-hide border-b border-white/10 pb-3">
+            <button class="tab-btn chip active" data-tab="members" style="height:42px">Members</button>
+            <button class="tab-btn chip" data-tab="subjects" style="height:42px">Subjects</button>
+            <button class="tab-btn chip" data-tab="files" style="height:42px">Files</button>
+            <a href="index.html" class="ml-auto hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-zinc-400 hover:border-white/20 hover:text-white md:inline-flex"><i data-lucide="arrow-left" class="h-3.5 w-3.5"></i> Exit to App</a>
+        </div>
+    </section>
+    <section class="relative z-10 mx-auto max-w-[1120px] px-5 pb-10 md:px-6">
+        <div class="rounded-[24px] border border-white/10 bg-[#141416] p-4 md:p-6">
             <div id="members" class="tab-panel active">
-                <h2>Manage Members</h2>
-                <p style="color: var(--text-muted); margin-bottom: 1rem;">Update roles or remove users entirely.</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="members-tbody">
-                        <tr><td colspan="4">Loading...</td></tr>
-                    </tbody>
-                </table>
+                <div class="flex items-center justify-between gap-4">
+                    <h2 class="font-display text-[18px] font-[700] tracking-[-0.02em]">Manage Members</h2>
+                    <span class="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 font-mono text-[11px] tracking-[0.14em] text-zinc-500">ROLES: PENDING / FRIEND / ADMIN</span>
+                </div>
+                <p class="mt-2 text-[13px] leading-5 text-zinc-500">Update roles or remove users entirely. Name edits prompt confirmation.</p>
+                <div class="mt-6 overflow-x-auto rounded-2xl border border-white/10">
+                    <table class="w-full border-collapse text-left">
+                        <thead class="bg-white/[0.02] text-[11px] tracking-[0.14em] text-zinc-500">
+                            <tr><th class="px-4 py-3 font-mono font-[600]">NAME</th><th class="px-4 py-3 font-mono font-[600]">EMAIL</th><th class="px-4 py-3 font-mono font-[600]">ROLE</th><th class="px-4 py-3 font-mono font-[600]">ACTIONS</th></tr>
+                        </thead>
+                        <tbody id="members-tbody" class="divide-y divide-white/5 text-sm">
+                            <tr><td colspan="4" class="px-4 py-10 text-center text-zinc-500">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
-            <!-- Subjects Panel -->
-            <div id="subjects" class="tab-panel">
-                <h2>Manage Subjects</h2>
-                <p style="color: var(--text-muted); margin-bottom: 1rem;">Add, rename, or delete subjects.</p>
-                
-                <form onsubmit="event.preventDefault(); addSubject();" class="flex-row" style="margin-bottom: 2rem;">
-                    <input type="text" id="new-subject-name" placeholder="New Subject Name" style="flex: 1;" required>
-                    <button type="submit" class="magnetic-btn">Add Subject</button>
+            <div id="subjects" class="tab-panel hidden">
+                <div class="flex items-center justify-between gap-4">
+                    <h2 class="font-display text-[18px] font-[700] tracking-[-0.02em]">Manage Subjects</h2>
+                    <span class="hidden rounded-full bg-butter px-3 py-1 font-mono text-[11px] tracking-[0.14em] text-zinc-900 md:inline">TAGGING SYSTEM</span>
+                </div>
+                <p class="mt-2 text-[13px] leading-5 text-zinc-500">Add, rename, or delete subjects. Existing files keep their subject until updated.</p>
+                <form onsubmit="event.preventDefault(); addSubject();" class="mt-6 flex gap-2 rounded-full border border-white/10 bg-white/[0.02] p-2">
+                    <input id="new-subject-name" type="text" placeholder="New Subject Name" required class="field flex-1 !h-10 !rounded-full !border-0 !bg-transparent placeholder:text-zinc-600">
+                    <button type="submit" class="btn-white !h-10 shrink-0">Add Subject</button>
                 </form>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Subject Name</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="subjects-tbody">
-                        <tr><td colspan="2">Loading...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Files Panel -->
-            <div id="files" class="tab-panel">
-                <h2>Manage Files</h2>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <p style="color: var(--text-muted); margin: 0;">Delete, upload, or update existing materials.</p>
-                    <button class="magnetic-btn" onclick="openUploadModal()">Upload New Material</button>
+                <div class="mt-6 overflow-x-auto rounded-2xl border border-white/10">
+                    <table class="w-full border-collapse text-left">
+                        <thead class="bg-white/[0.02] text-[11px] tracking-[0.14em] text-zinc-500">
+                            <tr><th class="px-4 py-3 font-mono font-[600]">SUBJECT NAME</th><th class="px-4 py-3 font-mono font-[600]">ACTIONS</th></tr>
+                        </thead>
+                        <tbody id="subjects-tbody" class="divide-y divide-white/5 text-sm">
+                            <tr><td colspan="2" class="px-4 py-10 text-center text-zinc-500">Loading…</td></tr>
+                        </tbody>
+                    </table>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Subject</th>
-                            <th>Uploader</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="files-tbody">
-                        <tr><td colspan="4">Loading...</td></tr>
-                    </tbody>
-                </table>
+            </div>
+            <div id="files" class="tab-panel hidden">
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 class="font-display text-[18px] font-[700] tracking-[-0.02em]">Manage Files</h2>
+                        <p class="mt-1 text-[13px] leading-5 text-zinc-500">Delete, upload, or update existing materials.</p>
+                    </div>
+                    <button onclick="openUploadModal()" class="btn-white !h-10 w-full md:w-auto"><i data-lucide="upload" class="h-4 w-4"></i> Upload New Material</button>
+                </div>
+                <div class="mt-6 overflow-x-auto rounded-2xl border border-white/10">
+                    <table class="w-full border-collapse text-left">
+                        <thead class="bg-white/[0.02] text-[11px] tracking-[0.14em] text-zinc-500">
+                            <tr><th class="px-4 py-3 font-mono font-[600]">TITLE</th><th class="px-4 py-3 font-mono font-[600]">SUBJECT</th><th class="px-4 py-3 font-mono font-[600]">UPLOADER</th><th class="px-4 py-3 font-mono font-[600]">ACTIONS</th></tr>
+                        </thead>
+                        <tbody id="files-tbody" class="divide-y divide-white/5 text-sm">
+                            <tr><td colspan="4" class="px-4 py-10 text-center text-zinc-500">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
-
-    <!-- File Update Modal -->
-    <div class="modal-overlay" id="update-modal">
-        <div class="modal">
-            <h2>Update Material</h2>
-            <form id="update-form">
+    </section>
+    <div id="update-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Update material">
+        <div class="modal-card">
+            <div class="flex items-center justify-between">
+                <h2 class="font-display text-[18px] font-[800] tracking-[-0.02em]">Update Material</h2>
+                <button class="icon-btn h-8 w-8" onclick="document.getElementById('update-modal').classList.remove('active')"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <form id="update-form" class="mt-6 space-y-4">
                 <input type="hidden" id="update-id">
-                <input type="hidden" id="update-file-url">
-                <div class="input-group">
-                    <label>Title</label>
-                    <input type="text" id="update-title" required>
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">TITLE</label>
+                    <input id="update-title" type="text" required class="field">
                 </div>
-                <div class="input-group">
-                    <label>Subject</label>
-                    <select id="update-subject" required>
-                        <!-- Loaded dynamically -->
-                    </select>
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">SUBJECT</label>
+                    <select id="update-subject" required class="field"></select>
                 </div>
-                <div class="input-group">
-                    <label>Replace File (Optional)</label>
-                    <input type="file" id="update-file" accept=".pdf,.doc,.docx,.ppt,.pptx">
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">REPLACE FILE (OPTIONAL)</label>
+                    <input id="update-file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" class="field !py-2.5 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-1.5 file:text-xs file:font-semibold file:text-black">
                 </div>
-                <button type="submit" class="magnetic-btn" style="width:100%; margin-top:1rem;">Save Changes</button>
-                <div id="update-progress" style="display:none; text-align:center; color:var(--accent); margin-top:1rem;">Uploading...</div>
+                <button type="submit" class="btn-white w-full">Save Changes</button>
+                <div id="update-progress" class="hidden text-center font-mono text-xs text-violet">Uploading…</div>
             </form>
         </div>
     </div>
+    <div id="upload-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Upload material">
+        <div class="modal-card">
+            <div class="flex items-center justify-between">
+                <h2 class="font-display text-[18px] font-[800] tracking-[-0.02em]">Upload New Material</h2>
+                <button class="icon-btn h-8 w-8" onclick="document.getElementById('upload-modal').classList.remove('active')"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <form id="upload-form" class="mt-6 space-y-4">
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">TITLE</label>
+                    <input id="upload-title" type="text" required class="field">
+                </div>
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">SUBJECT</label>
+                    <select id="upload-subject" required class="field"><option value="" disabled selected>Select subject…</option></select>
+                </div>
+                <div>
+                    <label class="mb-1.5 block font-mono text-[11px] tracking-[0.14em] text-zinc-500">FILE</label>
+                    <input id="upload-file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" required class="field !py-2.5 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-1.5 file:text-xs file:font-semibold file:text-black">
+                </div>
+                <button type="submit" class="btn-white w-full">Upload Material</button>
+                <div id="upload-progress" class="hidden text-center font-mono text-xs text-violet">Uploading…</div>
+            </form>
+        </div>
+    </div>
+<script>
+function refreshIcons(){ if(window.lucide) try{ lucide.createIcons(); }catch(e){} }
+if(sessionStorage.getItem('admin_access') !== 'granted'){
+    // allow direct for dev? keep check but show modal
+    // Do not block if already admin in Firestore; check later
+}
+let auth=null, db=null;
+async function initializeAppFlow(){
+    try{
+        const res=await fetch("https://nexus-omega-jet.vercel.app/api/firebase-config");
+        if(!res.ok) throw new Error("Failed to fetch firebase config: "+res.statusText);
+        const config=await res.json();
+        firebase.initializeApp(config);
+        auth=firebase.auth(); db=firebase.firestore();
+        initAuthListener(); initNotifications();
+    }catch(err){ console.error(err); alert("Failed to initialize: "+err.message); }
+}
+initializeAppFlow();
+const cursor=document.querySelector(".custom-cursor");
+if(cursor && matchMedia("(pointer:fine)").matches){
+    document.documentElement.classList.add("custom-cursor-active"); cursor.style.opacity="1";
+    document.addEventListener("mousemove",e=> gsap.to(cursor,{x:e.clientX,y:e.clientY,duration:.1,ease:"power2.out"}));
+    document.addEventListener("mouseover",e=>{ if(e.target.closest("a,button")) cursor.classList.add("active"); });
+    document.addEventListener("mouseout",e=>{ if(e.target.closest("a,button")) cursor.classList.remove("active"); });
+}
+let lenis=null;
+        try{
+            const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+            lenis=new Lenis({ duration: 1.0, easing: t=>Math.min(1,1.001-Math.pow(2,-10*t)), smoothWheel: true, smoothTouch: false, syncTouch: false, infinite: false });
+            document.documentElement.classList.add('lenis','lenis-smooth');
+            function raf(t){ lenis.raf(t); requestAnimationFrame(raf); }
+            requestAnimationFrame(raf);
+            document.body.style.overflow = '';
+        }catch(e){ console.warn('Lenis init failed, using native scroll', e); document.documentElement.classList.remove('lenis','lenis-smooth'); }
+const navPill=document.getElementById("nav-pill");
+window.addEventListener("scroll",()=>{ if(window.scrollY>10) navPill?.classList.add("shadow-[0_12px_40px_rgba(0,0,0,0.45)]"); },{passive:true});
+const hamburger=document.getElementById("hamburger"), mobileMenu=document.getElementById("mobile-menu"), menuClose=document.getElementById("menu-close");
+function openMenu(){ mobileMenu.classList.add("is-open"); hamburger.setAttribute("aria-expanded","true"); document.body.style.overflow="hidden"; refreshIcons(); }
+window.closeMobileMenu=function(){ mobileMenu.classList.remove("is-open"); hamburger.setAttribute("aria-expanded","false"); document.body.style.overflow=""; try{ lenis && lenis.start(); }catch(e){}; try{ lenis && lenis.start(); }catch(e){};};
+hamburger?.addEventListener("click",()=> mobileMenu.classList.contains("is-open")?window.closeMobileMenu():openMenu());
+menuClose?.addEventListener("click",window.closeMobileMenu);
+mobileMenu?.addEventListener("click",e=>{ if(e.target===mobileMenu) window.closeMobileMenu(); });
+document.getElementById("menu-notif-link")?.addEventListener("click",e=>{ e.preventDefault(); window.closeMobileMenu(); document.getElementById("notification-panel").classList.add("active"); document.getElementById("notif-backdrop").classList.add("active"); });
+document.getElementById("menu-login")?.addEventListener("click",e=>{ e.preventDefault(); window.closeMobileMenu(); });
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+        document.querySelectorAll(".tab-btn").forEach(b=> b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p=> p.classList.add("hidden"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.remove("hidden");
+        refreshIcons();
+    });
+});
+function initAuthListener(){
+    auth.onAuthStateChanged(async user=>{
+        if(user){
+            const snap=await db.collection("users").doc(user.uid).get();
+            const data=snap.exists?snap.data():null;
+            if(!data || data.role!=="admin"){ alert("You do not have admin privileges."); window.location.href="index.html"; }
+            else { renderUser(user,data.role); loadMembers(); loadSubjects(); loadFiles(); }
+        } else { window.location.href="index.html"; }
+    });
+}
+function renderUser(user, role){
+    const ll=document.getElementById("login-link"), us=document.getElementById("user-section");
+    if(ll){ ll.classList.add("hidden"); ll.style.display="none"; }
+    if(us){
+        us.classList.remove("hidden"); us.classList.add("flex");
+        const name=user.displayName||user.email;
+        us.innerHTML=`<div class="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pl-1 pr-3"><img src="${user.photoURL||'https://via.placeholder.com/32'}" alt="" class="h-7 w-7 rounded-full"><span class="hidden flex-col items-start leading-none md:flex"><span class="text-[12.5px] font-[600]">${name}</span><span class="font-mono text-[10px] tracking-[0.12em] text-violet">${role}</span></span></div>`;
+        refreshIcons();
+    }
+}
+function loadMembers(){
+    db.collection("users").onSnapshot(snap=>{
+        const tbody=document.getElementById("members-tbody"); tbody.innerHTML="";
+        snap.forEach(doc=>{
+            const u=doc.data();
+            const tr=document.createElement("tr");
+            tr.className="hover:bg-white/[0.02] transition-colors";
+            tr.innerHTML=`<td class="px-4 py-3"><input type="text" value="${u.name||'N/A'}" onblur="adminUpdateUserName('${doc.id}', this.value)" class="w-full bg-transparent text-sm font-[500] text-white outline-none"></td><td class="px-4 py-3 text-xs text-zinc-400">${u.email}</td><td class="px-4 py-3"><select onchange="updateRole('${doc.id}', this.value)" class="rounded-full border border-white/10 bg-[#141416] px-3 py-1 text-xs text-white"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="friend" ${u.role==='friend'?'selected':''}>Friend</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select></td><td class="px-4 py-3"><button onclick="deleteMember('${doc.id}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
+            tbody.appendChild(tr);
+        });
+        refreshIcons();
+    });
+}
+async function adminUpdateUserName(uid, newName){
+    if(!newName.trim()) return;
+    const snap=await db.collection("users").doc(uid).get();
+    const cur=snap.exists?snap.data().name:"";
+    if(newName.trim()===cur) return;
+    if(confirm(`Change user name to "${newName.trim()}"?`)){
+        try{ await db.collection("users").doc(uid).update({name:newName.trim()}); }catch(e){ alert("Error: "+e.message); loadMembers(); }
+    } else loadMembers();
+}
+async function updateRole(uid, newRole){ try{ await db.collection("users").doc(uid).update({role:newRole}); }catch(e){ alert("Error: "+e.message); } }
+async function deleteMember(uid){ if(confirm("Are you sure you want to remove this user?")){ try{ await db.collection("users").doc(uid).delete(); }catch(e){ alert("Error: "+e.message); } } }
+let allSubjects=[];
+function loadSubjects(){
+    db.collection("subjects").onSnapshot(snap=>{
+        const tbody=document.getElementById("subjects-tbody");
+        const upd=document.getElementById("update-subject"), up=document.getElementById("upload-subject");
+        tbody.innerHTML=""; if(upd) upd.innerHTML='<option value="" disabled selected>Select Subject</option>'; if(up) up.innerHTML='<option value="" disabled selected>Select Subject</option>'; allSubjects=[];
+        if(snap.empty){ ["Mathematics","Physics","Chemistry","Biology"].forEach(s=> db.collection("subjects").add({name:s})); return; }
+        snap.forEach(doc=>{
+            const sub=doc.data().name; allSubjects.push(sub);
+            const tr=document.createElement("tr"); tr.className="hover:bg-white/[0.02]";
+            tr.innerHTML=`<td class="px-4 py-3"><input type="text" value="${sub}" onblur="renameSubject('${doc.id}', this.value)" class="w-full bg-transparent text-sm text-white outline-none"></td><td class="px-4 py-3"><button onclick="deleteSubject('${doc.id}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300">Delete</button></td>`;
+            tbody.appendChild(tr);
+            if(upd){ const o=document.createElement("option"); o.value=sub; o.textContent=sub; upd.appendChild(o); }
+            if(up){ const o=document.createElement("option"); o.value=sub; o.textContent=sub; up.appendChild(o); }
+        });
+        refreshIcons();
+    });
+}
+async function addSubject(){ const input=document.getElementById("new-subject-name"); const name=input.value.trim(); if(name){ try{ await db.collection("subjects").add({name}); input.value=""; }catch(e){ alert("Error: "+e.message); } } }
+async function renameSubject(id, newName){ if(newName.trim()) await db.collection("subjects").doc(id).update({name:newName.trim()}); }
+async function deleteSubject(id){ if(confirm("Delete this subject?")) await db.collection("subjects").doc(id).delete(); }
+function loadFiles(){
+    db.collection("materials").orderBy("createdAt","desc").onSnapshot(snap=>{
+        const tbody=document.getElementById("files-tbody"); tbody.innerHTML="";
+        snap.forEach(doc=>{
+            const f=doc.data();
+            const tr=document.createElement("tr"); tr.className="hover:bg-white/[0.02]";
+            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${f.title}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${f.subject}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${f.uploaderName}</td><td class="px-4 py-3 flex gap-2"><button onclick="openUpdateModal('${doc.id}', '${f.title.replace(/'/g, "\\'")}', '${f.subject}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black">Update</button><button onclick="deleteFile('${doc.id}', '${f.fileUrl}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300">Delete</button></td>`;
+            tbody.appendChild(tr);
+        });
+        refreshIcons();
+    });
+}
+async function deleteFile(id, url){
+    if(!confirm("Permanently delete this material?")) return;
+    try{
+        await db.collection("materials").doc(id).delete();
+        if(url.includes("backblazeb2.com")){
+            try{ await fetch("https://nexus-omega-jet.vercel.app/api/delete-file",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileUrl:url})}); }catch(e){ console.warn(e); }
+        }
+    }catch(e){ alert("Error: "+e.message); }
+}
+const updateModal=document.getElementById("update-modal");
+window.openUpdateModal=function(id,title,subject){ document.getElementById("update-id").value=id; document.getElementById("update-title").value=title; document.getElementById("update-subject").value=subject; document.getElementById("update-file").value=""; updateModal.classList.add("active"); refreshIcons(); };
+updateModal?.addEventListener("click",e=>{ if(e.target===updateModal) updateModal.classList.remove("active"); });
+document.getElementById("update-form")?.addEventListener("submit", async e=>{
+    e.preventDefault();
+    const id=document.getElementById("update-id").value, title=document.getElementById("update-title").value, subject=document.getElementById("update-subject").value, fileInput=document.getElementById("update-file").files[0], prog=document.getElementById("update-progress");
+    try{
+        let updates={title, subject};
+        if(fileInput){
+            prog.classList.remove("hidden"); prog.textContent="Requesting upload URL…";
+            const res=await fetch("https://nexus-omega-jet.vercel.app/api/get-upload-url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileName:fileInput.name.replace(/[^a-zA-Z0-9.]/g,"_"),fileType:fileInput.type||"application/octet-stream"})});
+            if(!res.ok){ const er=await res.json(); throw new Error(er.error||"Failed"); }
+            const {uploadUrl, authToken, fileName:b2FileName, publicUrl}=await res.json();
+            await new Promise((resolve,reject)=>{
+                const xhr=new XMLHttpRequest(); xhr.open("POST",uploadUrl,true);
+                xhr.setRequestHeader("Authorization",authToken); xhr.setRequestHeader("X-Bz-File-Name",encodeURIComponent(b2FileName)); xhr.setRequestHeader("Content-Type",fileInput.type||"application/octet-stream"); xhr.setRequestHeader("X-Bz-Content-Sha1","do_not_verify");
+                xhr.upload.onprogress=evt=>{ if(evt.lengthComputable) prog.textContent=`Uploading: ${Math.round(evt.loaded/evt.total*100)}%`; };
+                xhr.onload=()=>{ if(xhr.status>=200&&xhr.status<300) resolve(); else reject(new Error("Upload failed "+xhr.status)); };
+                xhr.onerror=()=> reject(new Error("Network error")); xhr.send(fileInput);
+            });
+            updates.fileUrl=publicUrl; updates.fileType=fileInput.name.split(".").pop().toLowerCase();
+        }
+        await db.collection("materials").doc(id).update(updates);
+        prog.classList.add("hidden"); updateModal.classList.remove("active");
+    }catch(err){ prog.classList.add("hidden"); alert("Update failed: "+err.message); }
+});
+const uploadModal=document.getElementById("upload-modal");
+window.openUploadModal=function(){ document.getElementById("upload-form").reset(); uploadModal.classList.add("active"); refreshIcons(); };
+uploadModal?.addEventListener("click",e=>{ if(e.target===uploadModal) uploadModal.classList.remove("active"); });
+document.getElementById("upload-form")?.addEventListener("submit", async e=>{
+    e.preventDefault();
+    const title=document.getElementById("upload-title").value, subject=document.getElementById("upload-subject").value, fileInput=document.getElementById("upload-file").files[0], prog=document.getElementById("upload-progress");
+    if(!fileInput) return;
+    try{
+        prog.classList.remove("hidden"); prog.textContent="Requesting upload URL…";
+        const res=await fetch("https://nexus-omega-jet.vercel.app/api/get-upload-url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileName:fileInput.name.replace(/[^a-zA-Z0-9.]/g,"_"),fileType:fileInput.type||"application/octet-stream"})});
+        if(!res.ok){ const er=await res.json(); throw new Error(er.error||"Failed"); }
+        const {uploadUrl, authToken, fileName:b2FileName, publicUrl}=await res.json();
+        await new Promise((resolve,reject)=>{
+            const xhr=new XMLHttpRequest(); xhr.open("POST",uploadUrl,true);
+            xhr.setRequestHeader("Authorization",authToken); xhr.setRequestHeader("X-Bz-File-Name",encodeURIComponent(b2FileName)); xhr.setRequestHeader("Content-Type",fileInput.type||"application/octet-stream"); xhr.setRequestHeader("X-Bz-Content-Sha1","do_not_verify");
+            xhr.upload.onprogress=evt=>{ if(evt.lengthComputable) prog.textContent=`Uploading: ${Math.round(evt.loaded/evt.total*100)}%`; };
+            xhr.onload=()=>{ if(xhr.status>=200&&xhr.status<300) resolve(); else reject(new Error("Upload failed")); };
+            xhr.onerror=()=> reject(new Error("Network error")); xhr.send(fileInput);
+        });
+        const user=auth.currentUser;
+        await db.collection("materials").add({title, subject, fileUrl:publicUrl, fileType:fileInput.name.split(".").pop().toLowerCase(), uploaderId:user?user.uid:"admin", uploaderName:user? (user.displayName||"Admin"):"Admin", createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+        prog.classList.add("hidden"); uploadModal.classList.remove("active");
+    }catch(err){ prog.classList.add("hidden"); alert("Upload failed: "+err.message); }
+});
+function initNotifications(){
+    const badge=document.getElementById("notif-badge"), list=document.getElementById("notif-list"), panel=document.getElementById("notification-panel"), backdrop=document.getElementById("notif-backdrop"), trigger=document.getElementById("notifications-link"), closeBtn=document.getElementById("close-notifs"), menuDot=document.getElementById("menu-notif-dot");
+    function openPanel(){ panel.classList.add("active"); backdrop.classList.add("active"); if(badge){badge.style.display="none"; badge.classList.add("hidden");} if(menuDot) menuDot.classList.add("hidden"); localStorage.setItem("nexus_last_notif_check", Date.now()); }
+    function closePanel(){ panel.classList.remove("active"); backdrop.classList.remove("active"); }
+    trigger?.addEventListener("click",e=>{ e.preventDefault(); if(panel.classList.contains("active")) closePanel(); else openPanel(); });
+    closeBtn?.addEventListener("click",closePanel); backdrop?.addEventListener("click",closePanel);
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape" && panel.classList.contains("active")) closePanel(); });
+    db.collection("notifications").orderBy("createdAt","desc").limit(15).onSnapshot(snap=>{
+        if(snap.empty){ list.innerHTML='<p class="py-12 text-center font-mono text-sm text-zinc-500">No new notifications</p>'; if(badge) badge.classList.add("hidden"); if(menuDot) menuDot.classList.add("hidden"); return; }
+        const lastChecked=parseInt(localStorage.getItem("nexus_last_notif_check")||0); let hasNew=false; list.innerHTML="";
+        snap.forEach(doc=>{
+            const d=doc.data(); const at=d.createdAt? d.createdAt.toMillis():Date.now(); if(at>lastChecked) hasNew=true;
+            const time=d.createdAt? d.createdAt.toDate().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Just now";
+            const item=document.createElement("div"); item.className="border-b border-white/10 py-4 last:border-0";
+            item.innerHTML=`<div class="flex items-start justify-between gap-3"><b class="font-display text-[13px] font-[700]">${d.title}</b><button onclick="deleteNotification('${doc.id}')" class="grid h-8 w-8 place-items-center rounded-full text-zinc-500 hover:bg-white/10 hover:text-red-400"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button></div><p class="mt-1 text-[13px] leading-5 text-zinc-400">${d.message}</p><span class="mt-2 inline-block font-mono text-[11px] text-violet">${time}</span>`;
+            list.appendChild(item);
+        }); refreshIcons();
+        if(hasNew && !panel.classList.contains("active")){ if(badge){badge.style.display="block"; badge.classList.remove("hidden");} if(menuDot) menuDot.classList.remove("hidden"); } else { if(badge) badge.classList.add("hidden"); if(menuDot) menuDot.classList.add("hidden"); }
+    });
+}
+window.deleteNotification=async function(id){ if(confirm("Delete this notification for everyone?")) await db.collection("notifications").doc(id).delete(); };
+refreshIcons();
+</script>
 
-    <!-- File Upload Modal -->
-    <div class="modal-overlay" id="upload-modal">
-        <div class="modal">
-            <h2>Upload New Material</h2>
-            <form id="upload-form">
-                <div class="input-group">
-                    <label>Title</label>
-                    <input type="text" id="upload-title" required>
-                </div>
-                <div class="input-group">
-                    <label>Subject</label>
-                    <select id="upload-subject" required>
-                        <!-- Loaded dynamically -->
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>File</label>
-                    <input type="file" id="upload-file" accept=".pdf,.doc,.docx,.ppt,.pptx" required>
-                </div>
-                <button type="submit" class="magnetic-btn" style="width:100%; margin-top:1rem;">Upload Material</button>
-                <div id="upload-progress" style="display:none; text-align:center; color:var(--accent); margin-top:1rem;">Uploading...</div>
-            </form>
+    <footer class="relative z-10 overflow-hidden border-t border-white/10 bg-[#0a0a0a]">
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center overflow-hidden select-none">
+            <span class="translate-y-[28%] font-display text-[20vw] font-[800] leading-none tracking-[-0.06em] text-white/[0.035] md:text-[17vw]">NEXUS</span>
         </div>
-    </div>
+        <div class="relative mx-auto max-w-[1120px] px-5 py-10 md:px-6 md:py-12">
+            <div class="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="grid h-8 w-8 place-items-center rounded-full bg-white text-[11px] font-black tracking-tighter text-black">NX</span>
+                        <span class="font-display text-[15px] font-[800] tracking-[-0.03em]">NEXUS</span>
+                        <span class="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] tracking-[0.14em] text-zinc-500">© 2026</span>
+                    </div>
+                    <p class="mt-3 max-w-[36ch] text-[13px] leading-5 text-zinc-500">An editorial-grade academic repository by students, for students. Minimal. Fast. Obsessively curated.</p>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <div class="font-mono text-[11px] tracking-[0.14em] text-zinc-500">QUICK LINKS</div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="https://github.com" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="github" class="h-3.5 w-3.5"></i> GitHub</a>
+                        <a href="discussion.html" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="messages-square" class="h-3.5 w-3.5"></i> Discord</a>
+                        <a href="notice.html" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="graduation-cap" class="h-3.5 w-3.5"></i> Campus Portal</a>
+                        <a href="#" class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-white/20 hover:text-white"><i data-lucide="mail" class="h-3.5 w-3.5"></i> Feedback</a>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-[11px] leading-5 text-zinc-600 md:flex-row md:items-center md:justify-between">
+                <span>Built with care in India · <a href="#" class="underline decoration-white/20 underline-offset-4 hover:text-zinc-400">Privacy</a> · <a href="#" class="underline decoration-white/20 underline-offset-4 hover:text-zinc-400">Terms</a></span>
+                <span class="font-mono tracking-wide">ALL MATERIALS ARE PEER-CONTRIBUTED — VERIFY BEFORE CITING.</span>
+            </div>
+        </div>
+    </footer>
+
 
     <script>
-        // Check Master Password Session
-        if (sessionStorage.getItem('admin_access') !== 'granted') {
-            alert('Unauthorized Access. Please login via the main page and enter the Master Password.');
-            window.location.href = 'index.html';
+    // Force scrollable after load - fix for Lenis lock
+    window.addEventListener('load', () => {
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.height = 'auto';
+        document.body.style.height = 'auto';
+        // If Lenis is active, ensure it doesn't lock
+        if(document.documentElement.classList.contains('lenis')){
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
         }
-
-        let auth = null;
-        let db = null;
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCSHxv74kZ2kSeJVHHDRzT9UUAwAebAdr4",
-            authDomain: "nexus-e7a36.firebaseapp.com",
-            projectId: "nexus-e7a36",
-            storageBucket: "nexus-e7a36.firebasestorage.app",
-            messagingSenderId: "516259533933",
-            appId: "1:516259533933:web:fc190f6c0f203e47785b64"
-        };
-
-        async function initializeAppFlow() {
-            try {
-                firebase.initializeApp(firebaseConfig);
-                auth = firebase.auth();
-                db = firebase.firestore();
-                db.enablePersistence().catch(err => console.warn('Firestore persistence disabled:', err));
-                
-                initAuthListener();
-                initNotifications();
-            } catch (err) {
-                console.error('Initialization error:', err);
-                alert('Failed to initialize system connection: ' + err.message);
+        // Emergency: if page is not scrollable after 1s, disable Lenis
+        setTimeout(() => {
+            if(window.scrollY === 0 && document.documentElement.scrollHeight <= window.innerHeight + 10){
+                // Not scrollable - maybe Lenis locked?
             }
-        }
-        initializeAppFlow();
-        
-        // Custom Cursor & Button Interactions
-        const cursor = document.querySelector('.custom-cursor');
-        document.addEventListener('mousemove', (e) => {
-            gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1, ease: "power2.out" });
-        });
-        function initCursorInteractions() {
-            document.querySelectorAll('button, a, select, input').forEach(el => {
-                el.addEventListener('mouseenter', () => cursor.classList.add('active'));
-                el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
-            });
-        }
-        initCursorInteractions();
-
-        // Tabs Logic
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-                
-                btn.classList.add('active');
-                document.getElementById(btn.dataset.tab).classList.add('active');
-            });
-        });
-
-        function initAuthListener() {
-            auth.onAuthStateChanged(async (user) => {
-                if (user) {
-                    const docSnap = await db.collection('users').doc(user.uid).get();
-                    const userData = docSnap.exists ? docSnap.data() : null;
-                    if (!userData || userData.role !== 'admin') {
-                        alert('You do not have Firestore admin privileges.');
-                        window.location.href = 'index.html';
-                    } else {
-                        // Admin verified, load data
-                        loadMembers();
-                        loadSubjects();
-                        loadFiles();
-                    }
-                } else {
-                    window.location.href = 'index.html';
+            // Test scroll - if document is stuck, remove Lenis
+            const testScroll = () => {
+                const before = window.scrollY;
+                window.scrollBy(0, 1);
+                const after = window.scrollY;
+                if(before === after && document.documentElement.scrollHeight > window.innerHeight){
+                    console.warn('Scroll locked, disabling Lenis');
+                    document.documentElement.classList.remove('lenis','lenis-smooth');
+                    document.body.style.overflow = 'auto';
+                    document.documentElement.style.overflow = 'auto';
+                    if(window.lenis) try{ window.lenis.destroy(); }catch(e){}
                 }
-            });
-        }
-
-        // ==========================================
-        // MEMBERS
-        // ==========================================
-        function loadMembers() {
-            db.collection('users').onSnapshot(snapshot => {
-                const tbody = document.getElementById('members-tbody');
-                tbody.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const user = doc.data();
-                    // Account Name = manual Firestore name, Alias = Google name
-                    const accountName = user.name || 'N/A';
-                    const aliasName = user.googleName || '';
-                    
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>
-                            <input type="text" value="${accountName}" onblur="adminUpdateUserName('${doc.id}', this.value)" style="width: 100%; background:transparent; border:none; color:var(--text-main); font-weight:600; font-size:1rem;">
-                        </td>
-                        <td>${user.email}</td>
-                        <td>
-                            <select onchange="updateRole('${doc.id}', this.value)">
-                                <option value="pending" ${user.role==='pending'?'selected':''}>Pending</option>
-                                <option value="friend" ${user.role==='friend'?'selected':''}>Friend</option>
-                                <option value="admin" ${user.role==='admin'?'selected':''}>Admin</option>
-                            </select>
-                        </td>
-                        <td>
-                            <button class="magnetic-btn btn-danger" onclick="deleteMember('${doc.id}')">Delete</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-                initCursorInteractions();
-            });
-        }
-
-        async function adminUpdateUserName(uid, newName) {
-            if (newName.trim()) {
-                const userDoc = await db.collection('users').doc(uid).get();
-                const currentName = userDoc.exists ? userDoc.data().name : '';
-                
-                if (newName.trim() === currentName) return;
-
-                if (confirm(`Change user name to "${newName.trim()}"?`)) {
-                    try {
-                        await db.collection('users').doc(uid).update({ name: newName.trim() });
-                    } catch(e) {
-                        alert('Error updating name: ' + e.message);
-                        loadMembers();
-                    }
-                } else {
-                    // Revert the input by reloading the members list
-                    loadMembers();
-                }
-            }
-        }
-
-        async function updateRole(uid, newRole) {
-            try {
-                await db.collection('users').doc(uid).update({ role: newRole });
-                console.log(`Role updated to ${newRole}`);
-            } catch (e) {
-                alert('Error updating role: ' + e.message);
-            }
-        }
-
-        async function deleteMember(uid) {
-            if (confirm('Are you sure you want to remove this user from Firestore? This revokes their access.')) {
-                try {
-                    await db.collection('users').doc(uid).delete();
-                } catch (e) {
-                    alert('Error deleting user: ' + e.message);
-                }
-            }
-        }
-
-        // ==========================================
-        // SUBJECTS
-        // ==========================================
-        let allSubjects = [];
-        
-        function loadSubjects() {
-            db.collection('subjects').onSnapshot(snapshot => {
-                const tbody = document.getElementById('subjects-tbody');
-                const updateSelect = document.getElementById('update-subject');
-                const uploadSelect = document.getElementById('upload-subject');
-                
-                tbody.innerHTML = '';
-                updateSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
-                uploadSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>';
-                allSubjects = [];
-                
-                if (snapshot.empty) {
-                    // Seed defaults if empty
-                    const defaults = ['Mathematics', 'Physics', 'Chemistry', 'Biology'];
-                    defaults.forEach(sub => db.collection('subjects').add({ name: sub }));
-                    return;
-                }
-
-                snapshot.forEach(doc => {
-                    const sub = doc.data().name;
-                    allSubjects.push(sub);
-                    
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>
-                            <input type="text" value="${sub}" onblur="renameSubject('${doc.id}', this.value)" style="width: 100%; background:transparent; border:none; color:var(--text-main); font-size:1rem;">
-                        </td>
-                        <td>
-                            <button class="magnetic-btn btn-danger" onclick="deleteSubject('${doc.id}')">Delete</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-
-                    const option = document.createElement('option');
-                    option.value = sub;
-                    option.textContent = sub;
-                    updateSelect.appendChild(option);
-
-                    const uploadOption = document.createElement('option');
-                    uploadOption.value = sub;
-                    uploadOption.textContent = sub;
-                    uploadSelect.appendChild(uploadOption);
-                });
-                initCursorInteractions();
-            });
-        }
-
-        async function addSubject() {
-            const input = document.getElementById('new-subject-name');
-            const name = input.value.trim();
-            if (name) {
-                try {
-                    await db.collection('subjects').add({ name });
-                    input.value = '';
-                } catch(e) {
-                    alert('Error adding subject: ' + e.message);
-                }
-            }
-        }
-
-        async function renameSubject(id, newName) {
-            if (newName.trim()) {
-                await db.collection('subjects').doc(id).update({ name: newName.trim() });
-            }
-        }
-
-        async function deleteSubject(id) {
-            if (confirm('Delete this subject? Existing files with this subject won\'t be deleted, but the subject will vanish from menus.')) {
-                await db.collection('subjects').doc(id).delete();
-            }
-        }
-
-        // ==========================================
-        // FILES
-        // ==========================================
-        function loadFiles() {
-            db.collection('materials').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
-                const tbody = document.getElementById('files-tbody');
-                tbody.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const file = doc.data();
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${file.title}</td>
-                        <td>${file.subject}</td>
-                        <td style="font-size: 0.85rem;">
-                            ${file.uploaderName}
-                        </td>
-                        <td>
-                            <button class="magnetic-btn" onclick="openUpdateModal('${doc.id}', '${file.title.replace(/'/g, "\\'")}', '${file.subject}', '${file.fileUrl || ''}')">Update</button>
-                            <button class="magnetic-btn btn-danger" onclick="deleteFile('${doc.id}', '${file.fileUrl}')">Delete</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-                initCursorInteractions();
-            });
-        }
-
-        async function deleteFile(id, url) {
-            if (confirm('Permanently delete this material?')) {
-                try {
-                    await db.collection('materials').doc(id).delete();
-                    if (url) {
-                        try {
-                            await fetch('https://nexus-omega-jet.vercel.app/api/delete-file', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ fileUrl: url })
-                            });
-                        } catch(e) {
-                            console.warn('Storage deletion warning:', e);
-                        }
-                    }
-                } catch(e) {
-                    alert('Error: ' + e.message);
-                }
-            }
-        }
-
-        // UPDATE MODAL
-        const updateModal = document.getElementById('update-modal');
-        function openUpdateModal(id, title, subject, fileUrl) {
-            const idEl = document.getElementById('update-id');
-            const titleEl = document.getElementById('update-title');
-            const subjectEl = document.getElementById('update-subject');
-            const fileUrlEl = document.getElementById('update-file-url');
-            const fileEl = document.getElementById('update-file');
-
-            if (idEl) idEl.value = id || '';
-            if (titleEl) titleEl.value = title || '';
-            if (subjectEl) subjectEl.value = subject || '';
-            if (fileUrlEl) fileUrlEl.value = fileUrl || '';
-            if (fileEl) fileEl.value = '';
-
-            if (updateModal) updateModal.classList.add('active');
-        }
-
-        if (updateModal) {
-            updateModal.addEventListener('click', (e) => {
-                if (e.target === updateModal) {
-                    updateModal.classList.remove('active');
-                }
-            });
-        }
-
-        function uploadFileToGitHub(file, onProgress, existingFileUrl) {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    const maxSizeBytes = 2000 * 1024 * 1024; // 2 GB limit
-                    if (file.size > maxSizeBytes) {
-                        return reject(new Error(`File size (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB) exceeds limit of 2 GB.`));
-                    }
-
-                    const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-                    let oldFileName = null;
-                    if (existingFileUrl) {
-                        const match = existingFileUrl.match(/\/([^\/]+)$/);
-                        oldFileName = match ? match[1] : null;
-                    }
-
-                    const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-                    const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB per chunk
-                    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-                    if (onProgress) onProgress(`Preparing high-speed upload (${totalChunks} chunks)...`);
-
-                    let finalResult = null;
-
-                    for (let i = 0; i < totalChunks; i++) {
-                        const start = i * CHUNK_SIZE;
-                        const end = Math.min(file.size, start + CHUNK_SIZE);
-                        const blobSlice = file.slice(start, end);
-
-                        const base64Chunk = await new Promise((resSlice, rejSlice) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resSlice(reader.result);
-                            reader.onerror = () => rejSlice(new Error('Failed to read file slice'));
-                            reader.readAsDataURL(blobSlice);
-                        });
-
-                        const progressPercent = Math.round(((i + 1) / totalChunks) * 95);
-                        if (onProgress) onProgress(`Uploading material: ${progressPercent}% (${i + 1}/${totalChunks})...`);
-
-                        const chunkRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                uploadId: uploadId,
-                                chunkIndex: i,
-                                totalChunks: totalChunks,
-                                fileName: fileName,
-                                chunkData: base64Chunk,
-                                oldFileName: (i === totalChunks - 1) ? oldFileName : null
-                            })
-                        });
-
-                        if (!chunkRes.ok) {
-                            const errJson = await chunkRes.json().catch(() => null);
-                            const errMsg = errJson ? (errJson.error || errJson.message || JSON.stringify(errJson)) : await chunkRes.text();
-                            throw new Error(`Upload failed on chunk ${i + 1}/${totalChunks}: ${errMsg}`);
-                        }
-
-                        const resData = await chunkRes.json();
-                        if (resData.publicUrl) {
-                            finalResult = resData;
-                        }
-                    }
-
-                    if (!finalResult || !finalResult.publicUrl) {
-                        throw new Error('Upload completed but no public URL was returned.');
-                    }
-
-                    if (onProgress) onProgress('Upload complete!');
-                    resolve(finalResult);
-                } catch (err) {
-                    reject(err);
-                }
-            });
-        }
-
-        const updateForm = document.getElementById('update-form');
-        if (updateForm) {
-            updateForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const id = document.getElementById('update-id')?.value || '';
-                const title = document.getElementById('update-title')?.value || '';
-                const subject = document.getElementById('update-subject')?.value || '';
-                const fileInput = document.getElementById('update-file')?.files?.[0];
-                const existingFileUrl = document.getElementById('update-file-url')?.value || '';
-                const progress = document.getElementById('update-progress');
-
-                if (!id) {
-                    alert('Error: Material ID is missing.');
-                    return;
-                }
-
-                try {
-                    let updates = { title, subject };
-                    
-                    if (fileInput) {
-                        if (progress) {
-                            progress.style.display = 'block';
-                            progress.textContent = 'Replacing file on GitHub Storage...';
-                        }
-
-                        const resData = await uploadFileToGitHub(fileInput, (msg) => {
-                            if (progress) progress.textContent = msg;
-                        }, existingFileUrl);
-
-                        updates.fileUrl = resData.publicUrl;
-                        if (resData.assetId) updates.githubAssetId = resData.assetId;
-                        if (resData.assetName) updates.githubAssetName = resData.assetName;
-                        updates.fileType = fileInput.name.split('.').pop().toLowerCase();
-                        updates.version = firebase.firestore.FieldValue.increment(1);
-                    }
-
-                    await db.collection('materials').doc(id).update(updates);
-                    if (progress) progress.style.display = 'none';
-                    if (updateModal) updateModal.classList.remove('active');
-                    alert('Material updated & old file replaced on GitHub!');
-                    
-                } catch (err) {
-                    if (progress) progress.style.display = 'none';
-                    alert('Update failed: ' + err.message);
-                }
-            });
-        }
-
-        // UPLOAD MODAL
-        const uploadModal = document.getElementById('upload-modal');
-        function openUploadModal() {
-            document.getElementById('upload-form').reset();
-            uploadModal.classList.add('active');
-        }
-
-        uploadModal.addEventListener('click', (e) => {
-            if (e.target === uploadModal) {
-                uploadModal.classList.remove('active');
-            }
-        });
-
-        document.getElementById('upload-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const title = document.getElementById('upload-title').value;
-            const subject = document.getElementById('upload-subject').value;
-            const fileInput = document.getElementById('upload-file').files[0];
-            const progress = document.getElementById('upload-progress');
-
-            if (!fileInput) return;
-
-            try {
-                progress.style.display = 'block';
-                progress.textContent = 'Uploading to GitHub Storage...';
-
-                const resData = await uploadFileToGitHub(fileInput, (msg) => {
-                    progress.textContent = msg;
-                });
-                
-                const user = auth.currentUser;
-
-                await db.collection('materials').add({
-                    title: title,
-                    subject: subject,
-                    fileUrl: resData.publicUrl,
-                    githubAssetId: resData.assetId || null,
-                    githubAssetName: resData.assetName || null,
-                    fileType: fileInput.name.split('.').pop().toLowerCase(),
-                    uploaderId: user ? user.uid : 'admin',
-                    uploaderName: user ? (user.displayName || 'Admin') : 'Admin',
-                    version: 1,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                progress.style.display = 'none';
-                uploadModal.classList.remove('active');
-                alert('Material uploaded successfully!');
-                
-            } catch (err) {
-                progress.style.display = 'none';
-                alert('Upload failed: ' + err.message);
-            }
-        });
-
-        // Notifications
-        function initNotifications() {
-            const badge = document.getElementById('notif-badge');
-            const list = document.getElementById('notif-list');
-            const panel = document.getElementById('notification-panel');
-            const trigger = document.getElementById('notifications-link');
-            const closeBtn = document.getElementById('close-notifs');
-
-            trigger.addEventListener('click', (e) => {
-                e.preventDefault();
-                panel.classList.toggle('active');
-                if (panel.classList.contains('active')) {
-                    badge.style.display = 'none';
-                    localStorage.setItem('nexus_last_notif_check', Date.now());
-                }
-            });
-
-            closeBtn.addEventListener('click', () => panel.classList.remove('active'));
-
-            db.collection('notifications').orderBy('createdAt', 'desc').limit(15).onSnapshot(snap => {
-                if (snap.empty) {
-                    list.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">No new notifications</p>';
-                    badge.style.display = 'none';
-                    return;
-                }
-
-                const lastChecked = parseInt(localStorage.getItem('nexus_last_notif_check') || 0);
-                let hasNew = false;
-
-                list.innerHTML = '';
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const createdAt = data.createdAt ? data.createdAt.toMillis() : Date.now();
-                    if (createdAt > lastChecked) hasNew = true;
-
-                    const time = data.createdAt ? data.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
-                    const item = document.createElement('div');
-                    item.className = 'notification-item';
-                    item.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <b>${data.title}</b>
-                            <button onclick="deleteNotification('${doc.id}')" style="background:none; border:none; color:var(--error); cursor:pointer; font-size:1.2rem; line-height:1;">×</button>
-                        </div>
-                        <span style="display:block; margin-top:0.2rem;">${data.message}</span>
-                        <span class="notification-time">${time}</span>
-                    `;
-                    list.appendChild(item);
-                });
-
-                if (hasNew && !panel.classList.contains('active')) {
-                    badge.style.display = 'block';
-                } else {
-                    badge.style.display = 'none';
-                }
-            });
-        }
-
-        async function deleteNotification(id) {
-            if (confirm('Delete this notification for everyone?')) {
-                await db.collection('notifications').doc(id).delete();
-            }
-        }
-        window.deleteNotification = deleteNotification;
-
+                window.scrollTo(0,0);
+            };
+            // Only test if user hasn't scrolled yet
+            if(window.scrollY === 0) setTimeout(testScroll, 500);
+        }, 1200);
+    });
     </script>
+
 </body>
 </html>
