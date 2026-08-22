@@ -1,22 +1,40 @@
 {
-  "short_name": "NEXUS",
-  "name": "NEXUS - Material Hub",
-  "description": "Sleek study-material sharing PWA for VIT students.",
+  "id": "/",
+  "scope": "/",
+  "short_name": "Nexus",
+  "name": "Nexus - A Material Hub",
+  "description": "The minimal academic repository for curated study materials.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "prefer_related_applications": false,
+  "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "/icon-192.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
-  ],
-  "start_url": "/index.html",
-  "background_color": "#030005",
-  "theme_color": "#9d4edd",
-  "display": "standalone",
-  "orientation": "portrait"
+  ]
 }
