@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v53';
+const CACHE_NAME = 'nexus-shell-v55';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

@@ -1,7 +1,7 @@
 {
   "short_name": "NEXUS",
-  "name": "NEXUS - Material Hub",
-  "description": "Sleek study-material sharing PWA for VIT students.",
+  "name": "NEXUS — Learn faster. Share knowledge, not just files.",
+  "description": "Sleek study-material sharing PWA for students.",
   "icons": [
     {
       "src": "icon-192.png",
@@ -15,8 +15,8 @@
     }
   ],
   "start_url": "/index.html",
-  "background_color": "#030005",
-  "theme_color": "#9d4edd",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "display": "standalone",
   "orientation": "portrait"
 }
