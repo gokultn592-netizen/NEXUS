@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v52';
+const CACHE_NAME = 'nexus-shell-v54';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
   '/admin.html',
   '/manifest.json',
   '/pwa-helper.js',
+  '/particle-sphere.js',
   '/icon-192.png',
   '/icon-512.png',
   '/favicon.ico'
@@ -82,7 +83,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Local static shell assets (HTML, helper JS, manifest) — Stale-While-Revalidate
+  // 3. Local JS scripts — Network-First strategy to guarantee instant code updates for all users
+  if (url.pathname.endsWith('.js')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse.ok) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // 4. Local static shell assets (HTML, manifest) — Stale-While-Revalidate
   const isStatic = STATIC_ASSETS.some(asset => {
     if (asset === '/') return url.pathname === '/';
     const cleanAsset = asset.endsWith('.html') ? asset.slice(0, -5) : asset;
