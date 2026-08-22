@@ -85,8 +85,8 @@
 
     // 4. Particle System Setup — 18,000 Particles
     const PARTICLE_COUNT = 18000;
-    const CORE_RADIUS = 1.35;
-    const OUTER_RADIUS = 2.25;
+    const CORE_RADIUS = 1.30;
+    const OUTER_RADIUS = 2.05;
 
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -226,9 +226,13 @@
         camera.updateProjectionMatrix();
         renderer.setSize(width, height, false);
 
-        // Keep 3D model scale, camera position, and particle sizes 100% identical on mobile and desktop
-        camera.position.z = 5.8;
-        particleMaterial.size = (width < 480) ? 0.055 : 0.054;
+        if (width < 480) {
+            camera.position.z = 5.1;
+            particleMaterial.size = 0.056;
+        } else {
+            camera.position.z = 5.8;
+            particleMaterial.size = 0.054;
+        }
     }
 
     const resizeObserver = new ResizeObserver(() => handleResize());
