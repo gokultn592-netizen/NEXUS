@@ -1,17 +1,16 @@
 /**
- * NEXUS Cybernetic Holographic 3D Core Upgrade
- * - Inner glowing 3D geodesic wireframe crystal
- * - 18,000+ particle dual counter-rotating accretion discs
- * - Dynamic chromatic violet / neon cyan color transitions
- * - Interactive magnetic cursor repulsion & spring physics
+ * NEXUS 3D Cybernetic Holographic Core Engine
+ * Rendered using Three.js with inner crystalline geodesic structure,
+ * dual-layer particle accretion discs, chromatic cyan/violet color shifts,
+ * and interactive magnetic cursor repulsion physics.
  */
 
-(function initCybernetic3DCore() {
+(function init3DCyberneticCore() {
     const container = document.getElementById('hero-3d-container');
     if (!container) return;
 
     if (typeof THREE === 'undefined') {
-        console.warn('[Cybernetic 3D Core] Three.js not loaded');
+        console.warn('[3D Core] Three.js not loaded');
         return;
     }
 
@@ -30,7 +29,39 @@
     canvas.style.height = '100%';
     canvas.style.display = 'block';
 
-    // 2. Soft Glowing Circular Particle Texture
+    // 2. Inner Crystalline Geodesic Core Structure
+    const crystalGroup = new THREE.Group();
+
+    // Icosahedron Wireframe
+    const icoGeo = new THREE.IcosahedronGeometry(0.85, 1);
+    const wireframeGeo = new THREE.WireframeGeometry(icoGeo);
+    const lineMat = new THREE.LineBasicMaterial({
+        color: 0x8b5cf6,
+        transparent: true,
+        opacity: 0.45,
+        linewidth: 1.5
+    });
+    const crystalLines = new THREE.LineSegments(wireframeGeo, lineMat);
+    crystalGroup.add(crystalLines);
+
+    // Inner Glowing Core Solid Node
+    const coreNodeGeo = new THREE.IcosahedronGeometry(0.45, 2);
+    const coreNodeMat = new THREE.MeshBasicMaterial({
+        color: 0xc4b5fd,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.65
+    });
+    const coreNodeMesh = new THREE.Mesh(coreNodeGeo, coreNodeMat);
+    crystalGroup.add(coreNodeMesh);
+
+    scene.add(crystalGroup);
+
+    // Inner Point Light for Glowing Ambient Radiation
+    const pointLight = new THREE.PointLight(0xc4b5fd, 2.5, 10);
+    scene.add(pointLight);
+
+    // 3. Soft Glowing Circular Particle Texture
     function createParticleTexture() {
         const size = 64;
         const canvasMat = document.createElement('canvas');
@@ -40,10 +71,9 @@
 
         const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
         grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-        grad.addColorStop(0.2, 'rgba(240, 235, 255, 0.95)');
-        grad.addColorStop(0.5, 'rgba(56, 189, 248, 0.45)');
-        grad.addColorStop(0.8, 'rgba(139, 92, 246, 0.2)');
-        grad.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
+        grad.addColorStop(0.2, 'rgba(224, 242, 254, 0.95)'); // Cyan tint
+        grad.addColorStop(0.5, 'rgba(196, 181, 253, 0.5)');  // Lilac tint
+        grad.addColorStop(1, 'rgba(139, 92, 246, 0.0)');   // Violet transparent
 
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
@@ -53,43 +83,10 @@
         return texture;
     }
 
-    // 3. Inner Geodesic Crystalline Wireframe Core
-    const crystalGroup = new THREE.Group();
-
-    // Primary Geodesic Icosahedron Wireframe
-    const icosaGeo = new THREE.IcosahedronGeometry(0.9, 2);
-    const wireframeGeo = new THREE.WireframeGeometry(icosaGeo);
-    const crystalMat = new THREE.LineBasicMaterial({
-        color: 0x8b5cf6,
-        transparent: true,
-        opacity: 0.45,
-        blending: THREE.AdditiveBlending
-    });
-    const crystalMesh = new THREE.LineSegments(wireframeGeo, crystalMat);
-    crystalGroup.add(crystalMesh);
-
-    // Inner Concentric Dodecahedron Crystal
-    const innerDodecaGeo = new THREE.DodecahedronGeometry(0.55, 1);
-    const innerWireframeGeo = new THREE.WireframeGeometry(innerDodecaGeo);
-    const innerCrystalMat = new THREE.LineBasicMaterial({
-        color: 0x38bdf8,
-        transparent: true,
-        opacity: 0.65,
-        blending: THREE.AdditiveBlending
-    });
-    const innerCrystalMesh = new THREE.LineSegments(innerWireframeGeo, innerCrystalMat);
-    crystalGroup.add(innerCrystalMesh);
-
-    // Core Point Light
-    const coreLight = new THREE.PointLight(0x8b5cf6, 2.5, 10);
-    crystalGroup.add(coreLight);
-
-    scene.add(crystalGroup);
-
-    // 4. 18,000 Particle Dual Accretion System
+    // 4. Particle System Setup — 18,000 Particles
     const PARTICLE_COUNT = 18000;
-    const CORE_RADIUS = 1.2;
-    const OUTER_RADIUS = 2.4;
+    const CORE_RADIUS = 1.35;
+    const OUTER_RADIUS = 2.25;
 
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -100,54 +97,54 @@
 
     const particleMeta = [];
 
-    // Dual counter-rotating inclination rings
+    // Tilted Orbital Accretion Rings (5 inclined planes)
     const rings = [
-        { tiltX: 0.35, tiltZ: 0.45, speed: 0.55, dir: 1 },
-        { tiltX: -0.55, tiltZ: 0.75, speed: 0.48, dir: -1 },
-        { tiltX: 0.85, tiltZ: -0.35, speed: 0.62, dir: 1 },
-        { tiltX: -0.35, tiltZ: -0.75, speed: 0.52, dir: -1 },
-        { tiltX: 0.65, tiltZ: 0.65, speed: 0.42, dir: 1 }
+        { tiltX: 0.35, tiltZ: 0.45, speed: 0.52 },
+        { tiltX: -0.55, tiltZ: 0.85, speed: -0.42 },
+        { tiltX: 0.85, tiltZ: -0.35, speed: 0.58 },
+        { tiltX: -0.25, tiltZ: -0.75, speed: -0.48 },
+        { tiltX: 0.65, tiltZ: 0.65, speed: 0.38 }
     ];
 
-    // Color Palette: Pure White, Soft Lilac, Electric Violet, Neon Cyan
-    const palette = [
-        new THREE.Color('#ffffff'),
-        new THREE.Color('#c4b5fd'),
-        new THREE.Color('#8b5cf6'),
-        new THREE.Color('#38bdf8')
-    ];
+    const colorWhite = new THREE.Color('#ffffff');
+    const colorLilac = new THREE.Color('#c4b5fd');
+    const colorViolet = new THREE.Color('#8b5cf6');
+    const colorCyan = new THREE.Color('#38bdf8');
 
     for (let i = 0; i < PARTICLE_COUNT; i++) {
         const u = Math.random();
         const v = Math.random();
         const theta = u * 2.0 * Math.PI;
         const phi = Math.acos(2.0 * v - 1.0);
-        
-        const r = Math.pow(Math.random(), 0.8) * OUTER_RADIUS;
+        const r = Math.pow(Math.random(), 0.7) * OUTER_RADIUS;
 
         const x = r * Math.sin(phi) * Math.cos(theta);
         const y = r * Math.sin(phi) * Math.sin(theta);
         const z = r * Math.cos(phi);
 
-        positions[i * 3]     = x;
+        positions[i * 3] = x;
         positions[i * 3 + 1] = y;
         positions[i * 3 + 2] = z;
 
-        currPos[i * 3]     = x;
+        currPos[i * 3] = x;
         currPos[i * 3 + 1] = y;
         currPos[i * 3 + 2] = z;
 
         const isCore = r < CORE_RADIUS;
         const ringIndex = Math.floor(Math.random() * rings.length);
 
-        const colIndex = isCore ? (Math.random() > 0.4 ? 0 : 1) : Math.floor(Math.random() * palette.length);
-        const pColor = palette[colIndex].clone();
+        let pColor;
+        if (isCore) {
+            pColor = Math.random() > 0.4 ? colorWhite : colorLilac;
+        } else {
+            const rand = Math.random();
+            pColor = rand > 0.65 ? colorCyan : (rand > 0.35 ? colorLilac : (rand > 0.15 ? colorViolet : colorWhite));
+        }
 
-        colors[i * 3]     = pColor.r;
+        colors[i * 3] = pColor.r;
         colors[i * 3 + 1] = pColor.g;
         colors[i * 3 + 2] = pColor.b;
-
-        baseColors.push({ r: pColor.r, g: pColor.g, b: pColor.b, hsl: pColor.getHSL({}) });
+        baseColors.push(pColor.clone());
 
         particleMeta.push({
             isCore,
@@ -155,9 +152,11 @@
             baseY: y,
             baseZ: z,
             r,
+            theta,
+            phi,
             ringIndex,
-            orbitalRadius: r * (1.18 + Math.random() * 0.5),
-            speed: rings[ringIndex].speed * rings[ringIndex].dir * (0.8 + Math.random() * 0.4),
+            orbitalRadius: r * (1.2 + Math.random() * 0.5),
+            speed: (0.35 + Math.random() * 0.55) * (Math.random() > 0.5 ? 1 : -1),
             phase: Math.random() * Math.PI * 2,
             noiseOffset: Math.random() * 100
         });
@@ -179,20 +178,20 @@
     const particleSystem = new THREE.Points(geometry, particleMaterial);
     scene.add(particleSystem);
 
-    // Outer Energy Halo
+    // Outer Subtle Accretion Halo Ring
     const haloGeo = new THREE.RingGeometry(CORE_RADIUS * 1.1, CORE_RADIUS * 1.14, 64);
     const haloMat = new THREE.MeshBasicMaterial({
         color: 0x38bdf8,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.18,
+        opacity: 0.22,
         blending: THREE.AdditiveBlending
     });
     const haloMesh = new THREE.Mesh(haloGeo, haloMat);
     haloMesh.rotation.x = Math.PI / 3;
     scene.add(haloMesh);
 
-    // 5. Interactive Magnetic Mouse Repulsion Physics
+    // 5. Mouse Interaction & 3D Vector Raycasting for Magnetic Repulsion
     let mouseX = 0;
     let mouseY = 0;
     let targetRotX = 0;
@@ -200,6 +199,7 @@
 
     const mouse3D = new THREE.Vector3(999, 999, 0);
     const raycaster = new THREE.Raycaster();
+    const mouse2D = new THREE.Vector2(-999, -999);
     const mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 
     window.addEventListener('mousemove', (e) => {
@@ -208,8 +208,10 @@
         mouseX = (e.clientX - halfX) / halfX;
         mouseY = (e.clientY - halfY) / halfY;
 
-        // Convert mouse to 3D world space plane
-        const mouse2D = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse2D.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse2D.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
         raycaster.setFromCamera(mouse2D, camera);
         raycaster.ray.intersectPlane(mousePlane, mouse3D);
     });
