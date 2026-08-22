@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v52';
+const CACHE_NAME = 'nexus-shell-v53';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
   '/admin.html',
   '/manifest.json',
   '/pwa-helper.js',
+  '/particle-sphere.js',
   '/icon-192.png',
   '/icon-512.png',
   '/favicon.ico'
