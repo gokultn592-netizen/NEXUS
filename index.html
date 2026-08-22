@@ -180,8 +180,7 @@
             opacity:0;transition:opacity .3s;pointer-events:none;
         }
         .file-card:hover::before{opacity:1}
-        @keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-        .file-card{animation:cardIn .5s ease both}
+        .file-card{opacity:1;transform:translateZ(0)}
         .badge{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.10em;text-transform:uppercase;padding:5px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;font-weight:500;line-height:1}
         .badge-pdf{background:rgba(248,113,113,0.10);color:#fca5a5;border-color:rgba(248,113,113,0.18)}
         .badge-ppt{background:rgba(251,146,60,0.10);color:#fed7aa;border-color:rgba(251,146,60,0.18)}
@@ -1045,26 +1044,41 @@
     }
     function updateCounts(){
         const counts={};
-        allFilesCache.forEach(f=>{ const s=f.subject||'Unsorted'; counts[s]=(counts[s]||0)+1; });
-        counts['all']=allFilesCache.length;
+        allFilesCache.forEach(f=>{
+            const s = (f.subject || 'Unsorted').trim();
+            const lower = s.toLowerCase();
+            counts[lower] = (counts[lower] || 0) + 1;
+            if (!counts[s]) counts[s] = counts[lower];
+        });
+        counts['all'] = allFilesCache.length;
+        const targetSubj = (currentSubjectFilter || 'all').trim().toLowerCase();
         document.querySelectorAll('#subject-pills .chip').forEach(el=>{
-            const subj=el.dataset.subject;
-            const c=counts[subj] ?? 0;
-            const badge=el.querySelector('.count');
-            if(badge) badge.textContent=c;
-            el.setAttribute('aria-label', (el.textContent.trim().split('  ')[0]||subj) + ' — ' + c + ' materials');
+            const subj = (el.dataset.subject || 'all').trim();
+            const lowerSubj = subj.toLowerCase();
+            const c = (lowerSubj === 'all') ? counts['all'] : (counts[lowerSubj] || 0);
+            const badge = el.querySelector('.count');
+            if(badge) badge.textContent = c;
+            el.setAttribute('aria-label', (el.textContent.trim().split('  ')[0] || subj) + ' — ' + c + ' materials');
+            if (lowerSubj === targetSubj) {
+                el.classList.add('active');
+                el.setAttribute('aria-selected', 'true');
+            } else {
+                el.classList.remove('active');
+                el.setAttribute('aria-selected', 'false');
+            }
         });
         if(archiveCount) archiveCount.textContent = allFilesCache.length;
         if(heroStatM) heroStatM.textContent = allFilesCache.length;
-        const subjCount = document.querySelectorAll('#dynamic-subjects-container .chip').length || (allFilesCache.length? new Set(allFilesCache.map(f=>f.subject)).size : 0);
+        const subjCount = document.querySelectorAll('#dynamic-subjects-container .chip').length || (allFilesCache.length ? new Set(allFilesCache.map(f => (f.subject || '').trim())).size : 0);
         if(heroStatS) heroStatS.textContent = subjCount || '—';
     }
     function applyFiltersAndRender(){
         const q=(searchInput.value||'').trim().toLowerCase();
         const sort=sortSelect.value;
         let files=[...allFilesCache];
-        if(currentSubjectFilter!=='all'){
-            files=files.filter(f=> f.subject===currentSubjectFilter);
+        const targetSubj = (currentSubjectFilter || 'all').trim().toLowerCase();
+        if(targetSubj !== 'all'){
+            files = files.filter(f => (f.subject || '').trim().toLowerCase() === targetSubj);
         }
         if(q){
             files=files.filter(f=>{
@@ -1080,11 +1094,11 @@
             return 0;
         });
         renderFiles(files, q);
-        if(q || currentSubjectFilter!=='all' || sort!=='newest'){ clearBtn.style.display='inline-flex'; }
+        if(q || targetSubj!=='all' || sort!=='newest'){ clearBtn.style.display='inline-flex'; }
         else clearBtn.style.display='none';
         if(allFilesCache.length===0){ resultsMeta.textContent=''; }
-        else if(files.length===allFilesCache.length && !q){ resultsMeta.innerHTML='Showing <b class="text-zinc-300">'+files.length+'</b> materials'; }
-        else { resultsMeta.innerHTML='Showing <b class="text-zinc-300">'+files.length+'</b> of <b class="text-zinc-300">'+allFilesCache.length+'</b> materials' + (q ? ' for “'+escapeHtml(q)+'”' : '') + (currentSubjectFilter!=='all' ? ' in <b class="text-zinc-300">'+escapeHtml(currentSubjectFilter)+'</b>' : ''); }
+        else if(files.length===allFilesCache.length && !q && targetSubj==='all'){ resultsMeta.innerHTML='Showing <b class="text-zinc-300">'+files.length+'</b> materials'; }
+        else { resultsMeta.innerHTML='Showing <b class="text-zinc-300">'+files.length+'</b> of <b class="text-zinc-300">'+allFilesCache.length+'</b> materials' + (q ? ' for “'+escapeHtml(q)+'”' : '') + (targetSubj!=='all' ? ' in <b class="text-zinc-300">'+escapeHtml(currentSubjectFilter)+'</b>' : ''); }
         filesGrid.setAttribute('aria-busy','false');
     }
     let searchT=null;
