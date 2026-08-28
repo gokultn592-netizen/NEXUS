@@ -184,8 +184,9 @@ const pwaHelper = {
         else if (clean.includes('.png')) mimeType = 'image/png';
         else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
 
-        // Try direct fetch first if fileUrl is a public URL
-        if (fileUrl) {
+        // Try direct fetch first ONLY if fileUrl is NOT a GitHub Release URL (GitHub URLs block browser CORS, so we proxy directly to avoid console CORS errors)
+        const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
+        if (fileUrl && !isGitHubUrl) {
             try {
                 const directRes = await fetch(fileUrl);
                 if (directRes.ok) {
