@@ -1,7 +1,7 @@
 // Vercel Serverless Function — High-Performance Chunked GitHub Release Storage Engine
 // Receives chunks from browser client (bypassing Vercel 4.5MB body limit),
 // stores temporary chunks on GitHub Releases (stateless across Vercel serverless containers),
-// concatenates them on final chunk, uploads final asset, auto-overwrites existing assets, and cleans up temporary chunks!
+// concatenates them on final chunk, uploads final asset with 422 retry/auto-overwrite, and cleans up temporary chunks!
 
 async function getOrCreateRelease(token, repo) {
     const tag = 'materials-v1';
@@ -45,9 +45,9 @@ async function deleteReleaseAssetByName(token, repo, releaseId, name) {
         });
         if (assetsRes.ok) {
             const assets = await assetsRes.json();
-            const targetAsset = assets.find(a => a.name === name);
-            if (targetAsset) {
-                await fetch(`https://api.github.com/repos/${repo}/releases/assets/${targetAsset.id}`, {
+            const matchingAssets = assets.filter(a => a.name === name);
+            for (const asset of matchingAssets) {
+                await fetch(`https://api.github.com/repos/${repo}/releases/assets/${asset.id}`, {
                     method: 'DELETE',
                     headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
                 });
@@ -56,6 +56,47 @@ async function deleteReleaseAssetByName(token, repo, releaseId, name) {
     } catch (e) {
         console.warn(`Failed to delete existing asset ${name}:`, e);
     }
+}
+
+async function uploadToReleaseWithRetry(token, repo, releaseId, fileName, bodyBuffer) {
+    // Step 1: Pre-emptively delete any existing asset with this filename
+    await deleteReleaseAssetByName(token, repo, releaseId, fileName);
+
+    const uploadUrl = `https://uploads.github.com/repos/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(fileName)}`;
+    
+    let uploadRes = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+            'Authorization': `token ${token}`,
+            'Content-Type': 'application/octet-stream',
+            'User-Agent': 'NEXUS-App'
+        },
+        body: bodyBuffer
+    });
+
+    // If GitHub returns 422 already_exists due to propagation delay, force-delete again, wait 350ms, and retry
+    if (uploadRes.status === 422) {
+        console.warn(`Asset ${fileName} returned 422. Retrying deletion and upload...`);
+        await deleteReleaseAssetByName(token, repo, releaseId, fileName);
+        await new Promise(r => setTimeout(r, 350));
+
+        uploadRes = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/octet-stream',
+                'User-Agent': 'NEXUS-App'
+            },
+            body: bodyBuffer
+        });
+    }
+
+    if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Final GitHub Release Asset upload failed (${uploadRes.status}): ${errText}`);
+    }
+
+    return await uploadRes.json();
 }
 
 module.exports = async function handler(req, res) {
@@ -99,29 +140,11 @@ module.exports = async function handler(req, res) {
 
         // Case A: Single chunk upload (<= 3MB file) — Upload directly in 1 request!
         if (totalChunks === 1) {
-            // Auto-delete existing asset with same filename (or oldFileName) to prevent 422 already_exists error
-            await deleteReleaseAssetByName(token, repo, release.id, fileName);
             if (oldFileName && oldFileName !== fileName) {
                 await deleteReleaseAssetByName(token, repo, release.id, oldFileName);
             }
 
-            const uploadUrl = `https://uploads.github.com/repos/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(fileName)}`;
-            const uploadRes = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `token ${token}`,
-                    'Content-Type': 'application/octet-stream',
-                    'User-Agent': 'NEXUS-App'
-                },
-                body: chunkBuffer
-            });
-
-            if (!uploadRes.ok) {
-                const errText = await uploadRes.text();
-                throw new Error(`GitHub Release Asset upload failed (${uploadRes.status}): ${errText}`);
-            }
-
-            const assetData = await uploadRes.json();
+            const assetData = await uploadToReleaseWithRetry(token, repo, release.id, fileName, chunkBuffer);
             const publicUrl = assetData.browser_download_url || `https://github.com/${repo}/releases/download/materials-v1/${fileName}`;
 
             return res.status(200).json({
@@ -136,25 +159,7 @@ module.exports = async function handler(req, res) {
         // Case B: Multi-chunk upload (> 3MB file) — Upload chunk as temporary asset on GitHub (stateless)
         const chunkAssetName = `_tmp_${uploadId}_part_${chunkIndex}`;
         
-        // Auto-delete temporary chunk asset if it somehow already exists
-        await deleteReleaseAssetByName(token, repo, release.id, chunkAssetName);
-
-        const chunkUploadUrl = `https://uploads.github.com/repos/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(chunkAssetName)}`;
-
-        const chunkRes = await fetch(chunkUploadUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `token ${token}`,
-                'Content-Type': 'application/octet-stream',
-                'User-Agent': 'NEXUS-App'
-            },
-            body: chunkBuffer
-        });
-
-        if (!chunkRes.ok) {
-            const errText = await chunkRes.text();
-            throw new Error(`GitHub chunk upload failed (${chunkRes.status}): ${errText}`);
-        }
+        const chunkAssetData = await uploadToReleaseWithRetry(token, repo, release.id, chunkAssetName, chunkBuffer);
 
         if (chunkIndex < totalChunks - 1) {
             return res.status(200).json({
@@ -197,30 +202,12 @@ module.exports = async function handler(req, res) {
 
         const fullFileBuffer = Buffer.concat(chunkBuffers);
 
-        // Auto-delete existing final asset with same filename (or oldFileName) before final upload
-        await deleteReleaseAssetByName(token, repo, release.id, fileName);
         if (oldFileName && oldFileName !== fileName) {
             await deleteReleaseAssetByName(token, repo, release.id, oldFileName);
         }
 
-        // Upload combined binary buffer directly to GitHub Release Assets
-        const finalUploadUrl = `https://uploads.github.com/repos/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(fileName)}`;
-        const finalUploadRes = await fetch(finalUploadUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `token ${token}`,
-                'Content-Type': 'application/octet-stream',
-                'User-Agent': 'NEXUS-App'
-            },
-            body: fullFileBuffer
-        });
-
-        if (!finalUploadRes.ok) {
-            const errText = await finalUploadRes.text();
-            throw new Error(`Final GitHub Release Asset upload failed (${finalUploadRes.status}): ${errText}`);
-        }
-
-        const assetData = await finalUploadRes.json();
+        // Upload combined binary buffer directly to GitHub Release Assets with 422 retry logic
+        const assetData = await uploadToReleaseWithRetry(token, repo, release.id, fileName, fullFileBuffer);
         const publicUrl = assetData.browser_download_url || `https://github.com/${repo}/releases/download/materials-v1/${fileName}`;
 
         // Cleanup temporary chunk assets from GitHub asynchronously
