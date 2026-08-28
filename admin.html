@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=53"></script>
+    <script src="pwa-helper.js?v=54"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -788,7 +788,7 @@ function loadFiles(){
         snap.forEach(doc=>{
             const f=doc.data();
             const tr=document.createElement("tr"); tr.className="hover:bg-white/[0.02]";
-            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${f.title}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${f.subject}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${f.uploaderName}</td><td class="px-4 py-3 flex gap-2"><button onclick="if(window.pwaHelper) window.pwaHelper.viewFile('${f.fileUrl}', '${doc.id}', ${f.version||1}, '${f.title.replace(/'/g, "\\'")}', this, '${f.githubAssetId||''}'); else window.open('${f.fileUrl}', '_blank')" class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white hover:bg-white/10">View</button><button onclick="openUpdateModal('${doc.id}', '${f.title.replace(/'/g, "\\'")}', '${f.subject}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black hover:bg-zinc-200">Update</button><button onclick="deleteFile('${doc.id}', '${f.fileUrl}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
+            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${f.title}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${f.subject}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${f.uploaderName}</td><td class="px-4 py-3 flex gap-2"><button onclick="if(window.pwaHelper) window.pwaHelper.viewFile('${f.fileUrl}', '${doc.id}', ${f.version||1}, '${f.title.replace(/'/g, "\\'")}', this, '${f.githubAssetId||''}'); else window.open('${f.fileUrl}', '_blank')" class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white hover:bg-white/10">View</button><button onclick="openUpdateModal('${doc.id}', '${f.title.replace(/'/g, "\\'")}', '${f.subject}', '${f.fileUrl||''}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black hover:bg-zinc-200">Update</button><button onclick="deleteFile('${doc.id}', '${f.fileUrl}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
             tbody.appendChild(tr);
         });
         refreshIcons();
@@ -804,14 +804,16 @@ async function deleteFile(id, url){
     }catch(e){ alert("Error: "+e.message); }
 }
 const updateModal=document.getElementById("update-modal");
-window.openUpdateModal=function(id,title,subject){ document.getElementById("update-id").value=id; document.getElementById("update-title").value=title; document.getElementById("update-subject").value=subject; document.getElementById("update-file").value=""; updateModal.classList.add("active"); refreshIcons(); };
+window.openUpdateModal=function(id,title,subject,oldUrl){ document.getElementById("update-id").value=id; document.getElementById("update-title").value=title; document.getElementById("update-subject").value=subject; document.getElementById("update-file").value=""; if(document.getElementById("update-form")) document.getElementById("update-form").dataset.oldUrl=oldUrl||""; updateModal.classList.add("active"); refreshIcons(); };
 updateModal?.addEventListener("click",e=>{ if(e.target===updateModal) updateModal.classList.remove("active"); });
 const CHUNK_SIZE_BYTES = 2 * 1024 * 1024;
 document.getElementById("update-form")?.addEventListener("submit", async e=>{
     e.preventDefault();
     const id=document.getElementById("update-id").value, title=document.getElementById("update-title").value, subject=document.getElementById("update-subject").value, fileInput=document.getElementById("update-file").files[0], prog=document.getElementById("update-progress");
+    const oldUrl = e.target.dataset.oldUrl || "";
+    const oldFileName = oldUrl ? oldUrl.split('/').pop().split('?')[0] : "";
     try{
-        let updates={title, subject};
+        let updates={ title, subject, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), version: firebase.firestore.FieldValue.increment(1) };
         if(fileInput){
             prog.classList.remove("hidden"); prog.textContent="Preparing chunked upload…";
             const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
@@ -829,7 +831,7 @@ document.getElementById("update-form")?.addEventListener("submit", async e=>{
                 prog.textContent = `Uploading… ${Math.round(((i+1)/totalChunks)*100)}%`;
                 const res = await fetch("https://nexus-omega-jet.vercel.app/api/upload-file",{
                     method:"POST", headers:{"Content-Type":"application/json"},
-                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64 })
+                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, oldFileName })
                 });
                 if(!res.ok){ const er=await res.json().catch(()=>({error:res.statusText})); throw new Error(er.error||"Upload chunk failed"); }
                 const data = await res.json();

@@ -236,10 +236,22 @@ const pwaHelper = {
 
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
+            const cachedRecord = await this.getCachedRecord(id);
             const cache = await caches.open('nexus-files-cache');
+            
+            // Check if file version was updated in database — evict stale cache if version changed!
+            if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
+                console.log(`[PWA Cache] Material updated (v${cachedRecord.version} -> v${version}) — clearing stale cache`);
+                await cache.delete(cleanUrl).catch(() => {});
+                if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
+                    await cache.delete(cachedRecord.fileUrl).catch(() => {});
+                }
+                await this.deleteCachedRecord(id).catch(() => {});
+            }
+
             const match = await cache.match(cleanUrl).catch(() => null);
             
-            // 1. If cached, open local blob URL immediately with 0ms latency!
+            // 1. If cached and version matches, open local blob URL immediately with 0ms latency!
             if (match) {
                 console.log('[PWA Cache] Serving instant blob from local cache:', cleanUrl);
                 const rawBlob = await match.blob();
@@ -291,7 +303,19 @@ const pwaHelper = {
 
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
+            const cachedRecord = await this.getCachedRecord(id);
             const cache = await caches.open('nexus-files-cache');
+            
+            // Check if file version was updated in database — evict stale cache if version changed!
+            if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
+                console.log(`[PWA Cache] Material updated (v${cachedRecord.version} -> v${version}) — clearing stale cache for download`);
+                await cache.delete(cleanUrl).catch(() => {});
+                if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
+                    await cache.delete(cachedRecord.fileUrl).catch(() => {});
+                }
+                await this.deleteCachedRecord(id).catch(() => {});
+            }
+
             const match = await cache.match(cleanUrl).catch(() => null);
             
             let rawBlob;
