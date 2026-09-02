@@ -1532,6 +1532,7 @@
             const fileName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE_BYTES);
             let publicUrl = null, assetId = null;
+            const chunkAssetIds = [];
             for(let i=0; i<totalChunks; i++){
                 const chunkBlob = file.slice(i * CHUNK_SIZE_BYTES, (i+1) * CHUNK_SIZE_BYTES);
                 // Convert chunk to base64
@@ -1546,11 +1547,12 @@
                     method:'POST', headers:{'Content-Type':'application/json'},
                     body: JSON.stringify({
                         uploadId, chunkIndex: i, totalChunks,
-                        fileName, chunkData: base64
+                        fileName, chunkData: base64, chunkAssetIds
                     })
                 });
                 if(!res.ok){ const err=await res.json().catch(()=>({error:res.statusText})); throw new Error(err.error||'Upload chunk failed'); }
                 const data = await res.json();
+                if(data.assetId) chunkAssetIds.push(data.assetId);
                 if(data.status === 'completed'){
                     publicUrl = data.publicUrl;
                     assetId = data.assetId;

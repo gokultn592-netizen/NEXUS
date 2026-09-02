@@ -1,7 +1,8 @@
 // Vercel Serverless Function — High-Performance Chunked GitHub Release Storage Engine
 // Receives chunks from browser client (bypassing Vercel 4.5MB body limit),
 // stores temporary chunks on GitHub Releases (stateless across Vercel serverless containers),
-// concatenates them on final chunk, uploads final asset with 422 retry/auto-overwrite, and cleans up temporary chunks!
+// concatenates them on final chunk with full paginated asset lookup & assetId tracking,
+// uploads final asset with 422 retry/auto-overwrite, and cleans up temporary chunks!
 
 async function getOrCreateRelease(token, repo) {
     const tag = 'materials-v1';
@@ -37,21 +38,38 @@ async function getOrCreateRelease(token, repo) {
     return await createRes.json();
 }
 
+async function getAllReleaseAssets(token, repo, releaseId) {
+    let allAssets = [];
+    let page = 1;
+    while (true) {
+        try {
+            const res = await fetch(`https://api.github.com/repos/${repo}/releases/${releaseId}/assets?per_page=100&page=${page}`, {
+                headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+            });
+            if (!res.ok) break;
+            const assets = await res.json();
+            if (!assets || !Array.isArray(assets) || !assets.length) break;
+            allAssets = allAssets.concat(assets);
+            if (assets.length < 100) break;
+            page++;
+            if (page > 10) break; // Limit to 1000 assets max safety
+        } catch (e) {
+            break;
+        }
+    }
+    return allAssets;
+}
+
 async function deleteReleaseAssetByName(token, repo, releaseId, name) {
     if (!name) return;
     try {
-        const assetsRes = await fetch(`https://api.github.com/repos/${repo}/releases/${releaseId}/assets`, {
-            headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-        });
-        if (assetsRes.ok) {
-            const assets = await assetsRes.json();
-            const matchingAssets = assets.filter(a => a.name === name);
-            for (const asset of matchingAssets) {
-                await fetch(`https://api.github.com/repos/${repo}/releases/assets/${asset.id}`, {
-                    method: 'DELETE',
-                    headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-                });
-            }
+        const assets = await getAllReleaseAssets(token, repo, releaseId);
+        const matchingAssets = assets.filter(a => a.name === name);
+        for (const asset of matchingAssets) {
+            await fetch(`https://api.github.com/repos/${repo}/releases/assets/${asset.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+            });
         }
     } catch (e) {
         console.warn(`Failed to delete existing asset ${name}:`, e);
@@ -120,7 +138,7 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { action, uploadId, chunkIndex, totalChunks, fileName, chunkData, oldFileName } = req.body || {};
+        const { action, uploadId, chunkIndex, totalChunks, fileName, chunkData, oldFileName, chunkAssetIds } = req.body || {};
 
         const release = await getOrCreateRelease(token, repo);
 
@@ -166,38 +184,55 @@ module.exports = async function handler(req, res) {
                 success: true,
                 status: 'chunk_saved',
                 chunkIndex: chunkIndex,
-                totalChunks: totalChunks
+                totalChunks: totalChunks,
+                assetId: chunkAssetData.id
             });
         }
 
         // Final chunk received! Assembling full file from GitHub temporary chunk assets...
-        const assetsRes = await fetch(`https://api.github.com/repos/${repo}/releases/${release.id}/assets`, {
-            headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-        });
-
-        if (!assetsRes.ok) throw new Error('Failed to fetch release assets for chunk assembly');
-        const allAssets = await assetsRes.json();
-
         const chunkBuffers = [];
         const tmpAssetsToDelete = [];
 
-        for (let i = 0; i < totalChunks; i++) {
-            const partName = `_tmp_${uploadId}_part_${i}`;
-            const targetAsset = allAssets.find(a => a.name === partName);
-            if (!targetAsset) throw new Error(`Missing temporary chunk ${i} on GitHub Release`);
-            tmpAssetsToDelete.push(targetAsset.id);
+        // Build list of all chunk asset IDs if passed by client, otherwise look up in all release assets
+        let fullChunkAssetIds = Array.isArray(chunkAssetIds) ? [...chunkAssetIds, chunkAssetData.id] : null;
 
-            const downloadRes = await fetch(targetAsset.url, {
-                headers: {
-                    Authorization: `token ${token}`,
-                    'Accept': 'application/octet-stream',
-                    'User-Agent': 'NEXUS-App'
-                }
-            });
+        if (fullChunkAssetIds && fullChunkAssetIds.length === totalChunks) {
+            // Direct Asset ID lookup — 0ms search overhead!
+            for (let i = 0; i < totalChunks; i++) {
+                const assetId = fullChunkAssetIds[i];
+                tmpAssetsToDelete.push(assetId);
+                const downloadRes = await fetch(`https://api.github.com/repos/${repo}/releases/assets/${assetId}`, {
+                    headers: {
+                        Authorization: `token ${token}`,
+                        'Accept': 'application/octet-stream',
+                        'User-Agent': 'NEXUS-App'
+                    }
+                });
+                if (!downloadRes.ok) throw new Error(`Failed to download temporary chunk ${i} (ID: ${assetId})`);
+                const buf = Buffer.from(await downloadRes.arrayBuffer());
+                chunkBuffers.push(buf);
+            }
+        } else {
+            // Fallback: Paginated release asset lookup across all pages
+            const allAssets = await getAllReleaseAssets(token, repo, release.id);
+            for (let i = 0; i < totalChunks; i++) {
+                const partName = `_tmp_${uploadId}_part_${i}`;
+                const targetAsset = allAssets.find(a => a.name === partName);
+                if (!targetAsset) throw new Error(`Missing temporary chunk ${i} on GitHub Release`);
+                tmpAssetsToDelete.push(targetAsset.id);
 
-            if (!downloadRes.ok) throw new Error(`Failed to download temporary chunk ${i}`);
-            const buf = Buffer.from(await downloadRes.arrayBuffer());
-            chunkBuffers.push(buf);
+                const downloadRes = await fetch(targetAsset.url, {
+                    headers: {
+                        Authorization: `token ${token}`,
+                        'Accept': 'application/octet-stream',
+                        'User-Agent': 'NEXUS-App'
+                    }
+                });
+
+                if (!downloadRes.ok) throw new Error(`Failed to download temporary chunk ${i}`);
+                const buf = Buffer.from(await downloadRes.arrayBuffer());
+                chunkBuffers.push(buf);
+            }
         }
 
         const fullFileBuffer = Buffer.concat(chunkBuffers);
