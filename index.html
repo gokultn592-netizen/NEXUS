@@ -1673,6 +1673,8 @@
                 if(badge){ badge.style.display='none'; badge.classList.add('hidden'); }
                 if(menuDot) menuDot.classList.add('hidden');
             }
+        }, err => {
+            console.warn('[Notifications] Snapshot listener notice:', err.message);
         });
     }
     window.deleteNotification=async function(id){
