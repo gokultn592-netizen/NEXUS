@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=72"></script>
+    <script src="pwa-helper.js?v=73"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -806,7 +806,69 @@ async function deleteFile(id, url){
 const updateModal=document.getElementById("update-modal");
 window.openUpdateModal=function(id,title,subject,oldUrl){ document.getElementById("update-id").value=id; document.getElementById("update-title").value=title; document.getElementById("update-subject").value=subject; document.getElementById("update-file").value=""; if(document.getElementById("update-form")) document.getElementById("update-form").dataset.oldUrl=oldUrl||""; updateModal.classList.add("active"); refreshIcons(); };
 updateModal?.addEventListener("click",e=>{ if(e.target===updateModal) updateModal.classList.remove("active"); });
-const CHUNK_SIZE_BYTES = 2 * 1024 * 1024;
+const CHUNK_SIZE_BYTES = 3.2 * 1024 * 1024;
+
+async function uploadFileFast(fileInput, prog, oldFileName = '') {
+    const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
+
+    if (totalChunks === 1) {
+        if (prog) prog.textContent = 'Uploading material… 100%';
+        const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(fileInput);
+        });
+
+        const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uploadId, chunkIndex: 0, totalChunks: 1, fileName, chunkData: base64, oldFileName })
+        });
+        if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || 'Upload failed'); }
+        const data = await res.json();
+        if (!data.publicUrl) throw new Error('Upload did not return publicUrl');
+        return data.publicUrl;
+    }
+
+    if (prog) prog.textContent = 'Uploading… (Parallel HTTP/2)';
+    const chunkPromises = [];
+
+    for (let i = 0; i < totalChunks; i++) {
+        const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i + 1) * CHUNK_SIZE_BYTES);
+        const p = new Promise(async (resolve, reject) => {
+            try {
+                const base64 = await new Promise((res, rej) => {
+                    const reader = new FileReader();
+                    reader.onload = () => res(reader.result);
+                    reader.onerror = rej;
+                    reader.readAsDataURL(chunkBlob);
+                });
+
+                const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, oldFileName: i === totalChunks - 1 ? oldFileName : undefined })
+                });
+
+                if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || `Chunk ${i} failed`); }
+                const data = await res.json();
+                resolve({ index: i, data });
+            } catch (err) {
+                reject(err);
+            }
+        });
+        chunkPromises.push(p);
+    }
+
+    const results = await Promise.all(chunkPromises);
+    const finalResult = results.find(r => r.data && r.data.status === 'completed') || results[results.length - 1];
+    if (!finalResult || !finalResult.data || !finalResult.data.publicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
+    return finalResult.data.publicUrl;
+}
+
 document.getElementById("update-form")?.addEventListener("submit", async e=>{
     e.preventDefault();
     const id=document.getElementById("update-id").value, title=document.getElementById("update-title").value, subject=document.getElementById("update-subject").value, fileInput=document.getElementById("update-file").files[0], prog=document.getElementById("update-progress");
@@ -815,33 +877,9 @@ document.getElementById("update-form")?.addEventListener("submit", async e=>{
     try{
         let updates={ title, subject, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), version: firebase.firestore.FieldValue.increment(1) };
         if(fileInput){
-            prog.classList.remove("hidden"); prog.textContent="Preparing chunked upload…";
-            const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
-            const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-            const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
-            let publicUrl = null, assetId = null;
-            const chunkAssetIds = [];
-            for(let i=0; i<totalChunks; i++){
-                const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i+1) * CHUNK_SIZE_BYTES);
-                const base64 = await new Promise((resolve, reject)=>{
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(chunkBlob);
-                });
-                prog.textContent = `Uploading… ${Math.round(((i+1)/totalChunks)*100)}%`;
-                const res = await fetch("https://nexus-omega-jet.vercel.app/api/upload-file",{
-                    method:"POST", headers:{"Content-Type":"application/json"},
-                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, oldFileName, chunkAssetIds })
-                });
-                if(!res.ok){ const er=await res.json().catch(()=>({error:res.statusText})); throw new Error(er.error||"Upload chunk failed"); }
-                const data = await res.json();
-                if(data.assetId) chunkAssetIds.push(data.assetId);
-                if(data.status === 'completed'){ publicUrl = data.publicUrl; assetId = data.assetId; }
-            }
-            if(!publicUrl) throw new Error("Upload did not complete");
+            prog.classList.remove("hidden"); prog.textContent="Uploading file…";
+            const publicUrl = await uploadFileFast(fileInput, prog, oldFileName);
             updates.fileUrl = publicUrl;
-            updates.githubAssetId = assetId || null;
             updates.fileType = fileInput.name.split(".").pop().toLowerCase();
         }
         await db.collection("materials").doc(id).update(updates);
@@ -856,34 +894,11 @@ document.getElementById("upload-form")?.addEventListener("submit", async e=>{
     const title=document.getElementById("upload-title").value, subject=document.getElementById("upload-subject").value, fileInput=document.getElementById("upload-file").files[0], prog=document.getElementById("upload-progress");
     if(!fileInput) return;
     try{
-        prog.classList.remove("hidden"); prog.textContent="Preparing chunked upload…";
-        const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
-        const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-        const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
-        let publicUrl = null, assetId = null;
-        const chunkAssetIds = [];
-        for(let i=0; i<totalChunks; i++){
-            const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i+1) * CHUNK_SIZE_BYTES);
-            const base64 = await new Promise((resolve, reject)=>{
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(chunkBlob);
-            });
-            prog.textContent = `Uploading… ${Math.round(((i+1)/totalChunks)*100)}%`;
-            const res = await fetch("https://nexus-omega-jet.vercel.app/api/upload-file",{
-                method:"POST", headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, chunkAssetIds })
-            });
-            if(!res.ok){ const er=await res.json().catch(()=>({error:res.statusText})); throw new Error(er.error||"Upload chunk failed"); }
-            const data = await res.json();
-            if(data.assetId) chunkAssetIds.push(data.assetId);
-            if(data.status === 'completed'){ publicUrl = data.publicUrl; assetId = data.assetId; }
-        }
-        if(!publicUrl) throw new Error("Upload did not complete");
+        prog.classList.remove("hidden"); prog.textContent="Uploading file…";
+        const publicUrl = await uploadFileFast(fileInput, prog);
         const user=auth.currentUser;
         await db.collection("materials").add({
-            title, subject, fileUrl: publicUrl, githubAssetId: assetId || null,
+            title, subject, fileUrl: publicUrl,
             fileType: fileInput.name.split(".").pop().toLowerCase(),
             uploaderId: user?user.uid:"admin", uploaderName: user? (user.displayName||"Admin"):"Admin",
             version: 1,

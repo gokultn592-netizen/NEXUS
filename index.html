@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=72"></script>
+    <script src="pwa-helper.js?v=73"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -1513,7 +1513,68 @@
         gsap.fromTo(uploadModal.querySelector('.modal-card'),{y:12,opacity:0},{y:0,opacity:1,duration:.36,ease:"power3.out"});
     });
 
-    const CHUNK_SIZE_BYTES = 2 * 1024 * 1024; // 2MB chunks (stays within Vercel 4.5MB body limit)
+    const CHUNK_SIZE_BYTES = 3.2 * 1024 * 1024;
+    async function uploadFileFast(fileInput, prog) {
+        const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+        const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
+
+        if (totalChunks === 1) {
+            if (prog) prog.textContent = 'Uploading material… 100%';
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(fileInput);
+            });
+
+            const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uploadId, chunkIndex: 0, totalChunks: 1, fileName, chunkData: base64 })
+            });
+            if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || 'Upload failed'); }
+            const data = await res.json();
+            if (!data.publicUrl) throw new Error('Upload did not return publicUrl');
+            return { publicUrl: data.publicUrl, assetId: data.assetId || null };
+        }
+
+        if (prog) prog.textContent = 'Uploading… (Parallel HTTP/2)';
+        const chunkPromises = [];
+
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i + 1) * CHUNK_SIZE_BYTES);
+            const p = new Promise(async (resolve, reject) => {
+                try {
+                    const base64 = await new Promise((res, rej) => {
+                        const reader = new FileReader();
+                        reader.onload = () => res(reader.result);
+                        reader.onerror = rej;
+                        reader.readAsDataURL(chunkBlob);
+                    });
+
+                    const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64 })
+                    });
+
+                    if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || `Chunk ${i} failed`); }
+                    const data = await res.json();
+                    resolve({ index: i, data });
+                } catch (err) {
+                    reject(err);
+                }
+            });
+            chunkPromises.push(p);
+        }
+
+        const results = await Promise.all(chunkPromises);
+        const finalResult = results.find(r => r.data && r.data.status === 'completed') || results[results.length - 1];
+        if (!finalResult || !finalResult.data || !finalResult.data.publicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
+        return { publicUrl: finalResult.data.publicUrl, assetId: finalResult.data.assetId || null };
+    }
+
     document.getElementById('upload-form').addEventListener('submit', async (e)=>{
         e.preventDefault();
         const title=document.getElementById('upload-title').value.trim();
@@ -1528,37 +1589,7 @@
         const submitBtn=e.target.querySelector('button[type="submit"]');
         submitBtn.disabled=true; submitBtn.style.opacity='.6';
         try{
-            const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
-            const fileName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-            const totalChunks = Math.ceil(file.size / CHUNK_SIZE_BYTES);
-            let publicUrl = null, assetId = null;
-            const chunkAssetIds = [];
-            for(let i=0; i<totalChunks; i++){
-                const chunkBlob = file.slice(i * CHUNK_SIZE_BYTES, (i+1) * CHUNK_SIZE_BYTES);
-                // Convert chunk to base64
-                const base64 = await new Promise((resolve, reject)=>{
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(chunkBlob);
-                });
-                progressText.textContent = `Uploading… ${Math.round(((i+1)/totalChunks)*100)}%`;
-                const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file',{
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        uploadId, chunkIndex: i, totalChunks,
-                        fileName, chunkData: base64, chunkAssetIds
-                    })
-                });
-                if(!res.ok){ const err=await res.json().catch(()=>({error:res.statusText})); throw new Error(err.error||'Upload chunk failed'); }
-                const data = await res.json();
-                if(data.assetId) chunkAssetIds.push(data.assetId);
-                if(data.status === 'completed'){
-                    publicUrl = data.publicUrl;
-                    assetId = data.assetId;
-                }
-            }
-            if(!publicUrl) throw new Error('Upload did not complete — no publicUrl returned');
+            const { publicUrl, assetId } = await uploadFileFast(file, progressText);
             progressText.textContent='Saving to database…';
             const userDoc=await getUserData(currentUser.uid);
             const uploaderName=userDoc && userDoc.data ? userDoc.data.name : (currentUser.displayName||currentUser.email);
