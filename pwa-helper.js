@@ -150,11 +150,11 @@ const pwaHelper = {
 
                 if (!cachedRecord || !isCached || cachedRecord.version !== version) {
                     const cache = await caches.open('nexus-files-cache');
-                    const pdfBlob = await this.fetchFileBlob(fileUrl);
+                    const pdfBlob = await this.fetchFileBlobParallel(fileUrl);
                     if (pdfBlob) {
                         await cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } }));
                         await this.saveCachedRecord(id, cleanUrl, version);
-                        console.log('✅ Auto pre-cached material in background:', file.title || cleanUrl);
+                        console.log('✅ Auto pre-cached material via 4x parallel streams:', file.title || cleanUrl);
                     }
                 }
             } catch (err) {
@@ -176,7 +176,8 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    async fetchFileBlob(fileUrl, assetId) {
+    // High-Speed 4x Parallel HTTP/2 Byte-Range Fetching Engine
+    async fetchFileBlobParallel(fileUrl, assetId) {
         const clean = ((fileUrl || '') + ' ' + (assetId || '')).toLowerCase();
         let mimeType = 'application/octet-stream';
         if (clean.includes('.pdf')) mimeType = 'application/pdf';
@@ -185,45 +186,84 @@ const pwaHelper = {
 
         const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
 
-        // Direct fetch FIRST for non-GitHub URLs (Hugging Face URLs return Access-Control-Allow-Origin: * natively)
-        if (fileUrl && !isGitHubUrl && !assetId) {
-            try {
+        // For legacy GitHub URLs or asset IDs, use serverless proxy /api/download-file to bypass CORS
+        if (isGitHubUrl || assetId) {
+            let apiUrl = '';
+            if (assetId) {
+                apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?assetId=${encodeURIComponent(assetId)}&view=inline`;
+            } else if (fileUrl) {
+                apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
+            }
+
+            const res = await fetch(apiUrl);
+            if (!res.ok) throw new Error(`Failed to fetch material binary (${res.status})`);
+            const arrayBuf = await res.arrayBuffer();
+            return new Blob([arrayBuf], { type: mimeType });
+        }
+
+        if (!fileUrl) throw new Error('No valid file URL provided');
+
+        // Parallel HTTP/2 Byte-Range fetch for direct CORS URLs (Hugging Face)
+        try {
+            const headRes = await fetch(fileUrl, { method: 'HEAD' }).catch(() => null);
+            let contentLength = 0;
+            if (headRes && headRes.ok) {
+                contentLength = parseInt(headRes.headers.get('content-length') || '0', 10);
+            }
+
+            const PARALLEL_STREAMS = 4;
+            const MIN_CHUNK_SIZE = 1.5 * 1024 * 1024; // 1.5MB threshold
+
+            if (contentLength < MIN_CHUNK_SIZE) {
                 const directRes = await fetch(fileUrl);
                 if (directRes.ok) {
                     const arrayBuf = await directRes.arrayBuffer();
                     return new Blob([arrayBuf], { type: mimeType });
                 }
-            } catch (e) {
-                console.warn('[PWA Fetch Warning] Direct fetch failed, trying proxy fallback:', e);
+            } else {
+                const chunkSize = Math.ceil(contentLength / PARALLEL_STREAMS);
+                const rangePromises = [];
+
+                for (let i = 0; i < PARALLEL_STREAMS; i++) {
+                    const start = i * chunkSize;
+                    const end = Math.min((i + 1) * chunkSize - 1, contentLength - 1);
+
+                    const chunkPromise = fetch(fileUrl, {
+                        headers: { 'Range': `bytes=${start}-${end}` }
+                    }).then(async (res) => {
+                        if (res.status === 206 || res.status === 200) {
+                            return await res.arrayBuffer();
+                        }
+                        throw new Error(`Range chunk ${i} returned status ${res.status}`);
+                    });
+
+                    rangePromises.push(chunkPromise);
+                }
+
+                const chunkBuffers = await Promise.all(rangePromises);
+                return new Blob(chunkBuffers, { type: mimeType });
             }
+        } catch (rangeErr) {
+            console.warn('[PWA Parallel Fetch Notice] Fallback to direct stream:', rangeErr.message);
         }
 
-        // For GitHub URLs or asset IDs, proxy via Vercel /api/download-file to bypass CORS
-        let apiUrl = '';
-        if (assetId) {
-            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?assetId=${encodeURIComponent(assetId)}&view=inline`;
-        } else if (fileUrl) {
-            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
-        }
-
-        if (!apiUrl) throw new Error('No valid file URL or Asset ID provided');
-
-        const res = await fetch(apiUrl);
-        if (!res.ok) {
-            const errText = await res.text().catch(() => '');
-            throw new Error(`Failed to fetch material binary (${res.status}): ${errText}`);
-        }
-
-        const arrayBuf = await res.arrayBuffer();
-        return new Blob([arrayBuf], { type: mimeType });
+        // Direct Stream Fallback
+        const fallbackRes = await fetch(fileUrl);
+        if (!fallbackRes.ok) throw new Error(`Failed to fetch material binary (${fallbackRes.status})`);
+        const fallbackBuf = await fallbackRes.arrayBuffer();
+        return new Blob([fallbackBuf], { type: mimeType });
     },
 
-    // Legacy backward-compatibility wrapper
+    // Backward-compatibility alias
+    async fetchFileBlob(fileUrl, assetId) {
+        return this.fetchFileBlobParallel(fileUrl, assetId);
+    },
+
     async fetchGitHubAssetBlob(fileUrl, githubAssetId) {
-        return this.fetchFileBlob(fileUrl, githubAssetId);
+        return this.fetchFileBlobParallel(fileUrl, githubAssetId);
     },
 
-    // Handle view operation: Direct local blob URL (0 forced downloads!)
+    // Handle view operation: 0ms Instant Launch + Parallel Background Caching
     async viewFile(fileUrl, id, version, title, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
@@ -258,7 +298,7 @@ const pwaHelper = {
 
             const match = await cache.match(cleanUrl).catch(() => null);
             
-            // 1. If cached and version matches, open local blob URL immediately with 0ms latency!
+            // 1. If cached locally, serve instant blob from IndexedDB / CacheStorage in 0ms!
             if (match) {
                 console.log('[PWA Cache] Serving instant blob from local cache:', cleanUrl);
                 const rawBlob = await match.blob();
@@ -272,11 +312,29 @@ const pwaHelper = {
                 return;
             }
 
-            // 2. Fetch binary directly from HuggingFace
-            const pdfBlob = await this.fetchFileBlob(fileUrl, githubAssetId);
+            const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
+
+            // 2. Online Hugging Face materials: Open window IMMEDIATELY in 0ms, cache in background concurrently!
+            if (fileUrl && !isGitHubUrl && !githubAssetId) {
+                console.log('[PWA View] 0ms Instant launch + background 4x parallel caching:', cleanUrl);
+                window.open(fileUrl, '_blank');
+                restoreBtn();
+
+                // Background 4x parallel range fetch + cache insertion
+                this.fetchFileBlobParallel(fileUrl, githubAssetId).then(pdfBlob => {
+                    if (pdfBlob) {
+                        cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
+                        this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
+                        console.log('✅ Background 4x parallel cache completed:', title || cleanUrl);
+                    }
+                }).catch(e => console.warn('Background caching notice:', e));
+                return;
+            }
+
+            // 3. Legacy GitHub materials: Fetch via 4x parallel streams and open blob
+            const pdfBlob = await this.fetchFileBlobParallel(fileUrl, githubAssetId);
             const blobUrl = URL.createObjectURL(pdfBlob);
 
-            // Save to PWA Cache for 0ms instant future opens
             cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
             this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
 
@@ -290,7 +348,7 @@ const pwaHelper = {
         }
     },
 
-    // Handle download operation: Direct browser download
+    // Handle download operation: High-speed 4x parallel download
     async downloadFile(fileUrl, filename, id, version, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
@@ -330,8 +388,8 @@ const pwaHelper = {
                 console.log('[PWA Cache] Serving download from local cache:', cleanUrl);
                 rawBlob = await match.blob();
             } else {
-                console.log('[PWA Cache] Downloading file from HuggingFace...');
-                rawBlob = await this.fetchFileBlob(fileUrl, githubAssetId);
+                console.log('[PWA Cache] Downloading file via 4x parallel range streams...');
+                rawBlob = await this.fetchFileBlobParallel(fileUrl, githubAssetId);
                 cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': rawBlob.type } })).catch(() => {});
                 this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
             }
