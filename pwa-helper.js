@@ -183,8 +183,10 @@ const pwaHelper = {
         else if (clean.includes('.png')) mimeType = 'image/png';
         else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
 
-        // Direct fetch (Hugging Face Datasets URLs return Access-Control-Allow-Origin: * natively)
-        if (fileUrl) {
+        const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
+
+        // Direct fetch FIRST for non-GitHub URLs (Hugging Face URLs return Access-Control-Allow-Origin: * natively)
+        if (fileUrl && !isGitHubUrl && !assetId) {
             try {
                 const directRes = await fetch(fileUrl);
                 if (directRes.ok) {
@@ -196,14 +198,15 @@ const pwaHelper = {
             }
         }
 
+        // For GitHub URLs or asset IDs, proxy via Vercel /api/download-file to bypass CORS
         let apiUrl = '';
-        if (fileUrl) {
-            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}`;
-        } else if (assetId) {
-            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?assetId=${encodeURIComponent(assetId)}`;
+        if (assetId) {
+            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?assetId=${encodeURIComponent(assetId)}&view=inline`;
+        } else if (fileUrl) {
+            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
         }
 
-        if (!apiUrl) throw new Error('No valid file URL provided');
+        if (!apiUrl) throw new Error('No valid file URL or Asset ID provided');
 
         const res = await fetch(apiUrl);
         if (!res.ok) {
