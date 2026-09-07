@@ -1620,6 +1620,17 @@
     // ---------- Notifications ----------
     function initNotifications(){
         if(!db) return;
+        if(!auth || !auth.currentUser){
+            if(auth && typeof auth.onAuthStateChanged==='function'){
+                const unsub = auth.onAuthStateChanged(user => {
+                    if(user){
+                        if(typeof unsub==='function') unsub();
+                        initNotifications();
+                    }
+                });
+            }
+            return;
+        }
         const badge=document.getElementById('notif-badge');
         const list=document.getElementById('notif-list');
         const panel=document.getElementById('notification-panel');
