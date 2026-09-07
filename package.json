@@ -3,5 +3,7 @@
   "version": "1.0.0",
   "description": "Vercel serverless functions for Nexus",
   "scripts": {},
-  "dependencies": {}
+  "dependencies": {
+    "@huggingface/hub": "^0.21.0"
+  }
 }

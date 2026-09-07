@@ -139,10 +139,9 @@ const pwaHelper = {
         const syncPromises = targetMaterials.map(async (file) => {
             const id = file.id;
             const fileUrl = file.fileUrl;
-            const githubAssetId = file.githubAssetId || file.assetId;
             const version = file.version || 1;
             
-            if (!fileUrl && !githubAssetId) return;
+            if (!fileUrl) return;
 
             try {
                 const cleanUrl = this.getCleanUrl(fileUrl || (`https://nexus.app/materials/${id}`));
@@ -151,11 +150,11 @@ const pwaHelper = {
 
                 if (!cachedRecord || !isCached || cachedRecord.version !== version) {
                     const cache = await caches.open('nexus-files-cache');
-                    const pdfBlob = await this.fetchGitHubAssetBlob(fileUrl, githubAssetId);
+                    const pdfBlob = await this.fetchFileBlob(fileUrl);
                     if (pdfBlob) {
                         await cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } }));
                         await this.saveCachedRecord(id, cleanUrl, version);
-                        console.log('✅ Auto pre-cached PDF in background:', file.title || cleanUrl);
+                        console.log('✅ Auto pre-cached material in background:', file.title || cleanUrl);
                     }
                 }
             } catch (err) {
@@ -177,16 +176,15 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    async fetchGitHubAssetBlob(fileUrl, githubAssetId) {
-        const clean = ((fileUrl || '') + ' ' + (githubAssetId || '')).toLowerCase();
+    async fetchFileBlob(fileUrl, assetId) {
+        const clean = ((fileUrl || '') + ' ' + (assetId || '')).toLowerCase();
         let mimeType = 'application/octet-stream';
         if (clean.includes('.pdf')) mimeType = 'application/pdf';
         else if (clean.includes('.png')) mimeType = 'image/png';
         else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
 
-        // Try direct fetch first ONLY if fileUrl is NOT a GitHub Release URL (GitHub URLs block browser CORS, so we proxy directly to avoid console CORS errors)
-        const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
-        if (fileUrl && !isGitHubUrl) {
+        // Direct fetch (Hugging Face Datasets URLs return Access-Control-Allow-Origin: * natively)
+        if (fileUrl) {
             try {
                 const directRes = await fetch(fileUrl);
                 if (directRes.ok) {
@@ -194,18 +192,18 @@ const pwaHelper = {
                     return new Blob([arrayBuf], { type: mimeType });
                 }
             } catch (e) {
-                // Direct fetch blocked by CORS or network, proceed to proxy fallback
+                console.warn('[PWA Fetch Warning] Direct fetch failed, trying proxy fallback:', e);
             }
         }
 
         let apiUrl = '';
-        if (githubAssetId) {
-            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?assetId=${encodeURIComponent(githubAssetId)}&view=inline`;
-        } else if (fileUrl) {
-            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
+        if (fileUrl) {
+            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}`;
+        } else if (assetId) {
+            apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?assetId=${encodeURIComponent(assetId)}`;
         }
 
-        if (!apiUrl) throw new Error('No valid file URL or Asset ID provided');
+        if (!apiUrl) throw new Error('No valid file URL provided');
 
         const res = await fetch(apiUrl);
         if (!res.ok) {
@@ -217,7 +215,12 @@ const pwaHelper = {
         return new Blob([arrayBuf], { type: mimeType });
     },
 
-    // Handle view operation: Direct local blob URL via backend proxy (0 client tokens & 0 forced downloads!)
+    // Legacy backward-compatibility wrapper
+    async fetchGitHubAssetBlob(fileUrl, githubAssetId) {
+        return this.fetchFileBlob(fileUrl, githubAssetId);
+    },
+
+    // Handle view operation: Direct local blob URL (0 forced downloads!)
     async viewFile(fileUrl, id, version, title, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
@@ -266,8 +269,8 @@ const pwaHelper = {
                 return;
             }
 
-            // 2. Fetch binary via serverless proxy by githubAssetId or url
-            const pdfBlob = await this.fetchGitHubAssetBlob(fileUrl, githubAssetId);
+            // 2. Fetch binary directly from HuggingFace
+            const pdfBlob = await this.fetchFileBlob(fileUrl, githubAssetId);
             const blobUrl = URL.createObjectURL(pdfBlob);
 
             // Save to PWA Cache for 0ms instant future opens
@@ -284,7 +287,7 @@ const pwaHelper = {
         }
     },
 
-    // Handle download operation: Direct browser download via serverless proxy
+    // Handle download operation: Direct browser download
     async downloadFile(fileUrl, filename, id, version, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
@@ -324,8 +327,8 @@ const pwaHelper = {
                 console.log('[PWA Cache] Serving download from local cache:', cleanUrl);
                 rawBlob = await match.blob();
             } else {
-                console.log('[PWA Cache] Downloading file via serverless proxy...');
-                rawBlob = await this.fetchGitHubAssetBlob(fileUrl, githubAssetId);
+                console.log('[PWA Cache] Downloading file from HuggingFace...');
+                rawBlob = await this.fetchFileBlob(fileUrl, githubAssetId);
                 cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': rawBlob.type } })).catch(() => {});
                 this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
             }

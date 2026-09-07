@@ -1,120 +1,104 @@
-// Vercel Serverless Function — High-Performance Chunked GitHub Release Storage Engine
-// Receives chunks from browser client (bypassing Vercel 4.5MB body limit),
-// stores temporary chunks on GitHub Releases (stateless across Vercel serverless containers),
-// concatenates them on final chunk with full paginated asset lookup & assetId tracking,
-// uploads final asset with 422 retry/auto-overwrite, and cleans up temporary chunks!
+// Vercel Serverless Function — Hugging Face Datasets High-Performance Storage Engine
+// Receives files/chunks from browser client, commits directly to Hugging Face Dataset repository,
+// and returns direct CORS-enabled resolution URLs (https://huggingface.co/datasets/USER/REPO/resolve/main/FILE.pdf)
 
-async function getOrCreateRelease(token, repo) {
-    const tag = 'materials-v1';
-    const tagRes = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${tag}`, {
-        headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-    });
+global.chunkStore = global.chunkStore || {};
 
-    if (tagRes.ok) {
-        return await tagRes.json();
+async function uploadToHuggingFace(token, repo, fileName, fileBuffer) {
+    const cleanRepo = repo.replace(/^datasets\//, '');
+    
+    // Method A: Try @huggingface/hub JS SDK if available
+    try {
+        const hub = await import('@huggingface/hub');
+        if (hub && hub.uploadFile) {
+            const blob = new Blob([fileBuffer]);
+            await hub.uploadFile({
+                repo: { type: 'dataset', name: cleanRepo },
+                accessToken: token,
+                file: {
+                    path: fileName,
+                    content: blob
+                }
+            });
+            return `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}`;
+        }
+    } catch (sdkErr) {
+        console.warn('HF SDK upload notice:', sdkErr.message);
     }
 
-    const createRes = await fetch(`https://api.github.com/repos/${repo}/releases`, {
+    // Method B: Direct HuggingFace REST Commit API fallback
+    const commitUrl = `https://huggingface.co/api/datasets/${cleanRepo}/commit/main`;
+    const base64Content = fileBuffer.toString('base64');
+
+    const res = await fetch(commitUrl, {
         method: 'POST',
         headers: {
-            Authorization: `token ${token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
             'User-Agent': 'NEXUS-App'
         },
         body: JSON.stringify({
-            tag_name: tag,
-            name: 'NEXUS Course Materials',
-            body: 'Permanent high-speed storage for NEXUS course materials (supports up to 2GB per file).',
-            draft: false,
-            prerelease: false
+            summary: `Upload material ${fileName}`,
+            operations: [
+                {
+                    operation: 'addOrUpdate',
+                    path: fileName,
+                    content: base64Content,
+                    encoding: 'base64'
+                }
+            ]
         })
     });
 
-    if (!createRes.ok) {
-        const errText = await createRes.text();
-        throw new Error(`Failed to create GitHub release tag: ${errText}`);
+    if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`HuggingFace upload failed (${res.status}): ${errText}`);
     }
 
-    return await createRes.json();
+    return `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}`;
 }
 
-async function getAllReleaseAssets(token, repo, releaseId) {
-    let allAssets = [];
-    let page = 1;
-    while (true) {
-        try {
-            const res = await fetch(`https://api.github.com/repos/${repo}/releases/${releaseId}/assets?per_page=100&page=${page}`, {
-                headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-            });
-            if (!res.ok) break;
-            const assets = await res.json();
-            if (!assets || !Array.isArray(assets) || !assets.length) break;
-            allAssets = allAssets.concat(assets);
-            if (assets.length < 100) break;
-            page++;
-            if (page > 10) break; // Limit to 1000 assets max safety
-        } catch (e) {
-            break;
-        }
-    }
-    return allAssets;
-}
+async function deleteFromHuggingFace(token, repo, fileName) {
+    if (!fileName) return;
+    const cleanRepo = repo.replace(/^datasets\//, '');
 
-async function deleteReleaseAssetByName(token, repo, releaseId, name) {
-    if (!name) return;
     try {
-        const assets = await getAllReleaseAssets(token, repo, releaseId);
-        const matchingAssets = assets.filter(a => a.name === name);
-        for (const asset of matchingAssets) {
-            await fetch(`https://api.github.com/repos/${repo}/releases/assets/${asset.id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
+        const hub = await import('@huggingface/hub');
+        if (hub && hub.deleteFile) {
+            await hub.deleteFile({
+                repo: { type: 'dataset', name: cleanRepo },
+                accessToken: token,
+                path: fileName
             });
+            return;
         }
-    } catch (e) {
-        console.warn(`Failed to delete existing asset ${name}:`, e);
+    } catch (sdkErr) {
+        console.warn('HF SDK delete notice:', sdkErr.message);
     }
-}
 
-async function uploadToReleaseWithRetry(token, repo, releaseId, fileName, bodyBuffer) {
-    // Step 1: Pre-emptively delete any existing asset with this filename
-    await deleteReleaseAssetByName(token, repo, releaseId, fileName);
-
-    const uploadUrl = `https://uploads.github.com/repos/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(fileName)}`;
-    
-    let uploadRes = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `token ${token}`,
-            'Content-Type': 'application/octet-stream',
-            'User-Agent': 'NEXUS-App'
-        },
-        body: bodyBuffer
-    });
-
-    // If GitHub returns 422 already_exists due to propagation delay, force-delete again, wait 350ms, and retry
-    if (uploadRes.status === 422) {
-        console.warn(`Asset ${fileName} returned 422. Retrying deletion and upload...`);
-        await deleteReleaseAssetByName(token, repo, releaseId, fileName);
-        await new Promise(r => setTimeout(r, 350));
-
-        uploadRes = await fetch(uploadUrl, {
+    // Direct REST API deletion fallback
+    const commitUrl = `https://huggingface.co/api/datasets/${cleanRepo}/commit/main`;
+    try {
+        await fetch(commitUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `token ${token}`,
-                'Content-Type': 'application/octet-stream',
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
                 'User-Agent': 'NEXUS-App'
             },
-            body: bodyBuffer
+            body: JSON.stringify({
+                summary: `Delete material ${fileName}`,
+                operations: [
+                    {
+                        operation: 'delete',
+                        path: fileName
+                    }
+                ]
+            })
         });
+    } catch (e) {
+        console.warn('HF REST delete failed:', e);
     }
-
-    if (!uploadRes.ok) {
-        const errText = await uploadRes.text();
-        throw new Error(`Final GitHub Release Asset upload failed (${uploadRes.status}): ${errText}`);
-    }
-
-    return await uploadRes.json();
 }
 
 module.exports = async function handler(req, res) {
@@ -124,147 +108,86 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    const token = process.env.GITHUB_TOKEN;
-    const repo = process.env.GITHUB_REPO || 'gokultn592-netizen/NEXUS';
+    const token = process.env.HF_TOKEN || process.env.GITHUB_TOKEN;
+    const repo = process.env.HF_REPO || process.env.GITHUB_REPO || 'ThalaivarGokul447/nexus-materials';
 
     if (!token) {
-        return res.status(500).json({ error: 'GITHUB_TOKEN environment variable is not configured' });
+        return res.status(500).json({ error: 'HF_TOKEN environment variable is not configured' });
     }
 
     if (req.method === 'GET') {
-        return res.status(200).json({ status: 'ready', engine: 'NEXUS Chunked Release Storage' });
+        return res.status(200).json({ status: 'ready', engine: 'NEXUS HuggingFace Datasets Storage' });
     }
 
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { action, uploadId, chunkIndex, totalChunks, fileName, chunkData, oldFileName, chunkAssetIds } = req.body || {};
-
-        const release = await getOrCreateRelease(token, repo);
+        const { action, uploadId, chunkIndex, totalChunks, fileName, chunkData, oldFileName } = req.body || {};
 
         // Action: Delete old asset if replacing
         if (action === 'delete' && oldFileName) {
-            await deleteReleaseAssetByName(token, repo, release.id, oldFileName);
-            return res.status(200).json({ success: true, message: 'Asset deleted' });
+            await deleteFromHuggingFace(token, repo, oldFileName);
+            return res.status(200).json({ success: true, message: 'Material deleted from HuggingFace' });
         }
 
-        // Action: Upload chunk
         if (!uploadId || chunkIndex === undefined || totalChunks === undefined || !fileName || !chunkData) {
-            return res.status(400).json({ error: 'Missing required chunk parameters' });
+            return res.status(400).json({ error: 'Missing required upload parameters' });
         }
 
         const cleanBase64 = chunkData.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
         const chunkBuffer = Buffer.from(cleanBase64, 'base64');
 
-        // Case A: Single chunk upload (<= 3MB file) — Upload directly in 1 request!
+        // Case A: Single chunk upload (file <= 3MB)
         if (totalChunks === 1) {
             if (oldFileName && oldFileName !== fileName) {
-                await deleteReleaseAssetByName(token, repo, release.id, oldFileName);
+                await deleteFromHuggingFace(token, repo, oldFileName);
             }
 
-            const assetData = await uploadToReleaseWithRetry(token, repo, release.id, fileName, chunkBuffer);
-            const publicUrl = assetData.browser_download_url || `https://github.com/${repo}/releases/download/materials-v1/${fileName}`;
+            const publicUrl = await uploadToHuggingFace(token, repo, fileName, chunkBuffer);
 
             return res.status(200).json({
                 success: true,
                 status: 'completed',
                 publicUrl: publicUrl,
-                assetId: assetData.id,
-                assetName: assetData.name || fileName
+                assetName: fileName
             });
         }
 
-        // Case B: Multi-chunk upload (> 3MB file) — Upload chunk as temporary asset on GitHub (stateless)
-        const chunkAssetName = `_tmp_${uploadId}_part_${chunkIndex}`;
-        
-        const chunkAssetData = await uploadToReleaseWithRetry(token, repo, release.id, chunkAssetName, chunkBuffer);
+        // Case B: Multi-chunk upload (> 3MB file) — accumulate chunk in memory
+        if (!global.chunkStore[uploadId]) {
+            global.chunkStore[uploadId] = [];
+        }
+        global.chunkStore[uploadId][chunkIndex] = chunkBuffer;
 
         if (chunkIndex < totalChunks - 1) {
             return res.status(200).json({
                 success: true,
                 status: 'chunk_saved',
                 chunkIndex: chunkIndex,
-                totalChunks: totalChunks,
-                assetId: chunkAssetData.id
+                totalChunks: totalChunks
             });
         }
 
-        // Final chunk received! Assembling full file from GitHub temporary chunk assets...
-        const chunkBuffers = [];
-        const tmpAssetsToDelete = [];
-
-        // Build list of all chunk asset IDs if passed by client, otherwise look up in all release assets
-        let fullChunkAssetIds = Array.isArray(chunkAssetIds) ? [...chunkAssetIds, chunkAssetData.id] : null;
-
-        if (fullChunkAssetIds && fullChunkAssetIds.length === totalChunks) {
-            // Direct Asset ID lookup — 0ms search overhead!
-            for (let i = 0; i < totalChunks; i++) {
-                const assetId = fullChunkAssetIds[i];
-                tmpAssetsToDelete.push(assetId);
-                const downloadRes = await fetch(`https://api.github.com/repos/${repo}/releases/assets/${assetId}`, {
-                    headers: {
-                        Authorization: `token ${token}`,
-                        'Accept': 'application/octet-stream',
-                        'User-Agent': 'NEXUS-App'
-                    }
-                });
-                if (!downloadRes.ok) throw new Error(`Failed to download temporary chunk ${i} (ID: ${assetId})`);
-                const buf = Buffer.from(await downloadRes.arrayBuffer());
-                chunkBuffers.push(buf);
-            }
-        } else {
-            // Fallback: Paginated release asset lookup across all pages
-            const allAssets = await getAllReleaseAssets(token, repo, release.id);
-            for (let i = 0; i < totalChunks; i++) {
-                const partName = `_tmp_${uploadId}_part_${i}`;
-                const targetAsset = allAssets.find(a => a.name === partName);
-                if (!targetAsset) throw new Error(`Missing temporary chunk ${i} on GitHub Release`);
-                tmpAssetsToDelete.push(targetAsset.id);
-
-                const downloadRes = await fetch(targetAsset.url, {
-                    headers: {
-                        Authorization: `token ${token}`,
-                        'Accept': 'application/octet-stream',
-                        'User-Agent': 'NEXUS-App'
-                    }
-                });
-
-                if (!downloadRes.ok) throw new Error(`Failed to download temporary chunk ${i}`);
-                const buf = Buffer.from(await downloadRes.arrayBuffer());
-                chunkBuffers.push(buf);
-            }
-        }
-
-        const fullFileBuffer = Buffer.concat(chunkBuffers);
+        // Final chunk received! Assemble full file buffer and upload to Hugging Face
+        const allChunks = global.chunkStore[uploadId] || [];
+        const fullFileBuffer = Buffer.concat(allChunks);
+        delete global.chunkStore[uploadId];
 
         if (oldFileName && oldFileName !== fileName) {
-            await deleteReleaseAssetByName(token, repo, release.id, oldFileName);
+            await deleteFromHuggingFace(token, repo, oldFileName);
         }
 
-        // Upload combined binary buffer directly to GitHub Release Assets with 422 retry logic
-        const assetData = await uploadToReleaseWithRetry(token, repo, release.id, fileName, fullFileBuffer);
-        const publicUrl = assetData.browser_download_url || `https://github.com/${repo}/releases/download/materials-v1/${fileName}`;
-
-        // Cleanup temporary chunk assets from GitHub asynchronously
-        for (const delId of tmpAssetsToDelete) {
-            try {
-                await fetch(`https://api.github.com/repos/${repo}/releases/assets/${delId}`, {
-                    method: 'DELETE',
-                    headers: { Authorization: `token ${token}`, 'User-Agent': 'NEXUS-App' }
-                });
-            } catch (e) {}
-        }
+        const publicUrl = await uploadToHuggingFace(token, repo, fileName, fullFileBuffer);
 
         return res.status(200).json({
             success: true,
             status: 'completed',
             publicUrl: publicUrl,
-            assetId: assetData.id,
-            assetName: assetData.name || fileName
+            assetName: fileName
         });
 
     } catch (error) {
-        console.error('Error in upload-file chunk handler:', error);
+        console.error('Error in upload-file Hugging Face handler:', error);
         return res.status(500).json({ error: error.message });
     }
 };
