@@ -289,19 +289,20 @@ const pwaHelper = {
             }
 
             const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
+            const isMultiPart = (fileUrl || '').includes('?parts=') || (fileUrl || '').includes('.part0');
 
-            // 2. Online Hugging Face materials: Open window IMMEDIATELY in 0ms, cache in background concurrently!
-            if (fileUrl && !isGitHubUrl && !githubAssetId) {
-                console.log('[PWA View] 0ms Instant launch + background 4x parallel caching:', cleanUrl);
+            // 2. Online Single-File Hugging Face materials: Open window IMMEDIATELY in 0ms, cache in background concurrently!
+            if (fileUrl && !isGitHubUrl && !githubAssetId && !isMultiPart) {
+                console.log('[PWA View] 0ms Instant launch + background caching:', cleanUrl);
                 window.open(fileUrl, '_blank');
                 restoreBtn();
 
-                // Background 4x parallel range fetch + cache insertion
-                this.fetchFileBlobParallel(fileUrl, githubAssetId).then(pdfBlob => {
+                // Background cache insertion
+                this.fetchFileBlob(fileUrl, githubAssetId).then(pdfBlob => {
                     if (pdfBlob) {
                         cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
                         this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
-                        console.log('✅ Background 4x parallel cache completed:', title || cleanUrl);
+                        console.log('✅ Background cache completed:', title || cleanUrl);
                     }
                 }).catch(e => console.warn('Background caching notice:', e));
                 return;
