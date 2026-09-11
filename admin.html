@@ -853,7 +853,7 @@ async function uploadFileFast(fileInput, prog, oldFileName = '') {
                 const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, oldFileName: i === totalChunks - 1 ? oldFileName : undefined })
+                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, oldFileName: i === 0 ? oldFileName : undefined })
                 });
 
                 if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || `Chunk ${i} failed`); }
@@ -871,9 +871,9 @@ async function uploadFileFast(fileInput, prog, oldFileName = '') {
 
     const results = await Promise.all(chunkPromises);
     if (progSpan) progSpan.textContent = 'Uploading… 100%';
-    const finalResult = results.find(r => r.data && r.data.status === 'completed') || results[results.length - 1];
-    if (!finalResult || !finalResult.data || !finalResult.data.publicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
-    return finalResult.data.publicUrl;
+    const firstSuccess = results.find(r => r.data && r.data.publicUrl);
+    if (!firstSuccess || !firstSuccess.data || !firstSuccess.data.publicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
+    return firstSuccess.data.publicUrl;
 }
 
 document.getElementById("update-form")?.addEventListener("submit", async e=>{

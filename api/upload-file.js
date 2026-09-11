@@ -137,14 +137,14 @@ module.exports = async function handler(req, res) {
         const cleanBase64 = chunkData.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
         const chunkBuffer = Buffer.from(cleanBase64, 'base64');
 
-        // Case A: Single chunk upload (file <= 3MB)
+        // Delete old file if updating
+        if (oldFileName && oldFileName !== fileName && chunkIndex === 0) {
+            deleteFromHuggingFace(token, repo, oldFileName).catch(e => console.warn('Old file delete notice:', e));
+        }
+
+        // Single chunk upload (<= 3.2MB file)
         if (totalChunks === 1) {
-            if (oldFileName && oldFileName !== fileName) {
-                await deleteFromHuggingFace(token, repo, oldFileName);
-            }
-
             const publicUrl = await uploadToHuggingFace(token, repo, fileName, chunkBuffer);
-
             return res.status(200).json({
                 success: true,
                 status: 'completed',
@@ -153,37 +153,20 @@ module.exports = async function handler(req, res) {
             });
         }
 
-        // Case B: Multi-chunk upload (> 3MB file) — accumulate chunk in memory
-        if (!global.chunkStore[uploadId]) {
-            global.chunkStore[uploadId] = [];
-        }
-        global.chunkStore[uploadId][chunkIndex] = chunkBuffer;
+        // Multi-chunk upload (> 3.2MB file) — upload chunk directly to HF as fileName.part{chunkIndex}
+        const chunkFileName = `${fileName}.part${chunkIndex}`;
+        const chunkPublicUrl = await uploadToHuggingFace(token, repo, chunkFileName, chunkBuffer);
 
-        if (chunkIndex < totalChunks - 1) {
-            return res.status(200).json({
-                success: true,
-                status: 'chunk_saved',
-                chunkIndex: chunkIndex,
-                totalChunks: totalChunks
-            });
-        }
-
-        // Final chunk received! Assemble full file buffer and upload to Hugging Face
-        const allChunks = global.chunkStore[uploadId] || [];
-        const fullFileBuffer = Buffer.concat(allChunks);
-        delete global.chunkStore[uploadId];
-
-        if (oldFileName && oldFileName !== fileName) {
-            await deleteFromHuggingFace(token, repo, oldFileName);
-        }
-
-        const publicUrl = await uploadToHuggingFace(token, repo, fileName, fullFileBuffer);
+        const cleanRepo = repo.replace(/^datasets\//, '');
+        const finalUrl = `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}.part0?parts=${totalChunks}`;
 
         return res.status(200).json({
             success: true,
-            status: 'completed',
-            publicUrl: publicUrl,
-            assetName: fileName
+            status: 'chunk_uploaded',
+            chunkIndex: chunkIndex,
+            totalChunks: totalChunks,
+            publicUrl: finalUrl,
+            chunkUrl: chunkPublicUrl
         });
 
     } catch (error) {
