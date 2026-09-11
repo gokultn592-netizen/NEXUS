@@ -58,27 +58,27 @@ async function uploadToHuggingFace(token, repo, fileName, fileBuffer) {
     return `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}`;
 }
 
+function getCleanBaseFileName(name) {
+    if (!name) return '';
+    const clean = name.split('?')[0];
+    return clean.replace(/\.part\d+$/, '');
+}
+
 async function deleteFromHuggingFace(token, repo, fileName) {
     if (!fileName) return;
     const cleanRepo = repo.replace(/^datasets\//, '');
+    const baseName = getCleanBaseFileName(fileName);
 
-    try {
-        const hub = await import('@huggingface/hub');
-        if (hub && hub.deleteFile) {
-            await hub.deleteFile({
-                repo: { type: 'dataset', name: cleanRepo },
-                accessToken: token,
-                path: fileName
-            });
-            return;
-        }
-    } catch (sdkErr) {
-        console.warn('HF SDK delete notice:', sdkErr.message);
-    }
-
-    // Direct REST API deletion fallback
     const commitUrl = `https://huggingface.co/api/datasets/${cleanRepo}/commit/main`;
     try {
+        const ops = [
+            { operation: 'delete', path: baseName },
+            { operation: 'delete', path: `${baseName}.part0` }
+        ];
+        for (let i = 1; i < 20; i++) {
+            ops.push({ operation: 'delete', path: `${baseName}.part${i}` });
+        }
+
         await fetch(commitUrl, {
             method: 'POST',
             headers: {
@@ -87,13 +87,8 @@ async function deleteFromHuggingFace(token, repo, fileName) {
                 'User-Agent': 'NEXUS-App'
             },
             body: JSON.stringify({
-                summary: `Delete material ${fileName}`,
-                operations: [
-                    {
-                        operation: 'delete',
-                        path: fileName
-                    }
-                ]
+                summary: `Delete material ${baseName}`,
+                operations: ops
             })
         });
     } catch (e) {
@@ -137,9 +132,12 @@ module.exports = async function handler(req, res) {
         const cleanBase64 = chunkData.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
         const chunkBuffer = Buffer.from(cleanBase64, 'base64');
 
-        // Delete old file if updating
-        if (oldFileName && oldFileName !== fileName && chunkIndex === 0) {
-            deleteFromHuggingFace(token, repo, oldFileName).catch(e => console.warn('Old file delete notice:', e));
+        // Delete old file ONLY if base name changed (e.g., replaced with a completely different file)
+        // If oldBase === newBase (re-uploading same file), chunk uploads will overwrite in-place cleanly without race condition!
+        const oldBase = getCleanBaseFileName(oldFileName);
+        const newBase = getCleanBaseFileName(fileName);
+        if (oldBase && oldBase !== newBase && chunkIndex === 0) {
+            deleteFromHuggingFace(token, repo, oldBase).catch(e => console.warn('Old file delete notice:', e));
         }
 
         // Single chunk upload (<= 3.2MB file)

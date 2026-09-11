@@ -209,18 +209,28 @@ const pwaHelper = {
 
         if (partsCount > 1) {
             const baseUrl = fileUrl.split('?')[0].replace(/\.part0$/, '');
-            const fetchPartPromises = [];
-            for (let i = 0; i < partsCount; i++) {
-                const partUrl = `${baseUrl}.part${i}`;
-                fetchPartPromises.push(
-                    fetch(partUrl).then(r => {
-                        if (!r.ok) throw new Error(`Failed to fetch part ${i} (${r.status})`);
-                        return r.arrayBuffer();
-                    })
-                );
+            try {
+                const fetchPartPromises = [];
+                for (let i = 0; i < partsCount; i++) {
+                    const partUrl = `${baseUrl}.part${i}`;
+                    fetchPartPromises.push(
+                        fetch(partUrl).then(r => {
+                            if (!r.ok) throw new Error(`Failed to fetch part ${i} (${r.status})`);
+                            return r.arrayBuffer();
+                        })
+                    );
+                }
+                const buffers = await Promise.all(fetchPartPromises);
+                return new Blob(buffers, { type: mimeType });
+            } catch (partErr) {
+                console.warn('[PWA Fetch] Multi-part fetch failed, falling back to single file:', baseUrl, partErr.message);
+                const directRes = await fetch(baseUrl);
+                if (directRes.ok) {
+                    const arrayBuf = await directRes.arrayBuffer();
+                    return new Blob([arrayBuf], { type: mimeType });
+                }
+                throw partErr;
             }
-            const buffers = await Promise.all(fetchPartPromises);
-            return new Blob(buffers, { type: mimeType });
         }
 
         // Direct single-pass HTTP/2 fetch for Hugging Face CDN — ~0.3s download, zero roundtrip lag!
