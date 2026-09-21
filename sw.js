@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v75';
+const CACHE_NAME = 'nexus-shell-v77';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
 ];
 
 const EXTERNAL_ASSETS = [
+  'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js',
@@ -31,7 +32,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[Service Worker] Pre-caching app shell...');
-      // Use Map to handle individual caching of resources so one failure doesn't block the whole precache
       return Promise.allSettled(
         ALL_PRECACHE.map(asset => {
           return cache.add(asset)
@@ -80,7 +80,7 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           console.log('[Service Worker] Serving cached Firebase configuration...');
-          return caches.match(event.request);
+          return caches.match(event.request, { ignoreSearch: true });
         })
     );
     return;
@@ -99,7 +99,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request, { ignoreSearch: true }))
     );
     return;
   }
@@ -115,14 +115,22 @@ self.addEventListener('fetch', (event) => {
 
   if (isNavigationOrHtml || isStatic) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
+      caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {
           if (networkResponse.ok) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
-        }).catch(() => {/* ignore network errors offline */});
+        }).catch(async () => {
+          // Graceful offline navigation fallback
+          if (event.request.mode === 'navigate') {
+            const fallback = await caches.match('/index.html', { ignoreSearch: true });
+            if (fallback) return fallback;
+            return caches.match('/', { ignoreSearch: true });
+          }
+          return undefined;
+        });
 
         // Instant 0ms load if cached, otherwise wait for network
         return cachedResponse || fetchPromise;
@@ -142,7 +150,7 @@ self.addEventListener('fetch', (event) => {
 
   if (isExternal) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
+      caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
         if (cachedResponse) return cachedResponse;
         
         return fetch(event.request).then((networkResponse) => {

@@ -2,60 +2,39 @@
 // Receives files/chunks from browser client, commits directly to Hugging Face Dataset repository,
 // and returns direct CORS-enabled resolution URLs (https://huggingface.co/datasets/USER/REPO/resolve/main/FILE.pdf)
 
+const { uploadFile, deleteFiles } = require('@huggingface/hub');
+
 global.chunkStore = global.chunkStore || {};
 
-async function uploadToHuggingFace(token, repo, fileName, fileBuffer) {
+async function uploadToHuggingFace(token, repo, fileName, fileBuffer, maxRetries = 3) {
     const cleanRepo = repo.replace(/^datasets\//, '');
-    
-    // Method A: Try @huggingface/hub JS SDK if available
-    try {
-        const hub = await import('@huggingface/hub');
-        if (hub && hub.uploadFile) {
-            const blob = new Blob([fileBuffer]);
-            await hub.uploadFile({
+    const blob = new Blob([fileBuffer]);
+
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await uploadFile({
                 repo: { type: 'dataset', name: cleanRepo },
                 accessToken: token,
                 file: {
                     path: fileName,
                     content: blob
-                }
+                },
+                commitTitle: `Upload material ${fileName}`
             });
             return `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}`;
+        } catch (err) {
+            lastError = err;
+            console.warn(`[HF Upload] Attempt ${attempt}/${maxRetries} for ${fileName} failed:`, err.message);
+            if (attempt === maxRetries) {
+                throw new Error(`Hugging Face upload failed for ${fileName} after ${maxRetries} attempts: ${err.message}`);
+            }
+            // Exponential backoff with random jitter to allow Git HEAD to settle
+            const jitter = Math.floor(Math.random() * 300);
+            const delay = Math.pow(2, attempt - 1) * 800 + jitter;
+            await new Promise(res => setTimeout(res, delay));
         }
-    } catch (sdkErr) {
-        console.warn('HF SDK upload notice:', sdkErr.message);
     }
-
-    // Method B: Direct HuggingFace REST Commit API fallback
-    const commitUrl = `https://huggingface.co/api/datasets/${cleanRepo}/commit/main`;
-    const base64Content = fileBuffer.toString('base64');
-
-    const res = await fetch(commitUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'NEXUS-App'
-        },
-        body: JSON.stringify({
-            summary: `Upload material ${fileName}`,
-            operations: [
-                {
-                    operation: 'addOrUpdate',
-                    path: fileName,
-                    content: base64Content,
-                    encoding: 'base64'
-                }
-            ]
-        })
-    });
-
-    if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`HuggingFace upload failed (${res.status}): ${errText}`);
-    }
-
-    return `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}`;
 }
 
 function getCleanBaseFileName(name) {
@@ -137,7 +116,7 @@ module.exports = async function handler(req, res) {
         const oldBase = getCleanBaseFileName(oldFileName);
         const newBase = getCleanBaseFileName(fileName);
         if (oldBase && oldBase !== newBase && chunkIndex === 0) {
-            deleteFromHuggingFace(token, repo, oldBase).catch(e => console.warn('Old file delete notice:', e));
+            await deleteFromHuggingFace(token, repo, oldBase).catch(e => console.warn('Old file delete notice:', e));
         }
 
         // Single chunk upload (<= 3.2MB file)

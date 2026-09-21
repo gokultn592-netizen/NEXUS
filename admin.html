@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=75"></script>
+    <script src="pwa-helper.js?v=77"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -626,10 +626,8 @@
     </div>
 <script>
 function refreshIcons(){ if(window.lucide) try{ lucide.createIcons(); }catch(e){} }
-if(sessionStorage.getItem('admin_access') !== 'granted'){
-    // allow direct for dev? keep check but show modal
-    // Do not block if already admin in Firestore; check later
-}
+function escapeHtml(s){ if(s === null || s === undefined) return ""; const d=document.createElement("div"); d.textContent=String(s); return d.innerHTML; }
+window.adminMaterialsMap = window.adminMaterialsMap || {};
 let auth=null, db=null;
 async function initializeAppFlow(){
     let config = null;
@@ -785,26 +783,55 @@ function loadFiles(){
     if(!db) return;
     db.collection("materials").orderBy("createdAt","desc").onSnapshot(snap=>{
         const tbody=document.getElementById("files-tbody"); tbody.innerHTML="";
+        window.adminMaterialsMap = {};
         snap.forEach(doc=>{
             const f=doc.data();
+            window.adminMaterialsMap[doc.id] = f;
             const tr=document.createElement("tr"); tr.className="hover:bg-white/[0.02]";
-            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${f.title}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${f.subject}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${f.uploaderName}</td><td class="px-4 py-3 flex gap-2"><button onclick="if(window.pwaHelper) window.pwaHelper.viewFile('${f.fileUrl}', '${doc.id}', ${f.version||1}, '${f.title.replace(/'/g, "\\'")}', this, '${f.githubAssetId||''}'); else window.open('${f.fileUrl}', '_blank')" class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white hover:bg-white/10">View</button><button onclick="openUpdateModal('${doc.id}', '${f.title.replace(/'/g, "\\'")}', '${f.subject}', '${f.fileUrl||''}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black hover:bg-zinc-200">Update</button><button onclick="deleteFile('${doc.id}', '${f.fileUrl}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
+            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${escapeHtml(f.title||'Untitled')}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${escapeHtml(f.subject||'General')}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${escapeHtml(f.uploaderName||'Unknown')}</td><td class="px-4 py-3 flex gap-2"><button onclick="adminViewMaterial('${doc.id}', this)" class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white hover:bg-white/10">View</button><button onclick="openUpdateModal('${doc.id}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black hover:bg-zinc-200">Update</button><button onclick="deleteFile('${doc.id}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
             tbody.appendChild(tr);
         });
         refreshIcons();
     });
 }
-async function deleteFile(id, url){
+window.adminViewMaterial = function(id, btn) {
+    const f = window.adminMaterialsMap[id];
+    if (!f || !f.fileUrl) { alert("File URL not found"); return; }
+    if (window.pwaHelper && typeof window.pwaHelper.viewFile === 'function') {
+        window.pwaHelper.viewFile(f.fileUrl, id, f.version || 1, f.title || 'Document', btn, f.githubAssetId || '');
+    } else {
+        window.open(f.fileUrl, '_blank');
+    }
+};
+async function deleteFile(id){
+    const f = window.adminMaterialsMap[id];
+    const url = f ? (f.fileUrl || '') : '';
     if(!confirm("Permanently delete this material?")) return;
     try{
         await db.collection("materials").doc(id).delete();
-        if(url.includes("backblazeb2.com")){
-            try{ await fetch("https://nexus-omega-jet.vercel.app/api/delete-file",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileUrl:url})}); }catch(e){ console.warn(e); }
+        if(url && (url.includes("huggingface.co") || url.includes("backblazeb2.com"))){
+            try{
+                await fetch("https://nexus-omega-jet.vercel.app/api/delete-file",{
+                    method:"POST",
+                    headers:{"Content-Type":"application/json"},
+                    body:JSON.stringify({fileUrl:url})
+                });
+            }catch(e){ console.warn('Backend delete notice:', e); }
         }
     }catch(e){ alert("Error: "+e.message); }
 }
 const updateModal=document.getElementById("update-modal");
-window.openUpdateModal=function(id,title,subject,oldUrl){ document.getElementById("update-id").value=id; document.getElementById("update-title").value=title; document.getElementById("update-subject").value=subject; document.getElementById("update-file").value=""; if(document.getElementById("update-form")) document.getElementById("update-form").dataset.oldUrl=oldUrl||""; updateModal.classList.add("active"); refreshIcons(); };
+window.openUpdateModal=function(id){
+    const f = window.adminMaterialsMap[id];
+    if (!f) return;
+    document.getElementById("update-id").value=id;
+    document.getElementById("update-title").value=f.title || '';
+    document.getElementById("update-subject").value=f.subject || '';
+    document.getElementById("update-file").value="";
+    if(document.getElementById("update-form")) document.getElementById("update-form").dataset.oldUrl=f.fileUrl || "";
+    updateModal.classList.add("active");
+    refreshIcons();
+};
 updateModal?.addEventListener("click",e=>{ if(e.target===updateModal) updateModal.classList.remove("active"); });
 const CHUNK_SIZE_BYTES = 3.2 * 1024 * 1024;
 
@@ -836,44 +863,45 @@ async function uploadFileFast(fileInput, prog, oldFileName = '') {
         return data.publicUrl;
     }
 
-    let completedChunks = 0;
-    const chunkPromises = [];
+    let finalPublicUrl = null;
 
     for (let i = 0; i < totalChunks; i++) {
         const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i + 1) * CHUNK_SIZE_BYTES);
-        const p = new Promise(async (resolve, reject) => {
-            try {
-                const base64 = await new Promise((res, rej) => {
-                    const reader = new FileReader();
-                    reader.onload = () => res(reader.result);
-                    reader.onerror = rej;
-                    reader.readAsDataURL(chunkBlob);
-                });
-
-                const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, oldFileName: i === 0 ? oldFileName : undefined })
-                });
-
-                if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || `Chunk ${i} failed`); }
-                const data = await res.json();
-                completedChunks++;
-                const percent = Math.min(99, Math.round((completedChunks / totalChunks) * 100));
-                if (progSpan) progSpan.textContent = `Uploading… ${percent}%`;
-                resolve({ index: i, data });
-            } catch (err) {
-                reject(err);
-            }
+        const base64 = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(reader.result);
+            reader.onerror = rej;
+            reader.readAsDataURL(chunkBlob);
         });
-        chunkPromises.push(p);
+
+        if (progSpan) {
+            const percent = Math.round((i / totalChunks) * 100);
+            progSpan.textContent = `Uploading… Chunk ${i + 1} of ${totalChunks} (${percent}%)`;
+        }
+
+        const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64, oldFileName: i === 0 ? oldFileName : undefined })
+        });
+
+        if (!res.ok) {
+            const er = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(er.error || `Chunk ${i + 1} of ${totalChunks} failed`);
+        }
+
+        const data = await res.json();
+        if (data.publicUrl) finalPublicUrl = data.publicUrl;
+
+        if (progSpan) {
+            const percent = Math.round(((i + 1) / totalChunks) * 100);
+            progSpan.textContent = `Uploading… Chunk ${i + 1} of ${totalChunks} (${percent}%)`;
+        }
     }
 
-    const results = await Promise.all(chunkPromises);
     if (progSpan) progSpan.textContent = 'Uploading… 100%';
-    const firstSuccess = results.find(r => r.data && r.data.publicUrl);
-    if (!firstSuccess || !firstSuccess.data || !firstSuccess.data.publicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
-    return firstSuccess.data.publicUrl;
+    if (!finalPublicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
+    return finalPublicUrl;
 }
 
 document.getElementById("update-form")?.addEventListener("submit", async e=>{

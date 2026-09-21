@@ -696,16 +696,21 @@ function renderLoggedOut(){
 document.getElementById("login-link").addEventListener("click",e=>{ e.preventDefault(); document.getElementById("auth-modal").classList.add("active"); refreshIcons(); });
 document.getElementById("google-signin-btn").addEventListener("click",()=>{ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); document.getElementById("auth-modal").classList.remove("active"); });
 document.getElementById("auth-modal").addEventListener("click",e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove("active"); });
+window.noticesMap = window.noticesMap || {};
+
 function loadNotices(){
     if(!db) return; // Guard: db may be null if Firebase config failed
     db.collection("notices").orderBy("createdAt","desc").onSnapshot(snap=>{
         const grid=document.getElementById("notice-grid"); grid.innerHTML="";
+        window.noticesMap = {};
         if(snap.empty){ grid.innerHTML='<div class="col-span-full rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5"><i data-lucide="inbox" class="h-5 w-5 text-zinc-500"></i></div><h3 class="mt-4 font-display text-[18px] font-[700]">No notices yet</h3><p class="mx-auto mt-2 max-w-[40ch] text-sm text-zinc-500">When admins publish announcements, they will appear here.</p></div>'; refreshIcons(); return; }
         snap.forEach(doc=>{
-            const n=doc.data(); const date=n.createdAt? n.createdAt.toDate().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}):"Just now";
+            const n=doc.data();
+            window.noticesMap[doc.id] = n;
+            const date=n.createdAt? (typeof n.createdAt.toDate === 'function' ? n.createdAt.toDate().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}) : new Date((n.createdAt.seconds||0)*1000).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})):"Just now";
             const card=document.createElement("div");
             card.className="group relative overflow-hidden rounded-[20px] border border-white/10 bg-[#141416] p-6 transition-all hover:-translate-y-1 hover:border-white/15 hover:bg-[#17171a] md:p-7";
-            card.innerHTML=`<div class="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style="background:radial-gradient(520px circle at var(--mx,50%) var(--my,50%), rgba(139,92,246,0.07), transparent 60%)"></div><div class="relative"><div class="flex items-start justify-between gap-4"><h3 class="font-display text-[18px] font-[700] leading-tight tracking-[-0.02em] md:text-[19px]">${escapeHtml(n.title)}</h3><span class="shrink-0 rounded-full border border-violet/20 bg-violet/10 px-3 py-1 font-mono text-[10px] tracking-[0.14em] text-violet">${escapeHtml(date)}</span></div><p class="mt-1 font-mono text-[11px] tracking-wide text-zinc-500">by ${escapeHtml(n.authorName||"Unknown")}</p><p class="mt-4 whitespace-pre-wrap text-[13.5px] leading-6 text-zinc-300">${escapeHtml(n.content)}</p>${(userData && (userData.role==="admin" || currentUser?.uid===n.authorId))?`<div class="mt-6 flex gap-2 border-t border-white/10 pt-4"><button onclick="editNotice('${doc.id}', '${escapeHtml(n.title).replace(/'/g, "\\'")}', '${escapeHtml(n.content).replace(/'/g, "\\'")}')" class="btn-glass !h-8 px-3 text-xs"><i data-lucide="pencil" class="h-3 w-3"></i> Edit</button><button onclick="deleteNotice('${doc.id}')" class="btn-glass !h-8 px-3 text-xs !text-red-300 !border-red-500/20 hover:!bg-red-500/10"><i data-lucide="trash-2" class="h-3 w-3"></i> Delete</button></div>`:""}</div>`;
+            card.innerHTML=`<div class="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style="background:radial-gradient(520px circle at var(--mx,50%) var(--my,50%), rgba(139,92,246,0.07), transparent 60%)"></div><div class="relative"><div class="flex items-start justify-between gap-4"><h3 class="font-display text-[18px] font-[700] leading-tight tracking-[-0.02em] md:text-[19px]">${escapeHtml(n.title)}</h3><span class="shrink-0 rounded-full border border-violet/20 bg-violet/10 px-3 py-1 font-mono text-[10px] tracking-[0.14em] text-violet">${escapeHtml(date)}</span></div><p class="mt-1 font-mono text-[11px] tracking-wide text-zinc-500">by ${escapeHtml(n.authorName||"Unknown")}</p><p class="mt-4 whitespace-pre-wrap text-[13.5px] leading-6 text-zinc-300">${escapeHtml(n.content)}</p>${(userData && (userData.role==="admin" || currentUser?.uid===n.authorId))?`<div class="mt-6 flex gap-2 border-t border-white/10 pt-4"><button onclick="editNotice('${doc.id}')" class="btn-glass !h-8 px-3 text-xs"><i data-lucide="pencil" class="h-3 w-3"></i> Edit</button><button onclick="deleteNotice('${doc.id}')" class="btn-glass !h-8 px-3 text-xs !text-red-300 !border-red-500/20 hover:!bg-red-500/10"><i data-lucide="trash-2" class="h-3 w-3"></i> Delete</button></div>`:""}</div>`;
             card.addEventListener("mousemove",e=>{ const r=card.getBoundingClientRect(); card.style.setProperty("--mx", (e.clientX-r.left)+"px"); card.style.setProperty("--my", (e.clientY-r.top)+"px"); });
             grid.appendChild(card);
         });
@@ -728,7 +733,16 @@ document.getElementById("notice-form")?.addEventListener("submit", async e=>{
         noticeModal.classList.remove("active");
     }catch(err){ alert("Error: "+err.message); }
 });
-window.editNotice=function(id,title,content){ document.getElementById("modal-title").textContent="Edit notice"; document.getElementById("notice-id").value=id; document.getElementById("notice-form-title").value=title; document.getElementById("notice-form-content").value=content; noticeModal.classList.add("active"); refreshIcons(); };
+window.editNotice=function(id){
+    const n = window.noticesMap[id];
+    if(!n) return;
+    document.getElementById("modal-title").textContent="Edit notice";
+    document.getElementById("notice-id").value=id;
+    document.getElementById("notice-form-title").value=n.title||"";
+    document.getElementById("notice-form-content").value=n.content||"";
+    noticeModal.classList.add("active");
+    refreshIcons();
+};
 window.deleteNotice=async function(id){ if(confirm("Delete this announcement permanently?")) await db.collection("notices").doc(id).delete(); };
 function initNotifications(){
     if(!db) return;
@@ -742,8 +756,10 @@ function initNotifications(){
         if(snap.empty){ list.innerHTML='<p class="py-12 text-center font-mono text-sm text-zinc-500">No new notifications</p>'; if(badge) badge.classList.add("hidden"); if(menuDot) menuDot.classList.add("hidden"); return; }
         const lastChecked=parseInt(localStorage.getItem("nexus_last_notif_check")||0); let hasNew=false; list.innerHTML="";
         snap.forEach(doc=>{
-            const d=doc.data(); const at=d.createdAt? d.createdAt.toMillis():Date.now(); if(at>lastChecked) hasNew=true;
-            const time=d.createdAt? d.createdAt.toDate().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"Just now";
+            const d=doc.data();
+            const at=(d.createdAt && typeof d.createdAt.toMillis==='function')? d.createdAt.toMillis() : (d.createdAt && d.createdAt.seconds ? d.createdAt.seconds * 1000 : Date.now());
+            if(at>lastChecked) hasNew=true;
+            const time=(d.createdAt && typeof d.createdAt.toDate==='function')? d.createdAt.toDate().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : (d.createdAt && d.createdAt.seconds ? new Date(d.createdAt.seconds * 1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "Just now");
             const item=document.createElement("div"); item.className="border-b border-white/10 py-4 last:border-0";
             item.innerHTML=`<div class="flex items-start justify-between gap-3"><b class="font-display text-[13px] font-[700]">${escapeHtml(d.title)}</b>${(userData && userData.role==="admin")?`<button onclick="deleteNotification('${doc.id}')" class="grid h-8 w-8 place-items-center rounded-full text-zinc-500 hover:bg-white/10 hover:text-red-400"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>`:""}</div><p class="mt-1 text-[13px] leading-5 text-zinc-400">${escapeHtml(d.message)}</p><span class="mt-2 inline-block font-mono text-[11px] text-violet">${escapeHtml(time)}</span>`;
             list.appendChild(item);

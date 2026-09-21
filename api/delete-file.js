@@ -1,42 +1,36 @@
-// Vercel Serverless Function — Hugging Face Material File Deletion Engine
+const { deleteFiles, listFiles } = require('@huggingface/hub');
+
+function getCleanBaseFileName(name) {
+    if (!name) return '';
+    const clean = name.split('?')[0];
+    return clean.replace(/\.part\d+$/, '');
+}
 
 async function deleteFromHuggingFace(token, repo, fileName) {
     if (!fileName) return;
     const cleanRepo = repo.replace(/^datasets\//, '');
+    const baseName = getCleanBaseFileName(fileName);
 
     try {
-        const hub = await import('@huggingface/hub');
-        if (hub && hub.deleteFile) {
-            await hub.deleteFile({
+        const existingPaths = [];
+        for await (const file of listFiles({ repo: { type: 'dataset', name: cleanRepo }, accessToken: token })) {
+            if (file.path === baseName || file.path.startsWith(`${baseName}.part`)) {
+                existingPaths.push(file.path);
+            }
+        }
+
+        if (existingPaths.length > 0) {
+            await deleteFiles({
                 repo: { type: 'dataset', name: cleanRepo },
                 accessToken: token,
-                path: fileName
+                paths: existingPaths,
+                commitTitle: `Delete material ${baseName}`
             });
-            return;
+            console.log(`[HF Delete] Successfully deleted ${existingPaths.length} file(s) for ${baseName}`);
         }
-    } catch (sdkErr) {
-        console.warn('HF SDK delete notice:', sdkErr.message);
+    } catch (e) {
+        console.warn('[HF Delete] Notice:', e.message);
     }
-
-    // Direct REST API deletion fallback
-    const commitUrl = `https://huggingface.co/api/datasets/${cleanRepo}/commit/main`;
-    await fetch(commitUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'NEXUS-App'
-        },
-        body: JSON.stringify({
-            summary: `Delete material ${fileName}`,
-            operations: [
-                {
-                    operation: 'delete',
-                    path: fileName
-                }
-            ]
-        })
-    });
 }
 
 module.exports = async function handler(req, res) {
@@ -48,7 +42,7 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const token = process.env.HF_TOKEN || process.env.GITHUB_TOKEN;
-    const repo = process.env.HF_REPO || process.env.GITHUB_REPO || 'gokultn592-netizen/nexus-materials';
+    const repo = process.env.HF_REPO || process.env.GITHUB_REPO || 'ThalaivarGokul447/nexus-materials';
 
     if (!token) {
         return res.status(500).json({ error: 'HF_TOKEN environment variable is not configured' });

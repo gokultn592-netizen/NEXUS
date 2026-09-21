@@ -178,11 +178,7 @@ const pwaHelper = {
 
     // Single-Pass Direct CDN Stream Fetching Engine (Ultra-Fast ~0.3s Download)
     async fetchFileBlob(fileUrl, assetId) {
-        const clean = ((fileUrl || '') + ' ' + (assetId || '')).toLowerCase();
-        let mimeType = 'application/octet-stream';
-        if (clean.includes('.pdf')) mimeType = 'application/pdf';
-        else if (clean.includes('.png')) mimeType = 'image/png';
-        else if (clean.includes('.jpg') || clean.includes('.jpeg')) mimeType = 'image/jpeg';
+        const mimeType = this.getMimeType(fileUrl || '', assetId || '');
 
         const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
 
@@ -224,12 +220,16 @@ const pwaHelper = {
                 return new Blob(buffers, { type: mimeType });
             } catch (partErr) {
                 console.warn('[PWA Fetch] Multi-part fetch failed, falling back to single file:', baseUrl, partErr.message);
-                const directRes = await fetch(baseUrl);
-                if (directRes.ok) {
-                    const arrayBuf = await directRes.arrayBuffer();
-                    return new Blob([arrayBuf], { type: mimeType });
+                try {
+                    const directRes = await fetch(baseUrl);
+                    if (directRes.ok) {
+                        const arrayBuf = await directRes.arrayBuffer();
+                        return new Blob([arrayBuf], { type: mimeType });
+                    }
+                } catch (singleErr) {
+                    console.warn('[PWA Fetch] Single file fallback also failed:', singleErr.message);
                 }
-                throw partErr;
+                throw new Error(`Failed to load material: ${partErr.message}. The file may need to be re-uploaded.`);
             }
         }
 
@@ -247,6 +247,30 @@ const pwaHelper = {
 
     async fetchGitHubAssetBlob(fileUrl, githubAssetId) {
         return this.fetchFileBlob(fileUrl, githubAssetId);
+    },
+
+    // Orphaned cache cleaner: Purges deleted materials from local IndexedDB and CacheStorage
+    async cleanOrphanedCache(activeMaterials) {
+        if (!this.db || !activeMaterials || !activeMaterials.length) return;
+        try {
+            const activeIds = new Set(activeMaterials.map(m => m.id));
+            const tx = this.db.transaction('file_versions', 'readonly');
+            const store = tx.objectStore('file_versions');
+            const request = store.getAll();
+            request.onsuccess = async () => {
+                const records = request.result || [];
+                const cache = await caches.open('nexus-files-cache');
+                for (const record of records) {
+                    if (record && record.id && !activeIds.has(record.id)) {
+                        console.log('[PWA Cache] Purging deleted material from local cache:', record.id, record.fileUrl);
+                        if (record.fileUrl) await cache.delete(record.fileUrl).catch(() => {});
+                        await this.deleteCachedRecord(record.id).catch(() => {});
+                    }
+                }
+            };
+        } catch (e) {
+            console.warn('[PWA Cache] Orphaned cache cleanup notice:', e);
+        }
     },
 
     // Handle view operation: 0ms Instant Launch + Parallel Background Caching
@@ -292,8 +316,18 @@ const pwaHelper = {
                 const isPdf = (title || cleanUrl).toLowerCase().includes('.pdf');
                 const pdfBlob = new Blob([rawBlob], { type: isPdf ? 'application/pdf' : (rawBlob.type && rawBlob.type !== 'text/plain' && rawBlob.type !== 'application/octet-stream' ? rawBlob.type : mimeType) });
                 const blobUrl = URL.createObjectURL(pdfBlob);
-                window.open(blobUrl, '_blank');
+                const newWin = window.open(blobUrl, '_blank');
+                if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+                    window.location.href = blobUrl;
+                }
                 setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
+                restoreBtn();
+                return;
+            }
+
+            // Offline guard for uncached materials
+            if (!navigator.onLine) {
+                alert('This material has not been downloaded for offline viewing yet.\n\nPlease connect to the internet once to view and cache it.');
                 restoreBtn();
                 return;
             }
@@ -304,7 +338,10 @@ const pwaHelper = {
             // 2. Online Single-File Hugging Face materials: Open window IMMEDIATELY in 0ms, cache in background concurrently!
             if (fileUrl && !isGitHubUrl && !githubAssetId && !isMultiPart) {
                 console.log('[PWA View] 0ms Instant launch + background caching:', cleanUrl);
-                window.open(fileUrl, '_blank');
+                const newWin = window.open(fileUrl, '_blank');
+                if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+                    window.location.href = fileUrl;
+                }
                 restoreBtn();
 
                 // Background cache insertion
@@ -318,14 +355,17 @@ const pwaHelper = {
                 return;
             }
 
-            // 3. Legacy GitHub materials: Fetch via 4x parallel streams and open blob
+            // 3. Multi-part HF or legacy GitHub materials: Fetch via parallel streams and open blob
             const pdfBlob = await this.fetchFileBlobParallel(fileUrl, githubAssetId);
             const blobUrl = URL.createObjectURL(pdfBlob);
 
             cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
             this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
 
-            window.open(blobUrl, '_blank');
+            const newWin = window.open(blobUrl, '_blank');
+            if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+                window.location.href = blobUrl;
+            }
             setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
             restoreBtn();
         } catch (err) {

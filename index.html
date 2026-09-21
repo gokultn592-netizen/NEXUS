@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=75"></script>
+    <script src="pwa-helper.js?v=77"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -447,6 +447,10 @@
             </div>
             <!-- right -->
             <div class="flex items-center gap-2">
+                <button class="pwa-install-btn hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10" onclick="window.triggerPwaInstall()" style="display:none;" aria-label="Install App">
+                    <i data-lucide="download-cloud" class="h-3.5 w-3.5 text-violet"></i>
+                    <span class="hidden sm:inline">Install App</span>
+                </button>
                 <button id="notifications-link" class="icon-btn relative hidden md:grid" aria-label="Notifications">
                     <i data-lucide="bell" class="h-[16px] w-[16px]"></i>
                     <span id="notif-badge" class="absolute -right-0.5 -top-0.5 hidden h-[8px] w-[8px] rounded-full bg-[#ef4444] shadow-[0_0_0_3px_#121214]"></span>
@@ -492,6 +496,10 @@
                 <button id="menu-notif-link" class="mm-link flex items-center justify-between border-b border-white/10 py-6 text-left" style="--i:4">
                     <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Updates</span>
                     <span class="flex items-center gap-2 font-mono text-xs tracking-[0.18em] text-zinc-500"><span id="menu-notif-dot" class="hidden h-2 w-2 rounded-full bg-[#ef4444]"></span> NOTIFICATIONS</span>
+                </button>
+                <button class="pwa-install-btn mm-link flex items-center justify-between border-b border-white/10 py-6 text-left" style="--i:5; display:none;" onclick="triggerPwaInstall(); closeMobileMenu();">
+                    <span class="font-display text-[32px] font-[700] tracking-[-0.03em] leading-none">Install App</span>
+                    <span class="font-mono text-xs tracking-[0.18em] text-violet">PWA STANDALONE</span>
                 </button>
             </nav>
             <div class="mt-auto pt-8">
@@ -1285,7 +1293,12 @@
             try { localStorage.setItem('nexus_cached_materials', JSON.stringify(allFilesCache)); } catch(e){}
             updateCounts();
             applyFiltersAndRender();
-            if(window.pwaHelper) window.pwaHelper.checkAndSyncFiles(allFilesCache);
+            if(window.pwaHelper) {
+                window.pwaHelper.checkAndSyncFiles(allFilesCache);
+                if(typeof window.pwaHelper.cleanOrphanedCache === 'function') {
+                    window.pwaHelper.cleanOrphanedCache(allFilesCache);
+                }
+            }
         },(err)=>{
             console.warn('[Firestore] Using cached materials offline:', err);
             updateCounts();
@@ -1542,44 +1555,47 @@
             return { publicUrl: data.publicUrl, assetId: data.assetId || null };
         }
 
-        let completedChunks = 0;
-        const chunkPromises = [];
+        let finalPublicUrl = null;
+        let assetId = null;
 
         for (let i = 0; i < totalChunks; i++) {
             const chunkBlob = fileInput.slice(i * CHUNK_SIZE_BYTES, (i + 1) * CHUNK_SIZE_BYTES);
-            const p = new Promise(async (resolve, reject) => {
-                try {
-                    const base64 = await new Promise((res, rej) => {
-                        const reader = new FileReader();
-                        reader.onload = () => res(reader.result);
-                        reader.onerror = rej;
-                        reader.readAsDataURL(chunkBlob);
-                    });
-
-                    const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64 })
-                    });
-
-                    if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || `Chunk ${i} failed`); }
-                    const data = await res.json();
-                    completedChunks++;
-                    const percent = Math.min(99, Math.round((completedChunks / totalChunks) * 100));
-                    if (progSpan) progSpan.textContent = `Uploading… ${percent}%`;
-                    resolve({ index: i, data });
-                } catch (err) {
-                    reject(err);
-                }
+            const base64 = await new Promise((res, rej) => {
+                const reader = new FileReader();
+                reader.onload = () => res(reader.result);
+                reader.onerror = rej;
+                reader.readAsDataURL(chunkBlob);
             });
-            chunkPromises.push(p);
+
+            if (progSpan) {
+                const percent = Math.round((i / totalChunks) * 100);
+                progSpan.textContent = `Uploading… Chunk ${i + 1} of ${totalChunks} (${percent}%)`;
+            }
+
+            const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64 })
+            });
+
+            if (!res.ok) {
+                const er = await res.json().catch(() => ({ error: res.statusText }));
+                throw new Error(er.error || `Chunk ${i + 1} of ${totalChunks} failed`);
+            }
+
+            const data = await res.json();
+            if (data.publicUrl) finalPublicUrl = data.publicUrl;
+            if (data.assetId) assetId = data.assetId;
+
+            if (progSpan) {
+                const percent = Math.round(((i + 1) / totalChunks) * 100);
+                progSpan.textContent = `Uploading… Chunk ${i + 1} of ${totalChunks} (${percent}%)`;
+            }
         }
 
-        const results = await Promise.all(chunkPromises);
         if (progSpan) progSpan.textContent = 'Uploading… 100%';
-        const firstSuccess = results.find(r => r.data && r.data.publicUrl);
-        if (!firstSuccess || !firstSuccess.data || !firstSuccess.data.publicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
-        return { publicUrl: firstSuccess.data.publicUrl, assetId: firstSuccess.data.assetId || null };
+        if (!finalPublicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
+        return { publicUrl: finalPublicUrl, assetId: assetId || null };
     }
 
     document.getElementById('upload-form').addEventListener('submit', async (e)=>{
@@ -1707,9 +1723,9 @@
             list.innerHTML='';
             snap.forEach(doc=>{
                 const data=doc.data();
-                const createdAt=data.createdAt? data.createdAt.toMillis(): Date.now();
+                const createdAt=(data.createdAt && typeof data.createdAt.toMillis === 'function') ? data.createdAt.toMillis() : (data.createdAt && data.createdAt.seconds ? data.createdAt.seconds * 1000 : Date.now());
                 if(createdAt>lastChecked) hasNew=true;
-                const time=data.createdAt? data.createdAt.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Just now';
+                const time=(data.createdAt && typeof data.createdAt.toDate === 'function') ? data.createdAt.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : (data.createdAt && data.createdAt.seconds ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : 'Just now');
                 const item=document.createElement('div'); item.className='border-b border-white/10 py-4 last:border-0';
                 item.innerHTML='<div class="flex items-start justify-between gap-3"><b class="font-display text-[13px] font-[700] leading-tight text-white">'+escapeHtml(data.title)+'</b>'+(isAdmin?'<button onclick="deleteNotification(\''+doc.id+'\')" aria-label="Delete notification" class="grid h-8 w-8 place-items-center rounded-full text-zinc-500 hover:bg-white/10 hover:text-red-400" title="Delete"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>':'')+'</div><p class="mt-1 text-[13px] leading-5 text-zinc-400">'+escapeHtml(data.message)+'</p><span class="mt-2 inline-block font-mono text-[11px] tracking-wide text-violet">'+escapeHtml(time)+'</span>';
                 list.appendChild(item);
