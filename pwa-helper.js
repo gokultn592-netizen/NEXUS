@@ -20,20 +20,80 @@ const pwaHelper = {
             console.error('❌ Failed to open IndexedDB:', e);
         }
         
-        // 3. Register Service Worker with Auto-Reload on Update
+        // 3. Service Worker Auto-Update & Zero-Friction Lifecycle Engine
         if ('serviceWorker' in navigator) {
             let refreshing = false;
+            const hadPreviousController = !!navigator.serviceWorker.controller;
+
+            // When a new Service Worker takes over, reload to apply fresh assets instantly
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (!refreshing) {
+                if (!refreshing && hadPreviousController) {
                     refreshing = true;
+                    console.log('🔄 New Service Worker controlling the page — auto-refreshing for fresh experience...');
                     window.location.reload();
                 }
             });
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('✅ ServiceWorker registered on scope:', reg.scope))
-                    .catch(err => console.error('❌ ServiceWorker registration failed:', err));
+
+            // Listen for direct broadcast update signals from the Service Worker
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'SW_UPDATED') {
+                    console.log(`🚀 Service Worker updated to ${event.data.version}`);
+                    if (!refreshing && hadPreviousController) {
+                        refreshing = true;
+                        window.location.reload();
+                    }
+                }
             });
+
+            const initServiceWorker = async () => {
+                try {
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    console.log('✅ ServiceWorker registered on scope:', reg.scope);
+
+                    // A. Proactively check for updates immediately
+                    reg.update().catch(() => {});
+
+                    // B. If a new worker is already waiting, activate it immediately
+                    if (reg.waiting) {
+                        console.log('⚡ Waiting Service Worker detected — activating now...');
+                        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+
+                    // C. Track workers entering the installing/waiting state
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('⚡ New update installed! Activating immediately...');
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                }
+                            });
+                        }
+                    });
+
+                    // D. Proactively re-check for updates whenever tab becomes visible
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            reg.update().catch(() => {});
+                        }
+                    });
+
+                    // E. Periodic background check every 10 minutes
+                    setInterval(() => {
+                        reg.update().catch(() => {});
+                    }, 10 * 60 * 1000);
+
+                } catch (err) {
+                    console.error('❌ ServiceWorker registration failed:', err);
+                }
+            };
+
+            if (document.readyState === 'complete') {
+                initServiceWorker();
+            } else {
+                window.addEventListener('load', initServiceWorker);
+            }
         }
 
         // 4. Capture beforeinstallprompt event for WebAPK App Installation

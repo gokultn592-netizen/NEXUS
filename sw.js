@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v77';
+const CACHE_NAME = 'nexus-shell-v78';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -43,20 +43,40 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event — Clean up old caches
+// Activate Event — Clean up old caches, claim clients immediately, and notify windows
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME && key !== 'nexus-files-cache') {
-            console.log('[Service Worker] Deleting old cache:', key);
+            console.log('[Service Worker] Purging outdated cache:', key);
             return caches.delete(key);
           }
         })
       );
     }).then(() => self.clients.claim())
+      .then(() => {
+        // Broadcast update notification to all open client windows
+        return self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'SW_UPDATED', version: CACHE_NAME });
+          });
+        });
+      })
   );
+});
+
+// Message Event — Support immediate skip-waiting from client page
+self.addEventListener('message', (event) => {
+  if (!event.data) return;
+  if (event.data.type === 'SKIP_WAITING') {
+    console.log('[Service Worker] SKIP_WAITING signal received, activating immediately...');
+    self.skipWaiting();
+  }
+  if (event.data.type === 'GET_VERSION' && event.ports && event.ports[0]) {
+    event.ports[0].postMessage({ version: CACHE_NAME });
+  }
 });
 
 // Fetch Event — Intercept network requests
@@ -86,14 +106,36 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. CDN JS scripts only — Network-First strategy to guarantee fresh CDN libraries
-  // (local .js files like pwa-helper.js fall through to stale-while-revalidate below)
-  const isLocalStatic = STATIC_ASSETS.some(asset => url.pathname === asset || url.pathname.endsWith(asset));
-  if (url.pathname.endsWith('.js') && !isLocalStatic) {
+  // 3. Navigation / HTML pages — Network-First to guarantee fresh updates without hard-refresh or clearing cookies
+  const isNavigationOrHtml = event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/';
+  if (isNavigationOrHtml) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse.ok) {
+          if (networkResponse && networkResponse.ok) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          console.log('[Service Worker] Network offline, serving cached navigation page...');
+          const cached = await caches.match(event.request, { ignoreSearch: true });
+          if (cached) return cached;
+          const fallback = await caches.match('/index.html', { ignoreSearch: true });
+          if (fallback) return fallback;
+          return caches.match('/', { ignoreSearch: true });
+        })
+    );
+    return;
+  }
+
+  // 4. Local JavaScript scripts (pwa-helper.js, particle-sphere.js) — Network-First with cache fallback
+  if (url.origin === self.location.origin && url.pathname.endsWith('.js')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.ok) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
@@ -104,42 +146,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Local static shell assets & HTML pages — Stale-While-Revalidate for 0ms instant launch + background revalidate!
+  // 5. Local static shell assets (manifest.json, favicon.ico, icons) — Stale-While-Revalidate
   const isStatic = STATIC_ASSETS.some(asset => {
     if (asset === '/') return url.pathname === '/';
-    const cleanAsset = asset.endsWith('.html') ? asset.slice(0, -5) : asset;
-    return url.pathname === asset || url.pathname === cleanAsset || url.pathname.endsWith(asset) || url.pathname.endsWith(cleanAsset);
+    return url.pathname === asset || url.pathname.endsWith(asset);
   });
 
-  const isNavigationOrHtml = event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/';
-
-  if (isNavigationOrHtml || isStatic) {
+  if (isStatic) {
     event.respondWith(
       caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {
-          if (networkResponse.ok) {
+          if (networkResponse && networkResponse.ok) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
-        }).catch(async () => {
-          // Graceful offline navigation fallback
-          if (event.request.mode === 'navigate') {
-            const fallback = await caches.match('/index.html', { ignoreSearch: true });
-            if (fallback) return fallback;
-            return caches.match('/', { ignoreSearch: true });
-          }
-          return undefined;
-        });
+        }).catch(() => undefined);
 
-        // Instant 0ms load if cached, otherwise wait for network
         return cachedResponse || fetchPromise;
       })
     );
     return;
   }
 
-  // 5. External CDN assets (Google Fonts, GSAP, Tailwind, Three.js, Firebase) — Cache-First with Network Fallback
+  // 6. External CDN assets (Google Fonts, GSAP, Tailwind, Three.js, Firebase) — Cache-First with Network Fallback
   const isExternal = EXTERNAL_ASSETS.some(asset => url.href.startsWith(asset)) || 
                      url.host.includes('gstatic.com') || 
                      url.host.includes('googleapis.com') ||
@@ -154,7 +184,7 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) return cachedResponse;
         
         return fetch(event.request).then((networkResponse) => {
-          if (networkResponse.ok) {
+          if (networkResponse && networkResponse.ok) {
             const copy = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
