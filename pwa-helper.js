@@ -189,40 +189,59 @@ const pwaHelper = {
         }
     },
 
-    // Background Smart Sync — pre-caches materials in parallel so they open INSTANTLY in class!
+    // Background Smart Sync — Silently pre-caches top 3 recent materials in background
+    // Runs with a 2.5s delay so initial page render and notices load with 100% bandwidth
     async checkAndSyncFiles(materials) {
         if (!navigator.onLine || !this.db || !materials || !materials.length) return;
         
-        // Cache top 3 most recent materials automatically to save mobile data
-        const targetMaterials = materials.slice(0, 3);
-
-        const syncPromises = targetMaterials.map(async (file) => {
-            const id = file.id;
-            const fileUrl = file.fileUrl;
-            const version = file.version || 1;
-            
-            if (!fileUrl) return;
-
+        setTimeout(async () => {
             try {
-                const cleanUrl = this.getCleanUrl(fileUrl || (`https://nexus.app/materials/${id}`));
-                const cachedRecord = await this.getCachedRecord(id);
-                const isCached = await this.isFileCached(cleanUrl);
+                // Select top 3 most recently created or updated materials
+                const targetMaterials = materials.slice(0, 3);
+                const cache = await caches.open('nexus-files-cache');
 
-                if (!cachedRecord || !isCached || cachedRecord.version !== version) {
-                    const cache = await caches.open('nexus-files-cache');
-                    const pdfBlob = await this.fetchFileBlobParallel(fileUrl);
-                    if (pdfBlob) {
-                        await cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } }));
-                        await this.saveCachedRecord(id, cleanUrl, version);
-                        console.log('✅ Auto pre-cached material via 4x parallel streams:', file.title || cleanUrl);
+                for (const file of targetMaterials) {
+                    const id = file.id;
+                    const fileUrl = file.fileUrl;
+                    const version = file.version || 1;
+                    if (!fileUrl) continue;
+
+                    const cleanUrl = this.getCleanUrl(fileUrl);
+                    const baseUrl = fileUrl.split('?')[0].replace(/\.part\d+$/, '');
+                    const cachedRecord = await this.getCachedRecord(id);
+                    const isCached = await this.isFileCached(cleanUrl) || await this.isFileCached(baseUrl);
+
+                    // If cached and version matches, skip (0 data used)
+                    if (cachedRecord && cachedRecord.version === version && isCached) {
+                        continue;
+                    }
+
+                    // If material was updated (v1 -> v2), purge old cached files
+                    if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
+                        console.log(`⚡ [PWA Sync] Note updated (v${cachedRecord.version} -> v${version}) — purging old cache:`, file.title);
+                        await cache.delete(cleanUrl).catch(() => {});
+                        await cache.delete(baseUrl).catch(() => {});
+                        if (cachedRecord.fileUrl) await cache.delete(cachedRecord.fileUrl).catch(() => {});
+                        await this.deleteCachedRecord(id).catch(() => {});
+                    }
+
+                    // Silently download direct single-file PDF in background
+                    try {
+                        const pdfBlob = await this.fetchFileBlob(baseUrl);
+                        if (pdfBlob) {
+                            await cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } }));
+                            await cache.put(baseUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } }));
+                            await this.saveCachedRecord(id, cleanUrl, version);
+                            console.log(`⚡ [PWA Sync] Silently pre-cached for 0ms instant launch: ${file.title || cleanUrl} (v${version})`);
+                        }
+                    } catch (e) {
+                        // Silent fail for background sync
                     }
                 }
             } catch (err) {
-                // Ignore sync errors quietly
+                console.warn('[PWA Sync] Background pre-cache notice:', err);
             }
-        });
-
-        await Promise.allSettled(syncPromises);
+        }, 2500);
     },
 
     // Helper to extract proper MIME type from filename or URL
@@ -236,8 +255,8 @@ const pwaHelper = {
         return 'application/octet-stream';
     },
 
-    // Single-Pass Direct CDN Stream Fetching Engine (Ultra-Fast ~0.3s Download)
-    async fetchFileBlob(fileUrl, assetId) {
+    // Single-Pass Direct CDN Stream Fetching Engine with Live Progress Support
+    async fetchFileBlob(fileUrl, assetId, onProgress) {
         const mimeType = this.getMimeType(fileUrl || '', assetId || '');
 
         const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
@@ -259,44 +278,61 @@ const pwaHelper = {
 
         if (!fileUrl) throw new Error('No valid file URL provided');
 
-        // Check if URL specifies multi-part chunks (e.g., .../filename.part0?parts=4)
+        // Prefer direct single-file URL on Hugging Face (50% smaller, HTTP/2 multiplexed, fast)
+        const baseUrl = fileUrl.split('?')[0].replace(/\.part\d+$/, '');
+        
+        try {
+            const directRes = await fetch(baseUrl);
+            if (directRes.ok) {
+                const totalBytes = parseInt(directRes.headers.get('content-length') || '0', 10);
+                if (typeof onProgress === 'function' && directRes.body && totalBytes > 0) {
+                    const reader = directRes.body.getReader();
+                    const chunks = [];
+                    let received = 0;
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        received += value.length;
+                        onProgress((received / totalBytes) * 100, received, totalBytes);
+                    }
+                    return new Blob(chunks, { type: mimeType });
+                }
+                const arrayBuf = await directRes.arrayBuffer();
+                return new Blob([arrayBuf], { type: mimeType });
+            }
+        } catch (directErr) {
+            console.warn('[PWA Fetch] Direct single file stream failed, falling back to chunked fetch:', directErr.message);
+        }
+
+        // Chunked fallback if direct single-file is unavailable
         const partsMatch = fileUrl.match(/[?&]parts=(\d+)/);
         const partsCount = partsMatch ? parseInt(partsMatch[1], 10) : 0;
 
         if (partsCount > 1) {
-            const baseUrl = fileUrl.split('?')[0].replace(/\.part0$/, '');
-            try {
-                const fetchPartPromises = [];
-                for (let i = 0; i < partsCount; i++) {
-                    const partUrl = `${baseUrl}.part${i}`;
-                    fetchPartPromises.push(
-                        fetch(partUrl).then(r => {
-                            if (!r.ok) throw new Error(`Failed to fetch part ${i} (${r.status})`);
-                            return r.arrayBuffer();
-                        })
-                    );
-                }
-                const buffers = await Promise.all(fetchPartPromises);
-                return new Blob(buffers, { type: mimeType });
-            } catch (partErr) {
-                console.warn('[PWA Fetch] Multi-part fetch failed, falling back to single file:', baseUrl, partErr.message);
-                try {
-                    const directRes = await fetch(baseUrl);
-                    if (directRes.ok) {
-                        const arrayBuf = await directRes.arrayBuffer();
-                        return new Blob([arrayBuf], { type: mimeType });
-                    }
-                } catch (singleErr) {
-                    console.warn('[PWA Fetch] Single file fallback also failed:', singleErr.message);
-                }
-                throw new Error(`Failed to load material: ${partErr.message}. The file may need to be re-uploaded.`);
+            let loadedParts = 0;
+            const fetchPartPromises = [];
+            for (let i = 0; i < partsCount; i++) {
+                const partUrl = `${baseUrl}.part${i}`;
+                fetchPartPromises.push(
+                    fetch(partUrl).then(async (r) => {
+                        if (!r.ok) throw new Error(`Failed to fetch part ${i} (${r.status})`);
+                        const buf = await r.arrayBuffer();
+                        loadedParts++;
+                        if (typeof onProgress === 'function') {
+                            onProgress((loadedParts / partsCount) * 100, loadedParts, partsCount);
+                        }
+                        return buf;
+                    })
+                );
             }
+            const buffers = await Promise.all(fetchPartPromises);
+            return new Blob(buffers, { type: mimeType });
         }
 
-        // Direct single-pass HTTP/2 fetch for Hugging Face CDN — ~0.3s download, zero roundtrip lag!
-        const directRes = await fetch(fileUrl);
-        if (!directRes.ok) throw new Error(`Failed to fetch material binary (${directRes.status})`);
-        const arrayBuf = await directRes.arrayBuffer();
+        const fallbackRes = await fetch(fileUrl);
+        if (!fallbackRes.ok) throw new Error(`Failed to fetch material binary (${fallbackRes.status})`);
+        const arrayBuf = await fallbackRes.arrayBuffer();
         return new Blob([arrayBuf], { type: mimeType });
     },
 
@@ -333,19 +369,19 @@ const pwaHelper = {
         }
     },
 
-    // Handle view operation: 0ms Instant Launch + Parallel Background Caching
+    // Handle view operation: 0.0s Instant Local Launch (Cached) OR <1s Range Stream (Uncached)
     async viewFile(fileUrl, id, version, title, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
-            originalText = btn.textContent;
-            btn.textContent = 'Opening...';
+            originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Opening...';
             btn.disabled = true;
-            btn.style.opacity = '0.6';
+            btn.style.opacity = '0.7';
         }
 
         const restoreBtn = () => {
             if (btn) {
-                btn.textContent = originalText;
+                btn.innerHTML = originalText;
                 btn.disabled = false;
                 btn.style.opacity = '1';
             }
@@ -353,24 +389,26 @@ const pwaHelper = {
 
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
+            const baseUrl = fileUrl.split('?')[0].replace(/\.part\d+$/, '');
             const cachedRecord = await this.getCachedRecord(id);
             const cache = await caches.open('nexus-files-cache');
             
-            // Check if file version was updated in database — evict stale cache if version changed!
+            // Version Invalidation: If note was updated in database, purge stale v1 cache immediately
             if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
-                console.log(`[PWA Cache] Material updated (v${cachedRecord.version} -> v${version}) — clearing stale cache`);
+                console.log(`[PWA Cache] Material updated (v${cachedRecord.version} -> v${version}) — purging old cache`);
                 await cache.delete(cleanUrl).catch(() => {});
+                await cache.delete(baseUrl).catch(() => {});
                 if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
                     await cache.delete(cachedRecord.fileUrl).catch(() => {});
                 }
                 await this.deleteCachedRecord(id).catch(() => {});
             }
 
-            const match = await cache.match(cleanUrl).catch(() => null);
+            const match = await cache.match(cleanUrl).catch(() => null) || await cache.match(baseUrl).catch(() => null);
             
-            // 1. If cached locally, serve instant blob from IndexedDB / CacheStorage in 0ms!
+            // 1. If cached locally: Serve instant blob in 0.0 seconds! Zero network request.
             if (match) {
-                console.log('[PWA Cache] Serving instant blob from local cache:', cleanUrl);
+                console.log('[PWA View] 0.0s Instant launch from local storage:', title || cleanUrl);
                 const rawBlob = await match.blob();
                 const mimeType = this.getMimeType(cleanUrl, title);
                 const isPdf = (title || cleanUrl).toLowerCase().includes('.pdf');
@@ -385,42 +423,35 @@ const pwaHelper = {
                 return;
             }
 
-            // Offline guard for uncached materials
-            if (!navigator.onLine) {
-                alert('This material has not been downloaded for offline viewing yet.\n\nPlease connect to the internet once to view and cache it.');
-                restoreBtn();
-                return;
-            }
-
             const isGitHubUrl = (fileUrl || '').includes('github.com') || (fileUrl || '').includes('githubusercontent.com');
-            const isMultiPart = (fileUrl || '').includes('?parts=') || (fileUrl || '').includes('.part0');
 
-            // 2. Online Single-File Hugging Face materials: Open window IMMEDIATELY in 0ms, cache in background concurrently!
-            if (fileUrl && !isGitHubUrl && !githubAssetId && !isMultiPart) {
-                console.log('[PWA View] 0ms Instant launch + background caching:', cleanUrl);
-                const newWin = window.open(fileUrl, '_blank');
+            // 2. Uncached online materials: Stream Page 1 in <1 second via direct URL and HTTP Range requests!
+            // Launch immediately on user gesture to prevent mobile popup blocking
+            if (fileUrl && !isGitHubUrl && !githubAssetId) {
+                console.log('[PWA View] <1s Range Stream launch via CDN:', baseUrl);
+                const newWin = window.open(baseUrl, '_blank');
                 if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
-                    window.location.href = fileUrl;
+                    window.location.href = baseUrl;
                 }
                 restoreBtn();
 
-                // Background cache insertion
-                this.fetchFileBlob(fileUrl, githubAssetId).then(pdfBlob => {
+                // Concurrently download and cache file in background so next tap is 0.0s instant
+                this.fetchFileBlob(baseUrl).then(async (pdfBlob) => {
                     if (pdfBlob) {
-                        cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
-                        this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
-                        console.log('✅ Background cache completed:', title || cleanUrl);
+                        await cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
+                        await cache.put(baseUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
+                        await this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
+                        console.log('✅ Background cache completed for offline use:', title || cleanUrl);
                     }
-                }).catch(e => console.warn('Background caching notice:', e));
+                }).catch(e => console.warn('[PWA View] Background caching notice:', e));
                 return;
             }
 
-            // 3. Multi-part HF or legacy GitHub materials: Fetch via parallel streams and open blob
-            const pdfBlob = await this.fetchFileBlobParallel(fileUrl, githubAssetId);
+            // 3. Fallback for legacy GitHub materials
+            const pdfBlob = await this.fetchFileBlob(fileUrl, githubAssetId);
             const blobUrl = URL.createObjectURL(pdfBlob);
-
-            cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
-            this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
+            await cache.put(cleanUrl, new Response(pdfBlob, { headers: { 'Content-Type': pdfBlob.type } })).catch(() => {});
+            await this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
 
             const newWin = window.open(blobUrl, '_blank');
             if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
@@ -430,24 +461,24 @@ const pwaHelper = {
             restoreBtn();
         } catch (err) {
             console.error('[PWA View Error]:', err);
-            alert('Unable to load document inline: ' + err.message);
+            alert('Unable to load document: ' + err.message);
             restoreBtn();
         }
     },
 
-    // Handle download operation: High-speed 4x parallel download
+    // Handle download operation: Instant from local cache OR streaming with real-time % progress
     async downloadFile(fileUrl, filename, id, version, btn, githubAssetId) {
         let originalText = '';
         if (btn) {
-            originalText = btn.textContent;
-            btn.textContent = 'Downloading...';
+            originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Starting...';
             btn.disabled = true;
-            btn.style.opacity = '0.6';
+            btn.style.opacity = '0.7';
         }
 
         const restoreBtn = () => {
             if (btn) {
-                btn.textContent = originalText;
+                btn.innerHTML = originalText;
                 btn.disabled = false;
                 btn.style.opacity = '1';
             }
@@ -455,30 +486,37 @@ const pwaHelper = {
 
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
+            const baseUrl = fileUrl.split('?')[0].replace(/\.part\d+$/, '');
             const cachedRecord = await this.getCachedRecord(id);
             const cache = await caches.open('nexus-files-cache');
             
             // Check if file version was updated in database — evict stale cache if version changed!
             if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
-                console.log(`[PWA Cache] Material updated (v${cachedRecord.version} -> v${version}) — clearing stale cache for download`);
+                console.log(`[PWA Download] Material updated (v${cachedRecord.version} -> v${version}) — clearing stale cache`);
                 await cache.delete(cleanUrl).catch(() => {});
+                await cache.delete(baseUrl).catch(() => {});
                 if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
                     await cache.delete(cachedRecord.fileUrl).catch(() => {});
                 }
                 await this.deleteCachedRecord(id).catch(() => {});
             }
 
-            const match = await cache.match(cleanUrl).catch(() => null);
+            const match = await cache.match(cleanUrl).catch(() => null) || await cache.match(baseUrl).catch(() => null);
             
             let rawBlob;
             if (match) {
-                console.log('[PWA Cache] Serving download from local cache:', cleanUrl);
+                console.log('[PWA Download] 0.0s Instant download from local cache:', cleanUrl);
                 rawBlob = await match.blob();
             } else {
-                console.log('[PWA Cache] Downloading file via 4x parallel range streams...');
-                rawBlob = await this.fetchFileBlobParallel(fileUrl, githubAssetId);
-                cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': rawBlob.type } })).catch(() => {});
-                this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
+                console.log('[PWA Download] Streaming download with live progress from CDN...');
+                rawBlob = await this.fetchFileBlob(fileUrl, githubAssetId, (pct, loaded, total) => {
+                    if (btn) {
+                        btn.innerHTML = `<span class="font-mono text-[11px] font-bold text-emerald-400">${Math.round(pct)}% (${(loaded/1024/1024).toFixed(1)}MB)</span>`;
+                    }
+                });
+                await cache.put(cleanUrl, new Response(rawBlob, { headers: { 'Content-Type': rawBlob.type } })).catch(() => {});
+                await cache.put(baseUrl, new Response(rawBlob, { headers: { 'Content-Type': rawBlob.type } })).catch(() => {});
+                await this.saveCachedRecord(id, cleanUrl, version).catch(() => {});
             }
             
             const mimeType = this.getMimeType(cleanUrl, filename);
@@ -498,13 +536,18 @@ const pwaHelper = {
             a.download = downloadName;
             document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
-            
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
-            restoreBtn();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+            }, 3000);
+
+            if (btn) {
+                btn.innerHTML = '<span class="text-emerald-400 font-bold">✓ Ready!</span>';
+                setTimeout(restoreBtn, 1500);
+            }
         } catch (err) {
             console.error('[PWA Download Error]:', err);
-            alert('Download failed: ' + err.message);
+            alert('Download error: ' + err.message);
             restoreBtn();
         }
     }

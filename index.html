@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=78"></script>
+    <script src="pwa-helper.js?v=79"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -1410,12 +1410,17 @@
         files.forEach((file,index)=>{
             const badge=badgeForType(file.fileType);
             const date=file.createdAt ? new Date(file.createdAt.toDate()).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'Recently';
+            const isUpdated = (file.version && file.version > 1) || file.isUpdated === true || (file.updatedAt && file.createdAt && file.updatedAt.toDate && file.createdAt.toDate && file.updatedAt.toDate().getTime() > file.createdAt.toDate().getTime() + 60000);
+            const updatedBadgeHtml = isUpdated ? '<span class="badge !bg-emerald-500/15 !text-emerald-400 !border-emerald-500/30 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.15)]"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>UPDATED</span>' : '';
             const card=document.createElement('article');
             card.className='file-card group p-5';
             card.style.animationDelay=(index*0.05)+'s';
             card.innerHTML=
                 '<div class="flex items-start justify-between gap-3">'+
-                    '<span class="badge '+badge.cls+'">'+escapeHtml(badge.label)+'</span>'+
+                    '<div class="flex items-center gap-1.5 flex-wrap">'+
+                        '<span class="badge '+badge.cls+'">'+escapeHtml(badge.label)+'</span>'+
+                        updatedBadgeHtml +
+                    '</div>'+
                     '<span class="subject-tag">'+escapeHtml(file.subject||'General')+'</span>'+
                 '</div>'+
                 '<h3 class="mt-4 line-clamp-2 min-h-[2.95em] font-display text-[16.5px] font-[700] leading-[1.28] tracking-[-0.02em] text-white">'+escapeHtml(file.title||'Untitled')+'</h3>'+
