@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-shell-v79';
+const CACHE_NAME = 'nexus-shell-v80';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -87,7 +87,22 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (!url.protocol.startsWith('http')) return;
 
-  // 2. Firebase Config Endpoint — Network First, fallback to Cache
+  // 2. CRITICAL AUTH BYPASS: Never intercept Firebase Auth handlers, Google Identity endpoints,
+  // or Firestore real-time streams. Intercepting these breaks popup postMessage handshakes,
+  // caches dynamic auth tokens, and blocks user sign-in.
+  if (
+    url.pathname.startsWith('/__') ||
+    url.hostname.includes('identitytoolkit.googleapis.com') ||
+    url.hostname.includes('securetoken.googleapis.com') ||
+    url.hostname.includes('accounts.google.com') ||
+    url.hostname.includes('apis.google.com') ||
+    url.hostname.includes('firestore.googleapis.com') ||
+    url.hostname.includes('firebaseio.com')
+  ) {
+    return; // Pass through directly to browser network engine
+  }
+
+  // 3. Firebase Config Endpoint — Network First, fallback to Cache
   if (url.href.includes('/api/firebase-config')) {
     event.respondWith(
       fetch(event.request)
@@ -106,7 +121,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Navigation / HTML pages — Network-First to guarantee fresh updates without hard-refresh or clearing cookies
+  // 4. Navigation / HTML pages — Network-First to guarantee fresh updates without hard-refresh or clearing cookies
   const isNavigationOrHtml = event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/';
   if (isNavigationOrHtml) {
     event.respondWith(
@@ -130,7 +145,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Local JavaScript scripts (pwa-helper.js, particle-sphere.js) — Network-First with cache fallback
+  // 5. Local JavaScript scripts (pwa-helper.js, particle-sphere.js) — Network-First with cache fallback
   if (url.origin === self.location.origin && url.pathname.endsWith('.js')) {
     event.respondWith(
       fetch(event.request)
@@ -146,7 +161,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Local static shell assets (manifest.json, favicon.ico, icons) — Stale-While-Revalidate
+  // 6. Local static shell assets (manifest.json, favicon.ico, icons) — Stale-While-Revalidate
   const isStatic = STATIC_ASSETS.some(asset => {
     if (asset === '/') return url.pathname === '/';
     return url.pathname === asset || url.pathname.endsWith(asset);
@@ -169,12 +184,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 6. External CDN assets (Google Fonts, GSAP, Tailwind, Three.js, Firebase) — Cache-First with Network Fallback
+  // 7. External CDN assets (Google Fonts, GSAP, Tailwind, Three.js, Firebase) — Cache-First with Network Fallback
+  // Note: Fonts are scoped specifically; Google Identity & token endpoints were bypassed above
   const isExternal = EXTERNAL_ASSETS.some(asset => url.href.startsWith(asset)) || 
-                     url.host.includes('gstatic.com') || 
-                     url.host.includes('googleapis.com') ||
+                     url.host === 'fonts.googleapis.com' || 
+                     url.host === 'fonts.gstatic.com' ||
                      url.host.includes('tailwindcss.com') ||
-                     url.host.includes('cloudflare.com') ||
+                     url.host.includes('cdnjs.cloudflare.com') ||
                      url.host.includes('jsdelivr.net') ||
                      url.host.includes('unpkg.com');
 

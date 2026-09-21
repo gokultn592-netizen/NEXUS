@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=79"></script>
+    <script src="pwa-helper.js?v=80"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -628,7 +628,15 @@
 function refreshIcons(){ if(window.lucide) try{ lucide.createIcons(); }catch(e){} }
 function escapeHtml(s){ if(s === null || s === undefined) return ""; const d=document.createElement("div"); d.textContent=String(s); return d.innerHTML; }
 window.adminMaterialsMap = window.adminMaterialsMap || {};
-let auth=null, db=null;
+const DEFAULT_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCSHxv74kZ2kSeJVHHDRzT9UUAwAebAdr4",
+    authDomain: "nexus-e7a36.firebaseapp.com",
+    projectId: "nexus-e7a36",
+    storageBucket: "nexus-e7a36.firebasestorage.app",
+    messagingSenderId: "516259533933",
+    appId: "1:516259533933:web:fc190f6c0f203e47785b64"
+};
+
 async function initializeAppFlow(){
     let config = null;
     try{
@@ -648,7 +656,9 @@ async function initializeAppFlow(){
         } catch(e){}
     }
 
-    if(!config) return;
+    if(!config) {
+        config = DEFAULT_FIREBASE_CONFIG;
+    }
 
     try {
         firebase.initializeApp(config);
@@ -656,6 +666,13 @@ async function initializeAppFlow(){
         db = firebase.firestore();
         try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(e) {}
         try { db.enablePersistence({ synchronizeTabs: true }); } catch(e) {}
+        
+        auth.getRedirectResult().catch(err => {
+            if(err.code !== 'auth/credential-already-in-use' && err.code !== 'auth/popup-closed-by-user') {
+                console.warn('Redirect sign-in error:', err);
+            }
+        });
+
         initAuthListener(); initNotifications();
     } catch(err) {
         console.error('Init error', err);

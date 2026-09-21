@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=79"></script>
+    <script src="pwa-helper.js?v=80"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -809,6 +809,15 @@
     let filesListener=null, subjectsListener=null;
 
     // ---------- App init ----------
+    const DEFAULT_FIREBASE_CONFIG = {
+        apiKey: "AIzaSyCSHxv74kZ2kSeJVHHDRzT9UUAwAebAdr4",
+        authDomain: "nexus-e7a36.firebaseapp.com",
+        projectId: "nexus-e7a36",
+        storageBucket: "nexus-e7a36.firebasestorage.app",
+        messagingSenderId: "516259533933",
+        appId: "1:516259533933:web:fc190f6c0f203e47785b64"
+    };
+
     async function initializeAppFlow(){
         let config = null;
         try{
@@ -829,9 +838,7 @@
         }
 
         if(!config) {
-            const g=document.getElementById('files-grid');
-            if(g) g.innerHTML = '<div class="empty-state"><span class="text-2xl">⚠️</span><h3 class="font-display mt-2 text-lg font-bold text-white">Offline Mode</h3><p class="mx-auto mt-2 max-w-[42ch] text-sm">Connect once online to initialize offline database storage.</p></div>';
-            return;
+            config = DEFAULT_FIREBASE_CONFIG;
         }
 
         try {
@@ -840,11 +847,22 @@
             db = firebase.firestore();
             try { auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(e) {}
             try { db.enablePersistence({ synchronizeTabs: true }); } catch(e) {}
+            
+            // Check for redirect sign-in result (handles redirect authentication seamlessly)
+            auth.getRedirectResult().then((result) => {
+                if(result && result.user) {
+                    console.log('[Auth] Redirect sign-in success:', result.user.email);
+                }
+            }).catch((error) => {
+                if(error.code !== 'auth/credential-already-in-use' && error.code !== 'auth/popup-closed-by-user') {
+                    console.error('[Auth] Redirect sign-in error:', error);
+                    showAuthStatus('error', 'Sign-in failed: ' + error.message);
+                }
+            });
+
             initAuthListener();
             initNotifications();
             buildMarqueeFallback();
-            // Note: loadSubjects() and loadFiles() are called inside initAuthListener
-            // only after role is confirmed — to prevent duplicate Firestore listeners.
         } catch(err) {
             console.error('Init error', err);
         }
@@ -1074,7 +1092,10 @@
                 }
             }else{
                 currentUser=null; isAdmin=false;
-                renderLoggedOut(); showLockedState();
+                renderLoggedOut();
+                hideUploadButton();
+                loadSubjects();
+                loadFiles();
             }
             refreshIcons();
         });
@@ -1256,10 +1277,33 @@
         }
     });
     googleBtn.addEventListener('click',()=>{
+        if(!auth) {
+            showAuthStatus('error', 'Authentication service is initializing, please try again.');
+            return;
+        }
+        showAuthStatus('info', 'Connecting to Google...');
         const provider=new firebase.auth.GoogleAuthProvider();
         provider.addScope('email'); provider.addScope('profile');
-        auth.signInWithPopup(provider).then(r=>{ /* will trigger onAuthStateChanged */ }).catch(error=>{
-            if(error.code==='auth/popup-closed-by-user' || error.code==='auth/cancelled-popup-request') return;
+        
+        // Attempt popup first; if blocked or on mobile/PWA standalone, fall back to redirect
+        auth.signInWithPopup(provider).then(r=>{
+            clearAuthStatus();
+            authModal.classList.remove('active');
+        }).catch(error=>{
+            console.error('[Auth Error]', error);
+            if(error.code==='auth/popup-closed-by-user' || error.code==='auth/cancelled-popup-request'){
+                clearAuthStatus();
+                return;
+            }
+            if(error.code==='auth/popup-blocked' || 
+               error.code==='auth/operation-not-supported-in-this-environment' ||
+               /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){
+                showAuthStatus('info', 'Redirecting to Google Sign-in...');
+                auth.signInWithRedirect(provider).catch(redirErr=>{
+                    showAuthStatus('error','Sign-in failed: '+redirErr.message);
+                });
+                return;
+            }
             showAuthStatus('error','Sign-in failed: '+error.message);
         });
     });
