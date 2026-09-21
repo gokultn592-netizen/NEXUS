@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=81"></script>
+    <script src="pwa-helper.js?v=82"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -804,10 +804,8 @@ function loadFiles(){
         snap.forEach(doc=>{
             const f=doc.data();
             window.adminMaterialsMap[doc.id] = f;
-            const isUp = (f.version && f.version > 1) || (f.updatedAt && f.createdAt && f.updatedAt.toDate && f.createdAt.toDate && f.updatedAt.toDate().getTime() > f.createdAt.toDate().getTime() + 60000);
-            const upBadge = isUp ? `<span class="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">v${f.version||2} UPDATED</span>` : '';
             const tr=document.createElement("tr"); tr.className="hover:bg-white/[0.02]";
-            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white"><div class="flex items-center gap-2">${escapeHtml(f.title||'Untitled')}${upBadge}</div></td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${escapeHtml(f.subject||'General')}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${escapeHtml(f.uploaderName||'Unknown')}</td><td class="px-4 py-3 flex gap-2"><button onclick="adminViewMaterial('${doc.id}', this)" class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white hover:bg-white/10">View</button><button onclick="openUpdateModal('${doc.id}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black hover:bg-zinc-200">Update</button><button onclick="deleteFile('${doc.id}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
+            tr.innerHTML=`<td class="px-4 py-3 text-sm font-medium text-white">${escapeHtml(f.title||'Untitled')}</td><td class="px-4 py-3"><span class="rounded-full border border-violet/20 bg-violet/10 px-2.5 py-1 font-mono text-[11px] text-violet">${escapeHtml(f.subject||'General')}</span></td><td class="px-4 py-3 text-xs text-zinc-400">${escapeHtml(f.uploaderName||'Unknown')}</td><td class="px-4 py-3 flex gap-2"><button onclick="adminViewMaterial('${doc.id}', this)" class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white hover:bg-white/10">View</button><button onclick="openUpdateModal('${doc.id}')" class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black hover:bg-zinc-200">Update</button><button onclick="deleteFile('${doc.id}')" class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/20">Delete</button></td>`;
             tbody.appendChild(tr);
         });
         refreshIcons();
