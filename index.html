@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=88"></script>
+    <script src="pwa-helper.js?v=89"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -793,7 +793,12 @@
                     <input id="upload-file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" required class="field !py-2.5 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-1.5 file:text-xs file:font-semibold file:text-black hover:file:bg-zinc-200">
                 </div>
                 <button type="submit" class="btn-white mt-2 w-full !h-11">Upload material</button>
-                <div id="upload-progress" class="hidden text-center font-mono text-xs tracking-wide text-violet" role="status" aria-live="polite"><span>Uploading…</span></div>
+                <div id="upload-progress" class="hidden space-y-1.5 text-center font-mono text-xs tracking-wide text-violet" role="status" aria-live="polite">
+                    <div class="progress-text">Uploading… 0%</div>
+                    <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                        <div class="progress-bar h-full w-0 rounded-full bg-violet transition-all duration-150"></div>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
@@ -1591,33 +1596,62 @@
     });
 
     const CHUNK_SIZE_BYTES = 3.2 * 1024 * 1024;
+
+    function uploadChunkWithProgress(payload, onProgress) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'https://nexus-omega-jet.vercel.app/api/upload-file');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            if (xhr.upload && onProgress) {
+                xhr.upload.onprogress = (evt) => {
+                    if (evt.lengthComputable && evt.total > 0) {
+                        onProgress(evt.loaded, evt.total);
+                    }
+                };
+            }
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch (e) {
+                        resolve({});
+                    }
+                } else {
+                    let msg = xhr.statusText;
+                    try {
+                        const parsed = JSON.parse(xhr.responseText);
+                        msg = parsed.error || parsed.message || msg;
+                    } catch (e) {}
+                    reject(new Error(msg || `Upload failed (status ${xhr.status})`));
+                }
+            };
+            xhr.onerror = () => reject(new Error('Network error during file upload'));
+            xhr.ontimeout = () => reject(new Error('Upload request timed out'));
+            xhr.send(JSON.stringify(payload));
+        });
+    }
+
+    function setUploadProgressUI(prog, percent) {
+        if (!prog) return;
+        const p = Math.max(0, Math.min(100, Math.round(percent)));
+        const textSpan = prog.querySelector('.progress-text') || prog.querySelector('span');
+        if (textSpan) {
+            textSpan.textContent = `Uploading… ${p}%`;
+        } else {
+            prog.textContent = `Uploading… ${p}%`;
+        }
+        const bar = prog.querySelector('.progress-bar');
+        if (bar) {
+            bar.style.width = `${p}%`;
+        }
+    }
+
     async function uploadFileFast(fileInput, prog) {
         const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
         const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
 
-        const progSpan = prog ? (prog.querySelector('span') || prog) : null;
-        if (progSpan) progSpan.textContent = 'Uploading… 0%';
-
-        if (totalChunks === 1) {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(fileInput);
-            });
-
-            const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uploadId, chunkIndex: 0, totalChunks: 1, fileName, chunkData: base64 })
-            });
-            if (!res.ok) { const er = await res.json().catch(() => ({ error: res.statusText })); throw new Error(er.error || 'Upload failed'); }
-            const data = await res.json();
-            if (!data.publicUrl) throw new Error('Upload did not return publicUrl');
-            if (progSpan) progSpan.textContent = 'Uploading… 100%';
-            return { publicUrl: data.publicUrl, assetId: data.assetId || null };
-        }
+        setUploadProgressUI(prog, 0);
 
         let finalPublicUrl = null;
         let assetId = null;
@@ -1631,33 +1665,32 @@
                 reader.readAsDataURL(chunkBlob);
             });
 
-            if (progSpan) {
-                const percent = Math.round((i / totalChunks) * 100);
-                progSpan.textContent = `Uploading… Chunk ${i + 1} of ${totalChunks} (${percent}%)`;
-            }
+            const prevBytes = i * CHUNK_SIZE_BYTES;
+            const currentChunkSize = chunkBlob.size;
 
-            const res = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uploadId, chunkIndex: i, totalChunks, fileName, chunkData: base64 })
+            const payload = {
+                uploadId,
+                chunkIndex: i,
+                totalChunks,
+                fileName,
+                chunkData: base64
+            };
+
+            const data = await uploadChunkWithProgress(payload, (loaded, total) => {
+                const chunkRatio = Math.min(1, loaded / total);
+                const currentTotalBytes = prevBytes + (chunkRatio * currentChunkSize);
+                const percent = Math.min(99, Math.round((currentTotalBytes / fileInput.size) * 100));
+                setUploadProgressUI(prog, percent);
             });
 
-            if (!res.ok) {
-                const er = await res.json().catch(() => ({ error: res.statusText }));
-                throw new Error(er.error || `Chunk ${i + 1} of ${totalChunks} failed`);
-            }
+            if (data && data.publicUrl) finalPublicUrl = data.publicUrl;
+            if (data && data.assetId) assetId = data.assetId;
 
-            const data = await res.json();
-            if (data.publicUrl) finalPublicUrl = data.publicUrl;
-            if (data.assetId) assetId = data.assetId;
-
-            if (progSpan) {
-                const percent = Math.round(((i + 1) / totalChunks) * 100);
-                progSpan.textContent = `Uploading… Chunk ${i + 1} of ${totalChunks} (${percent}%)`;
-            }
+            const chunkDonePercent = Math.min(totalChunks === 1 ? 100 : 99, Math.round(((i + 1) / totalChunks) * 100));
+            setUploadProgressUI(prog, chunkDonePercent);
         }
 
-        if (progSpan) progSpan.textContent = 'Uploading… 100%';
+        setUploadProgressUI(prog, 100);
         if (!finalPublicUrl) throw new Error('Multi-chunk upload did not return publicUrl');
         return { publicUrl: finalPublicUrl, assetId: assetId || null };
     }
@@ -1671,13 +1704,14 @@
         if(!title){ alert('Please enter a title'); return; }
         if(!subject){ alert('Please select a subject'); return; }
         const progress=document.getElementById('upload-progress');
-        const progressText=progress.querySelector('span')||progress;
-        progress.classList.remove('hidden'); progressText.textContent='Preparing upload…';
+        progress.classList.remove('hidden');
+        setUploadProgressUI(progress, 0);
         const submitBtn=e.target.querySelector('button[type="submit"]');
         submitBtn.disabled=true; submitBtn.style.opacity='.6';
         try{
-            const { publicUrl, assetId } = await uploadFileFast(file, progressText);
-            progressText.textContent='Saving to database…';
+            const { publicUrl, assetId } = await uploadFileFast(file, progress);
+            const textSpan = progress.querySelector('.progress-text') || progress.querySelector('span');
+            if (textSpan) textSpan.textContent = 'Saving to database…';
             const userDoc=await getUserData(currentUser.uid);
             const uploaderName=userDoc && userDoc.data ? userDoc.data.name : (currentUser.displayName||currentUser.email);
             await db.collection('materials').add({
