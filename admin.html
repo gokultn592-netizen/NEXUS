@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=85"></script>
+    <script src="pwa-helper.js?v=86"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -639,24 +639,24 @@ const DEFAULT_FIREBASE_CONFIG = {
 
 async function initializeAppFlow(){
     let config = null;
-    try{
-        const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
-        if(res.ok) {
-            config = await res.json();
-            try { localStorage.setItem('nexus_firebase_config', JSON.stringify(config)); } catch(e){}
-        }
-    }catch(err){
-        console.warn('[PWA Offline] Using cached Firebase configuration fallback...');
-    }
+    try {
+        const cached = localStorage.getItem('nexus_firebase_config');
+        if (cached) config = JSON.parse(cached);
+    } catch(e) {}
 
-    if(!config) {
+    if (!config) {
         try {
-            const cached = localStorage.getItem('nexus_firebase_config');
-            if(cached) config = JSON.parse(cached);
-        } catch(e){}
+            const res = await fetch('https://nexus-omega-jet.vercel.app/api/firebase-config');
+            if (res.ok) {
+                config = await res.json();
+                try { localStorage.setItem('nexus_firebase_config', JSON.stringify(config)); } catch(e) {}
+            }
+        } catch(err) {
+            console.warn('[PWA Offline] Using fallback Firebase configuration...');
+        }
     }
 
-    if(!config) {
+    if (!config) {
         config = DEFAULT_FIREBASE_CONFIG;
     }
 
