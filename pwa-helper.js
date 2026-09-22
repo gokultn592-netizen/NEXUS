@@ -229,7 +229,7 @@ const pwaHelper = {
                     }
 
                     // If material was updated (v1 -> v2), purge old cached files
-                    if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
+                    if (cachedRecord && cachedRecord.version !== version) {
                         console.log(`⚡ [PWA Sync] Note updated (v${cachedRecord.version} -> v${version}) — purging old cache:`, file.title);
                         await cache.delete(cleanUrl).catch(() => {});
                         await cache.delete(baseUrl).catch(() => {});
@@ -396,7 +396,7 @@ const pwaHelper = {
             const cache = await caches.open('nexus-files-cache');
             
             // Version Invalidation: If note was updated in database, purge stale v1 cache immediately
-            if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
+            if (cachedRecord && cachedRecord.version !== version) {
                 console.log(`[PWA Cache] Material updated (v${cachedRecord.version} -> v${version}) — purging old cache`);
                 await cache.delete(cleanUrl).catch(() => {});
                 if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
@@ -476,7 +476,7 @@ const pwaHelper = {
             const cache = await caches.open('nexus-files-cache');
             
             // Check if file version was updated in database — evict stale cache if version changed!
-            if (cachedRecord && (cachedRecord.version !== version || cachedRecord.fileUrl !== cleanUrl)) {
+            if (cachedRecord && cachedRecord.version !== version) {
                 console.log(`[PWA Download] Material updated (v${cachedRecord.version} -> v${version}) — clearing stale cache`);
                 await cache.delete(cleanUrl).catch(() => {});
                 if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
