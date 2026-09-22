@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "nexus-e7a36",
     "public": ".",
     "ignore": [
       "firebase.json",
