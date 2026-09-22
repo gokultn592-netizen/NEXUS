@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=83"></script>
+    <script src="pwa-helper.js?v=84"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -808,6 +808,30 @@
     let allFilesCache=[], currentSubjectFilter='all';
     let filesListener=null, subjectsListener=null;
 
+    // Files DOM elements
+    const filesGrid=document.getElementById('files-grid');
+    const searchInput=document.getElementById('search-input');
+    const sortSelect=document.getElementById('sort-select');
+    const resultsMeta=document.getElementById('results-meta');
+    const clearBtn=document.getElementById('clear-filters');
+    const archiveCount=document.getElementById('archive-count');
+    const heroStatM=document.getElementById('hero-stat-materials');
+    const heroStatS=document.getElementById('hero-stat-subjects');
+
+    // Immediate cached render before Firebase Auth initialization (0ms instant display)
+    try {
+        const cachedSubj = localStorage.getItem('nexus_cached_subjects');
+        if (cachedSubj) {
+            renderSubjectsList(JSON.parse(cachedSubj));
+        }
+        const cachedMat = localStorage.getItem('nexus_cached_materials');
+        if (cachedMat) {
+            allFilesCache = JSON.parse(cachedMat);
+            updateCounts();
+            applyFiltersAndRender();
+        }
+    } catch(e) {}
+
     // ---------- App init ----------
     const DEFAULT_FIREBASE_CONFIG = {
         apiKey: "AIzaSyCSHxv74kZ2kSeJVHHDRzT9UUAwAebAdr4",
@@ -1309,14 +1333,6 @@
     });
 
     // ---------- Files ----------
-    const filesGrid=document.getElementById('files-grid');
-    const searchInput=document.getElementById('search-input');
-    const sortSelect=document.getElementById('sort-select');
-    const resultsMeta=document.getElementById('results-meta');
-    const clearBtn=document.getElementById('clear-filters');
-    const archiveCount=document.getElementById('archive-count');
-    const heroStatM=document.getElementById('hero-stat-materials');
-    const heroStatS=document.getElementById('hero-stat-subjects');
 
     function loadFiles(){
         // 1. Instant render from local cache offline
