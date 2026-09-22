@@ -159,11 +159,12 @@ const pwaHelper = {
     },
     
     saveCachedRecord(id, fileUrl, version) {
+        const numVersion = parseInt(version, 10) || 1;
         return new Promise((resolve, reject) => {
             if (!this.db) return resolve();
             const tx = this.db.transaction('file_versions', 'readwrite');
             const store = tx.objectStore('file_versions');
-            const request = store.put({ id, fileUrl, version, cachedAt: Date.now() });
+            const request = store.put({ id, fileUrl, version: numVersion, cachedAt: Date.now() });
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
@@ -222,15 +223,17 @@ const pwaHelper = {
                     const baseUrl = fileUrl.split('?')[0].replace(/\.part\d+$/, '');
                     const cachedRecord = await this.getCachedRecord(id);
                     const isCached = await this.isFileCached(cleanUrl) || await this.isFileCached(baseUrl);
+                    const targetVersion = parseInt(file.version, 10) || 1;
+                    const cachedVersion = cachedRecord ? (parseInt(cachedRecord.version, 10) || 1) : 1;
 
                     // If cached and version matches, skip (0 data used)
-                    if (cachedRecord && cachedRecord.version === version && isCached) {
+                    if (cachedRecord && cachedVersion === targetVersion && isCached) {
                         continue;
                     }
 
                     // If material was updated (v1 -> v2), purge old cached files
-                    if (cachedRecord && cachedRecord.version !== version) {
-                        console.log(`⚡ [PWA Sync] Note updated (v${cachedRecord.version} -> v${version}) — purging old cache:`, file.title);
+                    if (cachedRecord && cachedVersion !== targetVersion) {
+                        console.log(`⚡ [PWA Sync] Note updated (v${cachedVersion} -> v${targetVersion}) — purging old cache:`, file.title);
                         await cache.delete(cleanUrl).catch(() => {});
                         await cache.delete(baseUrl).catch(() => {});
                         if (cachedRecord.fileUrl) await cache.delete(cachedRecord.fileUrl).catch(() => {});
@@ -392,20 +395,31 @@ const pwaHelper = {
 
         try {
             const cleanUrl = this.getCleanUrl(fileUrl);
+            const baseUrl = fileUrl.split('?')[0].replace(/\.part\d+$/, '');
             const cachedRecord = await this.getCachedRecord(id);
             const cache = await caches.open('nexus-files-cache');
             
+            const targetVersion = parseInt(version, 10) || 1;
+            const cachedVersion = cachedRecord ? (parseInt(cachedRecord.version, 10) || 1) : 1;
+
             // Version Invalidation: If note was updated in database, purge stale v1 cache immediately
-            if (cachedRecord && cachedRecord.version !== version) {
-                console.log(`[PWA Cache] Material updated (v${cachedRecord.version} -> v${version}) — purging old cache`);
+            if (cachedRecord && cachedVersion !== targetVersion) {
+                console.log(`[PWA Cache] Material updated (v${cachedVersion} -> v${targetVersion}) — purging old cache`);
                 await cache.delete(cleanUrl).catch(() => {});
+                await cache.delete(baseUrl).catch(() => {});
                 if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
                     await cache.delete(cachedRecord.fileUrl).catch(() => {});
                 }
                 await this.deleteCachedRecord(id).catch(() => {});
             }
 
-            const match = await cache.match(cleanUrl).catch(() => null);
+            let match = await cache.match(cleanUrl).catch(() => null);
+            if (!match && cachedRecord && cachedRecord.fileUrl) {
+                match = await cache.match(cachedRecord.fileUrl).catch(() => null);
+            }
+            if (!match) {
+                match = await cache.match(baseUrl).catch(() => null);
+            }
             
             // 1. If cached locally: Serve instant blob in 0.0 seconds! Zero network request.
             if (match) {
@@ -475,17 +489,27 @@ const pwaHelper = {
             const cachedRecord = await this.getCachedRecord(id);
             const cache = await caches.open('nexus-files-cache');
             
+            const targetVersion = parseInt(version, 10) || 1;
+            const cachedVersion = cachedRecord ? (parseInt(cachedRecord.version, 10) || 1) : 1;
+
             // Check if file version was updated in database — evict stale cache if version changed!
-            if (cachedRecord && cachedRecord.version !== version) {
-                console.log(`[PWA Download] Material updated (v${cachedRecord.version} -> v${version}) — clearing stale cache`);
+            if (cachedRecord && cachedVersion !== targetVersion) {
+                console.log(`[PWA Download] Material updated (v${cachedVersion} -> v${targetVersion}) — clearing stale cache`);
                 await cache.delete(cleanUrl).catch(() => {});
+                await cache.delete(baseUrl).catch(() => {});
                 if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
                     await cache.delete(cachedRecord.fileUrl).catch(() => {});
                 }
                 await this.deleteCachedRecord(id).catch(() => {});
             }
 
-            const match = await cache.match(cleanUrl).catch(() => null);
+            let match = await cache.match(cleanUrl).catch(() => null);
+            if (!match && cachedRecord && cachedRecord.fileUrl) {
+                match = await cache.match(cachedRecord.fileUrl).catch(() => null);
+            }
+            if (!match) {
+                match = await cache.match(baseUrl).catch(() => null);
+            }
             
             let rawBlob;
             if (match) {

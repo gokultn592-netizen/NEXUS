@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=86"></script>
+    <script src="pwa-helper.js?v=87"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -802,6 +802,9 @@
     // Help Lucide refresh
     function refreshIcons(){ if(window.lucide && typeof lucide.createIcons==='function'){ try{ lucide.createIcons(); }catch(e){} } }
 
+    // Constants & Fallbacks
+    const FALLBACK_SUBJECTS = ['DAA','COA','DATABASE MANAGEMENT','OPERATING SYSTEMS','ETHNUS','COMPUTER NETWORKS','SOFTWARE ENGINEERING','MATHS'];
+
     // Firebase state
     let auth=null, db=null;
     let currentUser=null, isAdmin=false;
@@ -1008,7 +1011,6 @@
     });
 
     // ---------- Marquee ----------
-    const FALLBACK_SUBJECTS = ['DAA','COA','DATABASE MANAGEMENT','OPERATING SYSTEMS','ETHNUS','COMPUTER NETWORKS','SOFTWARE ENGINEERING','MATHS'];
     function buildMarquee(items){
         const a=document.getElementById('marquee-a');
         const b=document.getElementById('marquee-b');
@@ -1504,7 +1506,7 @@
             const url=v.getAttribute('data-view');
             const id=v.getAttribute('data-id');
             const title=v.getAttribute('data-title');
-            const version=v.getAttribute('data-version')||1;
+            const version=parseInt(v.getAttribute('data-version'), 10)||1;
             const assetId=v.getAttribute('data-asset-id');
             if(url) viewFile(url, id, version, title, v, assetId);
         }
@@ -1514,7 +1516,7 @@
             const url=d.getAttribute('data-download');
             const name=d.getAttribute('data-filename');
             const id=d.getAttribute('data-id');
-            const version=d.getAttribute('data-version')||1;
+            const version=parseInt(d.getAttribute('data-version'), 10)||1;
             const assetId=d.getAttribute('data-asset-id');
             if(url) downloadFile(url, name, id, version, d, assetId);
         }
