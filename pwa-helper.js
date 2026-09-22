@@ -235,8 +235,6 @@ const pwaHelper = {
                     if (cachedRecord && cachedVersion !== targetVersion) {
                         console.log(`⚡ [PWA Sync] Note updated (v${cachedVersion} -> v${targetVersion}) — purging old cache:`, file.title);
                         await cache.delete(cleanUrl).catch(() => {});
-                        await cache.delete(baseUrl).catch(() => {});
-                        if (cachedRecord.fileUrl) await cache.delete(cachedRecord.fileUrl).catch(() => {});
                         await this.deleteCachedRecord(id).catch(() => {});
                     }
 
@@ -406,10 +404,6 @@ const pwaHelper = {
             if (cachedRecord && cachedVersion !== targetVersion) {
                 console.log(`[PWA Cache] Material updated (v${cachedVersion} -> v${targetVersion}) — purging old cache`);
                 await cache.delete(cleanUrl).catch(() => {});
-                await cache.delete(baseUrl).catch(() => {});
-                if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
-                    await cache.delete(cachedRecord.fileUrl).catch(() => {});
-                }
                 await this.deleteCachedRecord(id).catch(() => {});
             }
 
@@ -496,10 +490,6 @@ const pwaHelper = {
             if (cachedRecord && cachedVersion !== targetVersion) {
                 console.log(`[PWA Download] Material updated (v${cachedVersion} -> v${targetVersion}) — clearing stale cache`);
                 await cache.delete(cleanUrl).catch(() => {});
-                await cache.delete(baseUrl).catch(() => {});
-                if (cachedRecord.fileUrl && cachedRecord.fileUrl !== cleanUrl) {
-                    await cache.delete(cachedRecord.fileUrl).catch(() => {});
-                }
                 await this.deleteCachedRecord(id).catch(() => {});
             }
 
