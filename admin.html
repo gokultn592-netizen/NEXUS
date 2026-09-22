@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=84"></script>
+    <script src="pwa-helper.js?v=85"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -927,12 +927,13 @@ document.getElementById("update-form")?.addEventListener("submit", async e=>{
     const oldUrl = e.target.dataset.oldUrl || "";
     const oldFileName = oldUrl ? oldUrl.split('/').pop().split('?')[0] : "";
     try{
-        let updates={ title, subject, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), version: firebase.firestore.FieldValue.increment(1) };
+        let updates={ title, subject, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
         if(fileInput){
             prog.classList.remove("hidden"); prog.textContent="Uploading file…";
             const publicUrl = await uploadFileFast(fileInput, prog, oldFileName);
             updates.fileUrl = publicUrl;
             updates.fileType = fileInput.name.split(".").pop().toLowerCase();
+            updates.version = firebase.firestore.FieldValue.increment(1);
         }
         await db.collection("materials").doc(id).update(updates);
         prog.classList.add("hidden"); updateModal.classList.remove("active");
