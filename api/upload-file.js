@@ -6,6 +6,23 @@ const { uploadFile, deleteFiles } = require('@huggingface/hub');
 
 global.chunkStore = global.chunkStore || {};
 
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'zip', 'png', 'jpg', 'jpeg']);
+
+function sanitizeFilename(name) {
+    if (!name || typeof name !== 'string') return '';
+    const clean = name.split('?')[0];
+    const base = clean.split(/[/\\]/).pop();
+    return base.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');
+}
+
+function isValidExtension(name) {
+    if (!name) return false;
+    const parts = name.split('.');
+    if (parts.length < 2) return false;
+    const ext = parts.pop().toLowerCase();
+    return ALLOWED_EXTENSIONS.has(ext);
+}
+
 async function uploadToHuggingFace(token, repo, fileName, fileBuffer, maxRetries = 3) {
     const cleanRepo = repo.replace(/^datasets\//, '');
     const blob = new Blob([fileBuffer]);
@@ -47,6 +64,7 @@ async function deleteFromHuggingFace(token, repo, fileName) {
     if (!fileName) return;
     const cleanRepo = repo.replace(/^datasets\//, '');
     const baseName = getCleanBaseFileName(fileName);
+    if (!baseName || baseName === '.' || baseName === '..') return;
 
     const commitUrl = `https://huggingface.co/api/datasets/${cleanRepo}/commit/main`;
     try {
@@ -79,6 +97,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -100,7 +119,10 @@ module.exports = async function handler(req, res) {
 
         // Action: Delete old asset if replacing
         if (action === 'delete' && oldFileName) {
-            await deleteFromHuggingFace(token, repo, oldFileName);
+            const safeOld = sanitizeFilename(oldFileName);
+            if (safeOld) {
+                await deleteFromHuggingFace(token, repo, safeOld);
+            }
             return res.status(200).json({ success: true, message: 'Material deleted from HuggingFace' });
         }
 
@@ -108,40 +130,58 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Missing required upload parameters' });
         }
 
+        const safeFileName = sanitizeFilename(fileName);
+        if (!safeFileName || !isValidExtension(safeFileName)) {
+            return res.status(400).json({ error: 'Invalid file name or unsupported file extension' });
+        }
+
+        const numTotalChunks = parseInt(totalChunks, 10);
+        const numChunkIndex = parseInt(chunkIndex, 10);
+        if (isNaN(numTotalChunks) || numTotalChunks < 1 || numTotalChunks > 100) {
+            return res.status(400).json({ error: 'Invalid totalChunks value (must be 1-100)' });
+        }
+        if (isNaN(numChunkIndex) || numChunkIndex < 0 || numChunkIndex >= numTotalChunks) {
+            return res.status(400).json({ error: 'Invalid chunkIndex value' });
+        }
+
+        if (typeof chunkData !== 'string' || chunkData.length > 9 * 1024 * 1024) {
+            return res.status(413).json({ error: 'Payload chunk too large' });
+        }
+
         const cleanBase64 = chunkData.replace(/^data:[^;]+;base64,/, '').replace(/[\r\n\s]/g, '');
         const chunkBuffer = Buffer.from(cleanBase64, 'base64');
 
         // Delete old file ONLY if base name changed (e.g., replaced with a completely different file)
-        // If oldBase === newBase (re-uploading same file), chunk uploads will overwrite in-place cleanly without race condition!
-        const oldBase = getCleanBaseFileName(oldFileName);
-        const newBase = getCleanBaseFileName(fileName);
-        if (oldBase && oldBase !== newBase && chunkIndex === 0) {
+        const safeOldFileName = sanitizeFilename(oldFileName);
+        const oldBase = getCleanBaseFileName(safeOldFileName);
+        const newBase = getCleanBaseFileName(safeFileName);
+        if (oldBase && oldBase !== newBase && numChunkIndex === 0) {
             await deleteFromHuggingFace(token, repo, oldBase).catch(e => console.warn('Old file delete notice:', e));
         }
 
         // Single chunk upload (<= 3.2MB file)
-        if (totalChunks === 1) {
-            const publicUrl = await uploadToHuggingFace(token, repo, fileName, chunkBuffer);
+        if (numTotalChunks === 1) {
+            const publicUrl = await uploadToHuggingFace(token, repo, safeFileName, chunkBuffer);
             return res.status(200).json({
                 success: true,
                 status: 'completed',
                 publicUrl: publicUrl,
-                assetName: fileName
+                assetName: safeFileName
             });
         }
 
-        // Multi-chunk upload (> 3.2MB file) — upload chunk directly to HF as fileName.part{chunkIndex}
-        const chunkFileName = `${fileName}.part${chunkIndex}`;
+        // Multi-chunk upload (> 3.2MB file) — upload chunk directly to HF as safeFileName.part{numChunkIndex}
+        const chunkFileName = `${safeFileName}.part${numChunkIndex}`;
         const chunkPublicUrl = await uploadToHuggingFace(token, repo, chunkFileName, chunkBuffer);
 
         const cleanRepo = repo.replace(/^datasets\//, '');
-        const finalUrl = `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}.part0?parts=${totalChunks}`;
+        const finalUrl = `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(safeFileName)}.part0?parts=${numTotalChunks}`;
 
         return res.status(200).json({
             success: true,
             status: 'chunk_uploaded',
-            chunkIndex: chunkIndex,
-            totalChunks: totalChunks,
+            chunkIndex: numChunkIndex,
+            totalChunks: numTotalChunks,
             publicUrl: finalUrl,
             chunkUrl: chunkPublicUrl
         });

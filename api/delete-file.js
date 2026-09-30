@@ -1,5 +1,14 @@
 const { deleteFiles, listFiles } = require('@huggingface/hub');
 
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'zip', 'png', 'jpg', 'jpeg']);
+
+function sanitizeFilename(name) {
+    if (!name || typeof name !== 'string') return '';
+    const clean = name.split('?')[0];
+    const base = clean.split(/[/\\]/).pop();
+    return base.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 function getCleanBaseFileName(name) {
     if (!name) return '';
     const clean = name.split('?')[0];
@@ -10,6 +19,7 @@ async function deleteFromHuggingFace(token, repo, fileName) {
     if (!fileName) return;
     const cleanRepo = repo.replace(/^datasets\//, '');
     const baseName = getCleanBaseFileName(fileName);
+    if (!baseName || baseName === '.' || baseName === '..') return;
 
     try {
         const existingPaths = [];
@@ -37,6 +47,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -51,23 +62,33 @@ module.exports = async function handler(req, res) {
     try {
         const { fileUrl } = req.body || {};
 
-        if (!fileUrl) {
-            return res.status(400).json({ error: 'Missing fileUrl' });
+        if (!fileUrl || typeof fileUrl !== 'string') {
+            return res.status(400).json({ error: 'Missing or invalid fileUrl' });
         }
 
-        let fileName = null;
+        let rawFileName = null;
         try {
             const urlObj = new URL(fileUrl);
             const parts = urlObj.pathname.split('/');
-            fileName = decodeURIComponent(parts[parts.length - 1]);
+            rawFileName = decodeURIComponent(parts[parts.length - 1]);
         } catch (e) {
             const match = fileUrl.match(/\/([^\/]+)$/);
-            fileName = match ? decodeURIComponent(match[1]) : null;
+            rawFileName = match ? decodeURIComponent(match[1]) : null;
         }
 
-        if (fileName) {
-            await deleteFromHuggingFace(token, repo, fileName);
+        const safeFileName = sanitizeFilename(rawFileName);
+        if (!safeFileName) {
+            return res.status(400).json({ error: 'Invalid file name' });
         }
+
+        // Validate that base file has an allowed study material extension or part format
+        const baseName = getCleanBaseFileName(safeFileName);
+        const ext = baseName.split('.').pop().toLowerCase();
+        if (!ALLOWED_EXTENSIONS.has(ext)) {
+            return res.status(400).json({ error: 'File type not permitted for deletion' });
+        }
+
+        await deleteFromHuggingFace(token, repo, safeFileName);
 
         return res.status(200).json({ success: true, message: 'Material deleted from Hugging Face Dataset' });
     } catch (error) {

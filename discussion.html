@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=89"></script>
+    <script src="pwa-helper.js?v=90"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -641,6 +641,16 @@ document.querySelectorAll("[data-reveal]").forEach(el=>{
     } else el.classList.add("in-view");
 });
 function escapeHtml(s){ if(s === null || s === undefined) return ""; const d=document.createElement("div"); d.textContent=String(s); return d.innerHTML; }
+function escapeAttr(s){ if(s === null || s === undefined) return ""; return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const DEFAULT_AVATAR = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="%2327272a"/><circle cx="16" cy="12" r="6" fill="%2371717a"/><path d="M6 28c0-5.5 4.5-10 10-10s10 4.5 10 10" fill="%2371717a"/></svg>';
+function safePhotoUrl(url){
+    if(!url || typeof url !== 'string') return DEFAULT_AVATAR;
+    const trimmed = url.trim();
+    if(/^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed)){
+        return escapeAttr(trimmed);
+    }
+    return DEFAULT_AVATAR;
+}
 function initAuthListener(){
     auth.onAuthStateChanged(async user=>{
         if(user){
@@ -682,7 +692,7 @@ function renderUser(user, role){
     const ll=document.getElementById("login-link"), us=document.getElementById("user-section"), mu=document.getElementById("menu-user-section");
     ll.classList.add("hidden"); ll.style.display="none"; us.classList.remove("hidden"); us.classList.add("flex");
     const name=userData?.name||user.displayName||user.email;
-    const photo=user.photoURL||"https://via.placeholder.com/32";
+    const photo=safePhotoUrl(user.photoURL);
     us.innerHTML=`<div class="relative" id="user-menu-root"><button id="user-chip" class="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pl-1 pr-3 backdrop-blur-md hover:border-white/20"><img src="${photo}" alt="" class="h-7 w-7 rounded-full object-cover"><span class="hidden flex-col items-start leading-none md:flex"><span class="text-[12.5px] font-[600]">${escapeHtml(name)}</span><span class="font-mono text-[10px] tracking-[0.12em] text-violet">${escapeHtml(role)}</span></span><i data-lucide="chevron-down" class="hidden h-3.5 w-3.5 text-zinc-500 md:block"></i></button><div id="user-dropdown" class="absolute right-0 top-[calc(100%+10px)] hidden w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#141416] p-1.5 shadow-xl"><button data-action="change-name" class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] text-zinc-300 hover:bg-white/[0.06] hover:text-white"><i data-lucide="pencil" class="h-4 w-4"></i> Change name</button><div class="my-1 h-px bg-white/10"></div><button data-action="logout" class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] text-zinc-300 hover:bg-white/[0.06] hover:text-white"><i data-lucide="log-out" class="h-4 w-4"></i> Sign out</button></div></div>`;
     if(mu) mu.innerHTML=`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3"><img src="${photo}" alt="" class="h-10 w-10 rounded-full"><div class="min-w-0"><div class="truncate text-sm font-[600]">${escapeHtml(name)}</div><div class="font-mono text-[11px] tracking-[0.12em] text-violet">${escapeHtml(role)}</div></div></div><button data-action="logout" class="mt-2 flex w-full justify-center rounded-full bg-white py-2.5 text-sm font-[600] text-black">Sign out</button>`;
     document.getElementById("menu-login")?.classList.add("hidden"); refreshIcons();
@@ -723,9 +733,10 @@ function loadDiscussions(){
         if(snap.empty){ grid.innerHTML='<div class="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-10 text-center"><div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/5"><i data-lucide="messages-square" class="h-5 w-5 text-zinc-500"></i></div><h3 class="mt-4 font-display text-[18px] font-[700]">No discussions yet</h3><p class="mx-auto mt-2 max-w-[40ch] text-sm text-zinc-500">Be the first to ask a question and start the conversation.</p></div>'; refreshIcons(); return; }
         snap.forEach(doc=>{
             const d=doc.data();
+            const authorPhoto=safePhotoUrl(d.authorPhoto);
             const card=document.createElement("div");
             card.className="group relative overflow-hidden rounded-[20px] border border-white/10 bg-[#141416] p-6 transition-all hover:border-white/15 md:p-7";
-            card.innerHTML=`<div class="flex gap-3"><img src="${d.authorPhoto||'https://via.placeholder.com/40'}" alt="" class="h-10 w-10 shrink-0 rounded-full object-cover"><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-3"><h3 class="font-display text-[16px] font-[700] leading-tight tracking-[-0.02em]">${escapeHtml(d.title)}</h3><span class="hidden shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] tracking-[0.14em] text-zinc-500 md:inline-flex">${d.createdAt? d.createdAt.toDate().toLocaleDateString():"Just now"}</span></div><div class="mt-1 font-mono text-[11px] tracking-wide text-zinc-500">Asked by ${escapeHtml(d.authorName)} • ${d.createdAt? d.createdAt.toDate().toLocaleDateString():"Just now"}</div><p class="mt-3 whitespace-pre-wrap text-[13.5px] leading-6 text-zinc-300">${escapeHtml(d.body)}</p>${(userData && userData.role==="admin")?`<button onclick="deleteDiscussion('${doc.id}')" class="mt-3 inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/15"><i data-lucide="trash-2" class="h-3 w-3"></i> Delete</button>`:""}<div class="replies-section mt-6 border-t border-white/10 pt-6" id="replies-${doc.id}"></div>${userData?`<form class="reply-form mt-4 flex gap-2" onsubmit="event.preventDefault(); postReply('${doc.id}', this['reply-text'].value); this.reset();"><input type="text" name="reply-text" placeholder="Type your answer..." required class="field flex-1 !h-10 !rounded-full !text-[13.5px]"><button type="submit" class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-black transition hover:bg-zinc-200"><i data-lucide="send" class="h-4 w-4"></i></button></form>`:"<p class='mt-4 rounded-full bg-white/[0.04] px-4 py-2 text-center text-xs text-zinc-500'>Sign in to reply</p>"}</div></div>`;
+            card.innerHTML=`<div class="flex gap-3"><img src="${authorPhoto}" alt="" class="h-10 w-10 shrink-0 rounded-full object-cover"><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-3"><h3 class="font-display text-[16px] font-[700] leading-tight tracking-[-0.02em]">${escapeHtml(d.title)}</h3><span class="hidden shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] tracking-[0.14em] text-zinc-500 md:inline-flex">${d.createdAt? d.createdAt.toDate().toLocaleDateString():"Just now"}</span></div><div class="mt-1 font-mono text-[11px] tracking-wide text-zinc-500">Asked by ${escapeHtml(d.authorName)} • ${d.createdAt? d.createdAt.toDate().toLocaleDateString():"Just now"}</div><p class="mt-3 whitespace-pre-wrap text-[13.5px] leading-6 text-zinc-300">${escapeHtml(d.body)}</p>${(userData && userData.role==="admin")?`<button onclick="deleteDiscussion('${escapeAttr(doc.id)}')" class="mt-3 inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300 hover:bg-red-500/15"><i data-lucide="trash-2" class="h-3 w-3"></i> Delete</button>`:""}<div class="replies-section mt-6 border-t border-white/10 pt-6" id="replies-${escapeAttr(doc.id)}"></div>${userData?`<form class="reply-form mt-4 flex gap-2" onsubmit="event.preventDefault(); postReply('${escapeAttr(doc.id)}', this['reply-text'].value); this.reset();"><input type="text" name="reply-text" placeholder="Type your answer..." required class="field flex-1 !h-10 !rounded-full !text-[13.5px]"><button type="submit" class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-black transition hover:bg-zinc-200"><i data-lucide="send" class="h-4 w-4"></i></button></form>`:"<p class='mt-4 rounded-full bg-white/[0.04] px-4 py-2 text-center text-xs text-zinc-500'>Sign in to reply</p>"}</div></div>`;
             grid.appendChild(card);
             loadReplies(doc.id);
         });
@@ -737,9 +748,10 @@ function loadReplies(id){
         const c=document.getElementById(`replies-${id}`); if(!c) return; c.innerHTML="";
         snap.forEach(doc=>{
             const d=doc.data();
+            const replyPhoto=safePhotoUrl(d.authorPhoto);
             const el=document.createElement("div");
             el.className="flex gap-3 py-3";
-            el.innerHTML=`<img src="${d.authorPhoto||'https://via.placeholder.com/30'}" alt="" class="h-7 w-7 shrink-0 rounded-full object-cover"><div class="min-w-0 flex-1 rounded-2xl bg-white/[0.04] px-4 py-3"><div class="flex items-center justify-between gap-2"><span class="font-display text-[13px] font-[600]">${escapeHtml(d.authorName)}</span>${(userData && userData.role==="admin")?`<button onclick="deleteReply('${id}', '${doc.id}')" class="text-[11px] text-red-300 hover:text-red-200">Delete</button>`:""}</div><p class="mt-1 text-[13px] leading-5 text-zinc-400">${escapeHtml(d.text)}</p></div>`;
+            el.innerHTML=`<img src="${replyPhoto}" alt="" class="h-7 w-7 shrink-0 rounded-full object-cover"><div class="min-w-0 flex-1 rounded-2xl bg-white/[0.04] px-4 py-3"><div class="flex items-center justify-between gap-2"><span class="font-display text-[13px] font-[600]">${escapeHtml(d.authorName)}</span>${(userData && userData.role==="admin")?`<button onclick="deleteReply('${escapeAttr(id)}', '${escapeAttr(doc.id)}')" class="text-[11px] text-red-300 hover:text-red-200">Delete</button>`:""}</div><p class="mt-1 text-[13px] leading-5 text-zinc-400">${escapeHtml(d.text)}</p></div>`;
             c.appendChild(el);
         });
         refreshIcons();
