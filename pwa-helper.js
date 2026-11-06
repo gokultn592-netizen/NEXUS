@@ -24,7 +24,7 @@ const pwaHelper = {
         if ('serviceWorker' in navigator) {
             // Purge any stale truncated single-file entries from previous cache version
             caches.open('nexus-files-cache').then(cache => {
-                const stalePaths = ['/DB_CAT_2.pdf', '/COA_CAT_2.pdf', '/DAA_notes_C2.pdf', '/Linear_algebra_CAT_2.pdf', '/OS_CAT_2.pdf'];
+                const stalePaths = ['/DB_CAT_2.pdf', '/COA_CAT_2.pdf', '/DAA_notes_C2.pdf', '/Linear_algebra_CAT_2.pdf', '/OS_CAT_2.pdf', '/OS_C3.pdf', '/DAA_C3.pdf'];
                 cache.keys().then(keys => {
                     keys.forEach(req => {
                         if (stalePaths.some(p => req.url.endsWith(p))) {
@@ -234,8 +234,10 @@ const pwaHelper = {
                     // If material was updated (v1 -> v2), purge old cached files
                     if (cachedRecord && cachedVersion !== targetVersion) {
                         console.log(`⚡ [PWA Sync] Note updated (v${cachedVersion} -> v${targetVersion}) — purging old cache:`, file.title);
-                        await cache.delete(cleanUrl).catch(() => {});
-                        await this.deleteCachedRecord(id).catch(() => {});
+                        await this.invalidateMaterialCache(id, fileUrl);
+                        if (cachedRecord.fileUrl && cachedRecord.fileUrl !== fileUrl) {
+                            await this.invalidateMaterialCache(id, cachedRecord.fileUrl);
+                        }
                     }
 
                     // Silently download complete assembled PDF in background
@@ -282,7 +284,7 @@ const pwaHelper = {
                 apiUrl = `https://nexus-omega-jet.vercel.app/api/download-file?url=${encodeURIComponent(fileUrl)}&view=inline`;
             }
 
-            const res = await fetch(apiUrl);
+            const res = await fetch(apiUrl, { cache: 'no-cache' });
             if (!res.ok) throw new Error(`Failed to fetch material binary (${res.status})`);
             const arrayBuf = await res.arrayBuffer();
             return new Blob([arrayBuf], { type: mimeType });
@@ -302,7 +304,7 @@ const pwaHelper = {
             for (let i = 0; i < partsCount; i++) {
                 const partUrl = `${baseUrl}.part${i}`;
                 fetchPartPromises.push(
-                    fetch(partUrl).then(async (r) => {
+                    fetch(partUrl, { cache: 'no-cache' }).then(async (r) => {
                         if (!r.ok) throw new Error(`Failed to fetch part ${i} (${r.status})`);
                         const buf = await r.arrayBuffer();
                         loadedParts++;
@@ -320,7 +322,7 @@ const pwaHelper = {
         }
 
         // 2. Single-file materials: Stream fetch directly with progress
-        const directRes = await fetch(baseUrl);
+        const directRes = await fetch(baseUrl, { cache: 'no-cache' });
         if (!directRes.ok) throw new Error(`Failed to fetch material binary (${directRes.status})`);
         const totalBytes = parseInt(directRes.headers.get('content-length') || '0', 10);
         if (typeof onProgress === 'function' && directRes.body && totalBytes > 0) {
@@ -349,6 +351,39 @@ const pwaHelper = {
         return this.fetchFileBlob(fileUrl, githubAssetId);
     },
 
+    // Invalidate and purge all cache entries associated with a material
+    async invalidateMaterialCache(id, fileUrl) {
+        try {
+            const cache = await caches.open('nexus-files-cache');
+            if (fileUrl) {
+                const cleanUrl = this.getCleanUrl(fileUrl);
+                const baseUrl = fileUrl.split('?')[0].replace(/\.part\d+$/, '');
+                await cache.delete(cleanUrl).catch(() => {});
+                await cache.delete(baseUrl).catch(() => {});
+                await cache.delete(fileUrl).catch(() => {});
+                for (let i = 0; i <= 20; i++) {
+                    await cache.delete(`${baseUrl}.part${i}`).catch(() => {});
+                }
+            }
+            if (id) {
+                const cachedRecord = await this.getCachedRecord(id);
+                if (cachedRecord && cachedRecord.fileUrl) {
+                    const recClean = this.getCleanUrl(cachedRecord.fileUrl);
+                    const recBase = cachedRecord.fileUrl.split('?')[0].replace(/\.part\d+$/, '');
+                    await cache.delete(recClean).catch(() => {});
+                    await cache.delete(recBase).catch(() => {});
+                    await cache.delete(cachedRecord.fileUrl).catch(() => {});
+                    for (let i = 0; i <= 20; i++) {
+                        await cache.delete(`${recBase}.part${i}`).catch(() => {});
+                    }
+                }
+                await this.deleteCachedRecord(id).catch(() => {});
+            }
+        } catch (e) {
+            console.warn('[PWA Cache] Invalidate cache notice:', e);
+        }
+    },
+
     // Orphaned cache cleaner: Purges deleted materials from local IndexedDB and CacheStorage
     async cleanOrphanedCache(activeMaterials) {
         if (!this.db || !activeMaterials || !activeMaterials.length) return;
@@ -359,12 +394,10 @@ const pwaHelper = {
             const request = store.getAll();
             request.onsuccess = async () => {
                 const records = request.result || [];
-                const cache = await caches.open('nexus-files-cache');
                 for (const record of records) {
                     if (record && record.id && !activeIds.has(record.id)) {
                         console.log('[PWA Cache] Purging deleted material from local cache:', record.id, record.fileUrl);
-                        if (record.fileUrl) await cache.delete(record.fileUrl).catch(() => {});
-                        await this.deleteCachedRecord(record.id).catch(() => {});
+                        await this.invalidateMaterialCache(record.id, record.fileUrl);
                     }
                 }
             };
@@ -376,7 +409,7 @@ const pwaHelper = {
     // Handle view operation: 0.0s Instant Local Launch (Cached) OR Assembled Blob Launch (Uncached)
     async viewFile(fileUrl, id, version, title, btn, githubAssetId) {
         let originalText = '';
-        if (btn) {
+        if (btn && btn.innerHTML !== undefined) {
             originalText = btn.innerHTML;
             btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Opening...';
             btn.disabled = true;
@@ -384,7 +417,7 @@ const pwaHelper = {
         }
 
         const restoreBtn = () => {
-            if (btn) {
+            if (btn && btn.innerHTML !== undefined) {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 btn.style.opacity = '1';
@@ -400,19 +433,26 @@ const pwaHelper = {
             const targetVersion = parseInt(version, 10) || 1;
             const cachedVersion = cachedRecord ? (parseInt(cachedRecord.version, 10) || 1) : 1;
 
+            let isStale = false;
             // Version Invalidation: If note was updated in database, purge stale v1 cache immediately
             if (cachedRecord && cachedVersion !== targetVersion) {
                 console.log(`[PWA Cache] Material updated (v${cachedVersion} -> v${targetVersion}) — purging old cache`);
-                await cache.delete(cleanUrl).catch(() => {});
-                await this.deleteCachedRecord(id).catch(() => {});
+                await this.invalidateMaterialCache(id, fileUrl);
+                if (cachedRecord.fileUrl && cachedRecord.fileUrl !== fileUrl) {
+                    await this.invalidateMaterialCache(id, cachedRecord.fileUrl);
+                }
+                isStale = true;
             }
 
-            let match = await cache.match(cleanUrl).catch(() => null);
-            if (!match && cachedRecord && cachedRecord.fileUrl) {
-                match = await cache.match(cachedRecord.fileUrl).catch(() => null);
-            }
-            if (!match) {
-                match = await cache.match(baseUrl).catch(() => null);
+            let match = null;
+            if (!isStale && cachedRecord && cachedVersion === targetVersion) {
+                match = await cache.match(cleanUrl).catch(() => null);
+                if (!match && cachedRecord.fileUrl) {
+                    match = await cache.match(cachedRecord.fileUrl).catch(() => null);
+                }
+                if (!match) {
+                    match = await cache.match(baseUrl).catch(() => null);
+                }
             }
             
             // 1. If cached locally: Serve instant blob in 0.0 seconds! Zero network request.
@@ -486,19 +526,26 @@ const pwaHelper = {
             const targetVersion = parseInt(version, 10) || 1;
             const cachedVersion = cachedRecord ? (parseInt(cachedRecord.version, 10) || 1) : 1;
 
+            let isStale = false;
             // Check if file version was updated in database — evict stale cache if version changed!
             if (cachedRecord && cachedVersion !== targetVersion) {
                 console.log(`[PWA Download] Material updated (v${cachedVersion} -> v${targetVersion}) — clearing stale cache`);
-                await cache.delete(cleanUrl).catch(() => {});
-                await this.deleteCachedRecord(id).catch(() => {});
+                await this.invalidateMaterialCache(id, fileUrl);
+                if (cachedRecord.fileUrl && cachedRecord.fileUrl !== fileUrl) {
+                    await this.invalidateMaterialCache(id, cachedRecord.fileUrl);
+                }
+                isStale = true;
             }
 
-            let match = await cache.match(cleanUrl).catch(() => null);
-            if (!match && cachedRecord && cachedRecord.fileUrl) {
-                match = await cache.match(cachedRecord.fileUrl).catch(() => null);
-            }
-            if (!match) {
-                match = await cache.match(baseUrl).catch(() => null);
+            let match = null;
+            if (!isStale && cachedRecord && cachedVersion === targetVersion) {
+                match = await cache.match(cleanUrl).catch(() => null);
+                if (!match && cachedRecord.fileUrl) {
+                    match = await cache.match(cachedRecord.fileUrl).catch(() => null);
+                }
+                if (!match) {
+                    match = await cache.match(baseUrl).catch(() => null);
+                }
             }
             
             let rawBlob;

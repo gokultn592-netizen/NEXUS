@@ -50,7 +50,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=90"></script>
+    <script src="pwa-helper.js?v=91"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -914,7 +914,8 @@ function setUploadProgressUI(prog, percent) {
 
 async function uploadFileFast(fileInput, prog, oldFileName = '') {
     const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
-    const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const cleanBase = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const fileName = `${Date.now()}_${cleanBase}`;
     const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
 
     setUploadProgressUI(prog, 0);
@@ -977,9 +978,19 @@ document.getElementById("update-form")?.addEventListener("submit", async e=>{
             const publicUrl = await uploadFileFast(fileInput, prog, oldFileName);
             updates.fileUrl = publicUrl;
             updates.fileType = fileInput.name.split(".").pop().toLowerCase();
-            updates.version = firebase.firestore.FieldValue.increment(1);
+            const currentItem = window.adminMaterialsMap[id];
+            const currentVer = (currentItem && typeof currentItem.version === 'number') ? currentItem.version : (parseInt(currentItem?.version, 10) || 1);
+            updates.version = currentVer + 1;
+
+            if (window.pwaHelper && typeof window.pwaHelper.invalidateMaterialCache === 'function') {
+                await window.pwaHelper.invalidateMaterialCache(id, oldUrl);
+                await window.pwaHelper.invalidateMaterialCache(id, publicUrl);
+            }
         }
         await db.collection("materials").doc(id).update(updates);
+        if (window.adminMaterialsMap[id]) {
+            Object.assign(window.adminMaterialsMap[id], updates);
+        }
         prog.classList.add("hidden"); updateModal.classList.remove("active");
     }catch(err){
         prog.classList.add("hidden");

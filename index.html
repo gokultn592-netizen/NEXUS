@@ -51,7 +51,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="pwa-helper.js?v=90"></script>
+    <script src="pwa-helper.js?v=91"></script>
     <script src="particle-sphere.js?v=54" defer></script>
 
     <style>
@@ -1648,7 +1648,8 @@
 
     async function uploadFileFast(fileInput, prog) {
         const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
-        const fileName = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const cleanBase = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const fileName = `${Date.now()}_${cleanBase}`;
         const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
 
         setUploadProgressUI(prog, 0);

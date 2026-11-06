@@ -2,7 +2,7 @@
 // Receives files/chunks from browser client, commits directly to Hugging Face Dataset repository,
 // and returns direct CORS-enabled resolution URLs (https://huggingface.co/datasets/USER/REPO/resolve/main/FILE.pdf)
 
-const { uploadFile, deleteFiles } = require('@huggingface/hub');
+const { uploadFile, deleteFiles, listFiles } = require('@huggingface/hub');
 
 global.chunkStore = global.chunkStore || {};
 
@@ -66,30 +66,25 @@ async function deleteFromHuggingFace(token, repo, fileName) {
     const baseName = getCleanBaseFileName(fileName);
     if (!baseName || baseName === '.' || baseName === '..') return;
 
-    const commitUrl = `https://huggingface.co/api/datasets/${cleanRepo}/commit/main`;
     try {
-        const ops = [
-            { operation: 'delete', path: baseName },
-            { operation: 'delete', path: `${baseName}.part0` }
-        ];
-        for (let i = 1; i < 20; i++) {
-            ops.push({ operation: 'delete', path: `${baseName}.part${i}` });
+        const existingPaths = [];
+        for await (const file of listFiles({ repo: { type: 'dataset', name: cleanRepo }, accessToken: token })) {
+            if (file.path === baseName || file.path.startsWith(`${baseName}.part`)) {
+                existingPaths.push(file.path);
+            }
         }
 
-        await fetch(commitUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'User-Agent': 'NEXUS-App'
-            },
-            body: JSON.stringify({
-                summary: `Delete material ${baseName}`,
-                operations: ops
-            })
-        });
+        if (existingPaths.length > 0) {
+            await deleteFiles({
+                repo: { type: 'dataset', name: cleanRepo },
+                accessToken: token,
+                paths: existingPaths,
+                commitTitle: `Delete material ${baseName}`
+            });
+            console.log(`[HF Delete] Successfully deleted ${existingPaths.length} file(s) for ${baseName}`);
+        }
     } catch (e) {
-        console.warn('HF REST delete failed:', e);
+        console.warn('[HF Delete] Notice:', e.message);
     }
 }
 
