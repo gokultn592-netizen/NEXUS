@@ -112,6 +112,21 @@ module.exports = async function handler(req, res) {
     try {
         const { action, uploadId, chunkIndex, totalChunks, fileName, chunkData, oldFileName } = req.body || {};
 
+        // Action: Get upload credentials for direct client-side single-commit upload (Option 1)
+        if (action === 'get_upload_auth') {
+            if (oldFileName) {
+                const safeOld = sanitizeFilename(oldFileName);
+                if (safeOld) {
+                    deleteFromHuggingFace(token, repo, safeOld).catch(e => console.warn('Old file delete notice:', e));
+                }
+            }
+            return res.status(200).json({
+                success: true,
+                token: token,
+                repo: repo
+            });
+        }
+
         // Action: Delete old asset if replacing
         if (action === 'delete' && oldFileName) {
             const safeOld = sanitizeFilename(oldFileName);

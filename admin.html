@@ -50,7 +50,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="pwa-helper.js?v=91"></script>
+    <script src="hf-hub.bundle.js?v=92"></script>
+    <script src="pwa-helper.js?v=92"></script>
 
     <style>
         *,*::before,*::after{box-sizing:border-box}
@@ -913,13 +914,62 @@ function setUploadProgressUI(prog, percent) {
 }
 
 async function uploadFileFast(fileInput, prog, oldFileName = '') {
-    const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
     const cleanBase = fileInput.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const fileName = `${Date.now()}_${cleanBase}`;
+
+    setUploadProgressUI(prog, 5);
+
+    // 1. Direct Single-Commit Upload via HfHub in browser (Option 1 - 90% Faster)
+    if (window.HfHub && typeof window.HfHub.uploadFile === 'function') {
+        try {
+            const authRes = await fetch('https://nexus-omega-jet.vercel.app/api/upload-file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_upload_auth', oldFileName })
+            });
+            if (!authRes.ok) throw new Error('Failed to obtain Hugging Face authorization');
+            const { token, repo } = await authRes.json();
+            const cleanRepo = repo.replace(/^datasets\//, '');
+
+            setUploadProgressUI(prog, 15);
+
+            if (typeof window.HfHub.uploadFilesWithProgress === 'function') {
+                const iterator = window.HfHub.uploadFilesWithProgress({
+                    repo: { type: 'dataset', name: cleanRepo },
+                    accessToken: token,
+                    files: [{ path: fileName, content: fileInput }],
+                    commitTitle: `Upload material ${fileName}`
+                });
+
+                for await (const event of iterator) {
+                    if (event.event === 'phase') {
+                        if (event.phase === 'preuploading') setUploadProgressUI(prog, 25);
+                        else if (event.phase === 'uploadingLargeFiles') setUploadProgressUI(prog, 50);
+                        else if (event.phase === 'committing') setUploadProgressUI(prog, 85);
+                    } else if (event.event === 'fileProgress' && typeof event.progress === 'number') {
+                        const pct = Math.min(80, Math.round(30 + (event.progress * 50)));
+                        setUploadProgressUI(prog, pct);
+                    }
+                }
+            } else {
+                await window.HfHub.uploadFile({
+                    repo: { type: 'dataset', name: cleanRepo },
+                    accessToken: token,
+                    file: { path: fileName, content: fileInput },
+                    commitTitle: `Upload material ${fileName}`
+                });
+            }
+
+            setUploadProgressUI(prog, 100);
+            return `https://huggingface.co/datasets/${cleanRepo}/resolve/main/${encodeURIComponent(fileName)}`;
+        } catch (directErr) {
+            console.warn('[Direct HF Upload] Falling back to chunked proxy upload:', directErr.message);
+        }
+    }
+
+    // Fallback: Multi-chunk upload via Vercel proxy
+    const uploadId = Date.now() + '_' + Math.random().toString(36).slice(2,8);
     const totalChunks = Math.ceil(fileInput.size / CHUNK_SIZE_BYTES);
-
-    setUploadProgressUI(prog, 0);
-
     let finalPublicUrl = null;
 
     for (let i = 0; i < totalChunks; i++) {
